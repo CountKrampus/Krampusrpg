@@ -1,0 +1,98 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Audit Log{% endblock %}
+
+{% block content %}
+<div class="admin-page-header">
+    <div>
+        <h1>Audit Log</h1>
+        <p class="admin-subtitle">
+            Review administrative actions and important changes made to the game.
+        </p>
+    </div>
+</div>
+
+<section class="admin-section">
+    <div class="admin-section-header">
+        <div>
+            <h2>Staff Activity</h2>
+            <p>
+                Every important administrative action should be recorded here.
+            </p>
+        </div>
+    </div>
+
+    {% if logs %}
+    <div class="admin-table-container">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Staff Member</th>
+                    <th>Action</th>
+                    <th>Target</th>
+                    <th>Target ID</th>
+                    <th>Details</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for log in logs %}
+                <tr>
+                    <td>
+                        {{ log.id|default("—") }}
+                    </td>
+
+                    <td>
+                        <strong>
+                            {{ log.username|default(log.player_username|default(log.player_id|default("System"))) }}
+                        </strong>
+                    </td>
+
+                    <td>
+                        {% set action = log.action|default("unknown") %}
+
+                        <span class="admin-action-badge action-{{ action|lower|replace("_", "-") }}">
+                            {{ action|replace("_", " ")|title }}
+                        </span>
+                    </td>
+
+                    <td>
+                        {{ log.target_type|default("—")|replace("_", " ")|title }}
+                    </td>
+
+                    <td>
+                        {{ log.target_id|default("—") }}
+                    </td>
+
+                    <td>
+                        {% if log.details %}
+                            <details class="admin-details">
+                                <summary>View Details</summary>
+                                <pre>{{ log.details }}</pre>
+                            </details>
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        {{ log.created_at|default("—") }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% else %}
+    <div class="admin-empty-state">
+        <h3>No Audit Entries</h3>
+        <p>
+            No administrative actions have been recorded yet.
+        </p>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}

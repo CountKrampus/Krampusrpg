@@ -30,6 +30,9 @@ from .services import (
     remove_from_party,
 )
 
+# Staff/admin dashboard
+from .admin.routes import admin_bp
+
 
 def create_app() -> Flask:
     app = Flask(
@@ -41,8 +44,12 @@ def create_app() -> Flask:
     app.config["SECRET_KEY"] = SECRET_KEY
     app.config["DATABASE"] = DATABASE_PATH
 
+    # Initialize and migrate the database.
     init_db()
     seed_database()
+
+    # Register the staff/admin dashboard.
+    app.register_blueprint(admin_bp)
 
     @app.get("/")
     def index():
@@ -465,7 +472,7 @@ app = create_app()
 
 if __name__ == "__main__":
     app.run(
-        host="127.0.0.1",
-        port=5000,
-        debug=True,
+        host="0.0.0.0",
+        port=5050,
+        debug=False,
     )

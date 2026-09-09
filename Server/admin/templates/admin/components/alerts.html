@@ -1,0 +1,31 @@
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        <div class="admin-alerts">
+
+            {% for category, message in messages %}
+
+                {% set alert_type = category|default("info") %}
+
+                <div
+                    class="admin-alert admin-alert-{{ alert_type }}"
+                    role="alert"
+                >
+                    <div class="admin-alert-content">
+                        {{ message }}
+                    </div>
+
+                    <button
+                        type="button"
+                        class="admin-alert-close"
+                        aria-label="Dismiss alert"
+                        onclick="this.parentElement.remove();"
+                    >
+                        ×
+                    </button>
+                </div>
+
+            {% endfor %}
+
+        </div>
+    {% endif %}
+{% endwith %}

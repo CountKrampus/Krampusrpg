@@ -1,0 +1,147 @@
+<aside class="admin-sidebar">
+
+    <div class="admin-brand">
+        <div class="admin-brand-title">
+            Krampus RPG
+        </div>
+
+        <div class="admin-brand-subtitle">
+            Staff Control Panel
+        </div>
+    </div>
+
+    <nav class="admin-navigation">
+
+        <div class="admin-nav-section">
+            <div class="admin-nav-heading">
+                Overview
+            </div>
+
+            <a
+                href="{{ url_for('admin.dashboard') }}"
+                class="admin-nav-link {% if request.endpoint == 'admin.dashboard' %}active{% endif %}"
+            >
+                Dashboard
+            </a>
+        </div>
+
+
+        <div class="admin-nav-section">
+            <div class="admin-nav-heading">
+                Management
+            </div>
+
+            <a
+                href="{{ url_for('admin.players') }}"
+                class="admin-nav-link {% if request.endpoint in ['admin.players', 'admin.players_edit'] %}active{% endif %}"
+            >
+                Players
+            </a>
+
+            <a
+                href="{{ url_for('admin.pokemon') }}"
+                class="admin-nav-link {% if request.endpoint in ['admin.pokemon', 'admin.pokemon_edit'] %}active{% endif %}"
+            >
+                Pokémon
+            </a>
+
+            <a
+                href="{{ url_for('admin.items') }}"
+                class="admin-nav-link {% if request.endpoint in ['admin.items', 'admin.items_edit'] %}active{% endif %}"
+            >
+                Items
+            </a>
+
+            <a
+                href="{{ url_for('admin.quests') }}"
+                class="admin-nav-link {% if request.endpoint in ['admin.quests', 'admin.quests_edit'] %}active{% endif %}"
+            >
+                Quests
+            </a>
+        </div>
+
+
+        <div class="admin-nav-section">
+            <div class="admin-nav-heading">
+                Events
+            </div>
+
+            <a
+                href="{{ url_for('admin.promos') }}"
+                class="admin-nav-link {% if request.endpoint in ['admin.promos', 'admin.promos_edit'] %}active{% endif %}"
+            >
+                Daily Promos
+            </a>
+
+            <a
+                href="{{ url_for('admin.events') }}"
+                class="admin-nav-link {% if request.endpoint in ['admin.events', 'admin.events_edit'] %}active{% endif %}"
+            >
+                Events
+            </a>
+        </div>
+
+
+        <div class="admin-nav-section">
+            <div class="admin-nav-heading">
+                Moderation
+            </div>
+
+            <a
+                href="{{ url_for('admin.reports') }}"
+                class="admin-nav-link {% if request.endpoint == 'admin.reports' %}active{% endif %}"
+            >
+                Reports
+            </a>
+
+            <a
+                href="{{ url_for('admin.audit_log') }}"
+                class="admin-nav-link {% if request.endpoint == 'admin.audit_log' %}active{% endif %}"
+            >
+                Audit Log
+            </a>
+        </div>
+
+
+        <div class="admin-nav-section">
+            <div class="admin-nav-heading">
+                System
+            </div>
+
+            <a
+                href="{{ url_for('admin.roles') }}"
+                class="admin-nav-link {% if request.endpoint == 'admin.roles' %}active{% endif %}"
+            >
+                Roles & Permissions
+            </a>
+
+            <a
+                href="{{ url_for('admin.settings') }}"
+                class="admin-nav-link {% if request.endpoint == 'admin.settings' %}active{% endif %}"
+            >
+                Settings
+            </a>
+
+            <a
+                href="{{ url_for('admin.database') }}"
+                class="admin-nav-link {% if request.endpoint == 'admin.database' %}active{% endif %}"
+            >
+                Database
+            </a>
+        </div>
+
+    </nav>
+
+
+    <div class="admin-sidebar-footer">
+
+        <a
+            href="{{ url_for('dashboard') }}"
+            class="admin-nav-link"
+        >
+            ← Return to Game
+        </a>
+
+    </div>
+
+</aside>

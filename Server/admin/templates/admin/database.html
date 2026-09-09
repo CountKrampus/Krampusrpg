@@ -1,0 +1,115 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Database Administration{% endblock %}
+
+{% block content %}
+<div class="admin-page-header">
+    <div>
+        <h1>Database Administration</h1>
+        <p class="admin-subtitle">
+            Restricted database maintenance and diagnostic tools.
+        </p>
+    </div>
+</div>
+
+<section class="admin-section">
+    <div class="admin-section-header">
+        <div>
+            <h2>Database Status</h2>
+            <p>
+                Use these tools carefully. Database operations can affect the
+                entire game.
+            </p>
+        </div>
+    </div>
+
+    <div class="admin-warning">
+        <strong>Warning</strong>
+        <p>
+            Database operations are restricted to Webmaster accounts.
+            Always create a backup before performing destructive operations.
+        </p>
+    </div>
+
+    <div class="admin-card-grid">
+        <div class="admin-card">
+            <h3>Database</h3>
+            <p>
+                Krampus RPG SQLite database.
+            </p>
+
+            <div class="admin-info-list">
+                <div>
+                    <span>Engine</span>
+                    <strong>SQLite</strong>
+                </div>
+
+                <div>
+                    <span>Status</span>
+                    <strong class="admin-status-badge status-success">
+                        Connected
+                    </strong>
+                </div>
+            </div>
+        </div>
+
+        <div class="admin-card">
+            <h3>Backup</h3>
+            <p>
+                Create a database backup before making structural changes.
+            </p>
+
+            <button
+                type="button"
+                class="admin-button admin-button-primary"
+                onclick="return confirm('Create a database backup?');"
+            >
+                Create Backup
+            </button>
+        </div>
+
+        <div class="admin-card">
+            <h3>Maintenance</h3>
+            <p>
+                Database maintenance tools will be available here.
+            </p>
+
+            <button
+                type="button"
+                class="admin-button"
+                disabled
+            >
+                Maintenance Tools
+            </button>
+        </div>
+    </div>
+</section>
+
+<section class="admin-section">
+    <div class="admin-section-header">
+        <div>
+            <h2>Database Operations</h2>
+            <p>
+                Advanced operations should only be performed when necessary.
+            </p>
+        </div>
+    </div>
+
+    <div class="admin-danger-zone">
+        <h3>Danger Zone</h3>
+
+        <p>
+            Destructive database operations will eventually be available here.
+            These actions will require additional confirmation before execution.
+        </p>
+
+        <button
+            type="button"
+            class="admin-button admin-button-danger"
+            disabled
+        >
+            Destructive Operations
+        </button>
+    </div>
+</section>
+{% endblock %}

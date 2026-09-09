@@ -1,0 +1,126 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Pokémon{% endblock %}
+
+{% block content %}
+<div class="admin-page-header">
+    <div>
+        <h1>Pokémon</h1>
+        <p class="admin-subtitle">
+            View and manage Pokémon owned by players.
+        </p>
+    </div>
+</div>
+
+<section class="admin-section">
+    <div class="admin-section-header">
+        <div>
+            <h2>Pokémon Database</h2>
+            <p>
+                Inspect Pokémon, levels, variants, ownership, and current status.
+            </p>
+        </div>
+    </div>
+
+    {% if pokemon %}
+    <div class="admin-table-container">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Unique ID</th>
+                    <th>Species</th>
+                    <th>Nickname</th>
+                    <th>Owner</th>
+                    <th>Level</th>
+                    <th>Variant</th>
+                    <th>Shiny</th>
+                    <th>HP</th>
+                    <th>Active</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for mon in pokemon %}
+                <tr>
+                    <td>{{ mon.id }}</td>
+
+                    <td>
+                        <code>{{ mon.unique_id }}</code>
+                    </td>
+
+                    <td>
+                        <strong>
+                            {{ mon.species_name|default(mon.species_id) }}
+                        </strong>
+                    </td>
+
+                    <td>
+                        {{ mon.nickname|default("—") }}
+                    </td>
+
+                    <td>
+                        {{ mon.username|default(mon.owner_id|default("—")) }}
+                    </td>
+
+                    <td>
+                        {{ mon.level|default(1) }}
+                    </td>
+
+                    <td>
+                        {{ mon.variant|default("normal")|replace("_", " ")|title }}
+                    </td>
+
+                    <td>
+                        {% if mon.shiny %}
+                            <span class="admin-status-badge status-success">
+                                Yes
+                            </span>
+                        {% else %}
+                            No
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        {{ mon.current_hp|default(0) }}
+                        /
+                        {{ mon.max_hp|default(0) }}
+                    </td>
+
+                    <td>
+                        {% if mon.is_active %}
+                            <span class="admin-status-badge status-success">
+                                Active
+                            </span>
+                        {% else %}
+                            <span class="admin-status-badge">
+                                No
+                            </span>
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        <a
+                            class="admin-button admin-button-small"
+                            href="{{ url_for('admin.pokemon_edit', pokemon_id=mon.id) }}"
+                        >
+                            Edit
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% else %}
+    <div class="admin-empty-state">
+        <h3>No Pokémon Found</h3>
+        <p>
+            There are currently no Pokémon to display.
+        </p>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}

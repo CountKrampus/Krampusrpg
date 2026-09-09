@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 from pathlib import Path
 
@@ -16,80 +17,172 @@ DATABASE_PATH = (
     / "krampus_rpg.sqlite3"
 )
 
+DATA_DIR = (
+    PROJECT_DIR
+    / "Data"
+)
+
 SPRITES_DIR = (
     PROJECT_DIR
     / "Web"
     / "static"
     / "sprites"
-    / "variants"
 )
+
+
+# ============================================================
+# VARIANT FUNCTIONS
+# ============================================================
+
+def get_all_variants() -> list[dict[str, str]]:
+    """Load the master variant list from Data/variants.json."""
+
+    variants_file = DATA_DIR / "variants.json"
+
+    if not variants_file.exists():
+        return []
+
+    try:
+        with variants_file.open(
+            "r",
+            encoding="utf-8",
+        ) as file:
+            data = json.load(file)
+
+    except (OSError, json.JSONDecodeError):
+        return []
+
+    if not isinstance(data, list):
+        return []
+
+    variants: list[dict[str, str]] = []
+
+    for item in data:
+
+        if not isinstance(item, dict):
+            continue
+
+        variant_id = str(
+            item.get("id", "")
+        ).strip()
+
+        name = str(
+            item.get("name", variant_id)
+        ).strip()
+
+        suffix = str(
+            item.get("suffix", "")
+        ).strip()
+
+        if not variant_id:
+            continue
+
+        variants.append(
+            {
+                "id": variant_id,
+                "name": name,
+                "suffix": suffix,
+            }
+        )
+
+    return variants
+
+
+# ============================================================
+# POKEMON FUNCTIONS
+# ============================================================
+
+def get_available_pokemon() -> list[str]:
+    """
+    Find all Pokémon folders in the variants directory.
+
+    These folders are used to determine which Pokémon have
+    custom variant sprites available.
+    """
+
+    variants_dir = (
+        SPRITES_DIR
+        / "variants"
+    )
+
+    if not variants_dir.exists():
+        return []
+
+    return sorted(
+        folder.name
+        for folder in variants_dir.iterdir()
+        if folder.is_dir()
+    )
 
 
 # ============================================================
 # SPRITE FUNCTIONS
 # ============================================================
 
-def get_available_pokemon() -> list[str]:
-    """Find all Pokémon folders in the variants directory."""
-
-    if not SPRITES_DIR.exists():
-        return []
-
-    return sorted(
-        folder.name
-        for folder in SPRITES_DIR.iterdir()
-        if folder.is_dir()
-    )
-
-
-def get_variants(pokemon: str) -> list[str]:
-    """Find all base_sprite_<variant>.png files."""
-
-    pokemon_dir = SPRITES_DIR / pokemon
-
-    if not pokemon_dir.exists():
-        return []
-
-    variants: list[str] = []
-
-    prefix = "base_sprite_"
-    suffix = ".png"
-
-    for file in pokemon_dir.iterdir():
-        if not file.is_file():
-            continue
-
-        filename = file.name.lower()
-
-        if filename.startswith(prefix) and filename.endswith(suffix):
-            variant = filename[
-                len(prefix):-len(suffix)
-            ]
-
-            if variant:
-                variants.append(variant)
-
-    return sorted(set(variants))
-
-
 def find_sprite(
     pokemon: str,
     variant: str,
 ) -> Path | None:
-    """Find the exact requested sprite."""
+    """
+    Find the actual game sprite.
 
-    pokemon_dir = SPRITES_DIR / pokemon
+    Game naming convention:
 
-    if not pokemon_dir.exists():
-        return None
+        <pokemon>-<variant>.png
 
-    wanted = f"base_sprite_{variant}.png".lower()
+    Normal sprites use:
 
-    for file in pokemon_dir.iterdir():
-        if file.is_file() and file.name.lower() == wanted:
+        <pokemon>.png
+
+    Example:
+
+        gastly.png
+        gastly-undead.png
+        gastly-ruby.png
+    """
+
+    pokemon = pokemon.lower().strip()
+    variant = variant.lower().strip()
+
+    # --------------------------------------------------------
+    # Normal variant
+    # --------------------------------------------------------
+
+    if variant == "normal":
+
+        possible_files = [
+            SPRITES_DIR / f"{pokemon}.png",
+            SPRITES_DIR / f"{pokemon}-normal.png",
+        ]
+
+    # --------------------------------------------------------
+    # Other variants
+    # --------------------------------------------------------
+
+    else:
+
+        possible_files = [
+            SPRITES_DIR / f"{pokemon}-{variant}.png"
+        ]
+
+    for file in possible_files:
+
+        if file.is_file():
             return file
 
     return None
+
+
+def variant_has_sprite(
+    pokemon: str,
+    variant: str,
+) -> bool:
+    """Check whether a Pokémon has a sprite for a variant."""
+
+    return find_sprite(
+        pokemon,
+        variant,
+    ) is not None
 
 
 # ============================================================
@@ -156,9 +249,29 @@ def main() -> None:
         input("Press Enter to exit...")
         return
 
-    print(f"Database found:")
+    print("Database found:")
     print(DATABASE_PATH)
     print()
+
+    # --------------------------------------------------------
+    # Check variant file
+    # --------------------------------------------------------
+
+    variants_file = (
+        DATA_DIR
+        / "variants.json"
+    )
+
+    if not variants_file.exists():
+
+        print("ERROR: Variant file was not found.")
+        print()
+        print("Expected:")
+        print(variants_file)
+        print()
+
+        input("Press Enter to exit...")
+        return
 
     # --------------------------------------------------------
     # Check sprite directory
@@ -166,7 +279,7 @@ def main() -> None:
 
     if not SPRITES_DIR.exists():
 
-        print("ERROR: Variant sprite directory was not found.")
+        print("ERROR: Sprite directory was not found.")
         print()
         print("Expected:")
         print(SPRITES_DIR)
@@ -176,10 +289,30 @@ def main() -> None:
         return
 
     # --------------------------------------------------------
+    # Load variants
+    # --------------------------------------------------------
+
+    all_variants = get_all_variants()
+
+    if not all_variants:
+
+        print("ERROR: No variants were found.")
+        print()
+        print("Expected:")
+        print(variants_file)
+        print()
+
+        input("Press Enter to exit...")
+        return
+
+    # --------------------------------------------------------
     # Connect
     # --------------------------------------------------------
 
-    db = sqlite3.connect(DATABASE_PATH)
+    db = sqlite3.connect(
+        DATABASE_PATH
+    )
+
     db.row_factory = sqlite3.Row
 
     try:
@@ -198,12 +331,18 @@ def main() -> None:
             input("Press Enter to exit...")
             return
 
-        player_id = int(player["id"])
+        player_id = int(
+            player["id"]
+        )
 
         print("PLAYER")
         print("-" * 60)
-        print(f"Name : {player['display_name']}")
-        print(f"ID   : {player_id}")
+        print(
+            f"Name : {player['display_name']}"
+        )
+        print(
+            f"ID   : {player_id}"
+        )
         print()
 
         # ----------------------------------------------------
@@ -217,7 +356,9 @@ def main() -> None:
 
         if starter is None:
 
-            print("ERROR: This player does not have a Pokémon.")
+            print(
+                "ERROR: This player does not have a Pokémon."
+            )
             print()
 
             input("Press Enter to exit...")
@@ -225,9 +366,15 @@ def main() -> None:
 
         print("CURRENT STARTER")
         print("-" * 60)
-        print(f"Database ID : {starter['id']}")
-        print(f"Species ID  : {starter['species_id']}")
-        print(f"Level       : {starter['level']}")
+        print(
+            f"Database ID : {starter['id']}"
+        )
+        print(
+            f"Species ID  : {starter['species_id']}"
+        )
+        print(
+            f"Level       : {starter['level']}"
+        )
         print(
             f"Nickname    : "
             f"{starter['nickname'] or '(none)'}"
@@ -236,7 +383,9 @@ def main() -> None:
             f"Shiny       : "
             f"{'Yes' if starter['shiny'] else 'No'}"
         )
-        print(f"Variant     : {starter['variant']}")
+        print(
+            f"Variant     : {starter['variant']}"
+        )
         print()
 
         # ----------------------------------------------------
@@ -250,7 +399,9 @@ def main() -> None:
             print(
                 "ERROR: No Pokémon folders were found in:"
             )
-            print(SPRITES_DIR)
+            print(
+                SPRITES_DIR / "variants"
+            )
             print()
 
             input("Press Enter to exit...")
@@ -263,7 +414,10 @@ def main() -> None:
             pokemon_list,
             start=1,
         ):
-            print(f"{number:3}. {pokemon}")
+
+            print(
+                f"{number:3}. {pokemon}"
+            )
 
         print()
         print(
@@ -276,6 +430,7 @@ def main() -> None:
         ).strip()
 
         if not pokemon_input:
+
             print("Cancelled.")
             return
 
@@ -285,22 +440,36 @@ def main() -> None:
 
         if pokemon_input.isdigit():
 
-            number = int(pokemon_input)
+            number = int(
+                pokemon_input
+            )
 
-            if number < 1 or number > len(pokemon_list):
+            if (
+                number < 1
+                or number > len(pokemon_list)
+            ):
 
-                print("ERROR: Invalid Pokémon number.")
-                input("Press Enter to exit...")
+                print(
+                    "ERROR: Invalid Pokémon number."
+                )
+
+                input(
+                    "Press Enter to exit..."
+                )
+
                 return
 
-            pokemon = pokemon_list[number - 1]
+            pokemon = pokemon_list[
+                number - 1
+            ]
 
         else:
 
             matches = [
                 name
                 for name in pokemon_list
-                if name.lower() == pokemon_input.lower()
+                if name.lower()
+                == pokemon_input.lower()
             ]
 
             if not matches:
@@ -312,7 +481,10 @@ def main() -> None:
                 )
                 print()
 
-                input("Press Enter to exit...")
+                input(
+                    "Press Enter to exit..."
+                )
+
                 return
 
             pokemon = matches[0]
@@ -321,20 +493,6 @@ def main() -> None:
         # Variant list
         # ----------------------------------------------------
 
-        variants = get_variants(pokemon)
-
-        if not variants:
-
-            print()
-            print(
-                f"ERROR: No variants were found for "
-                f"{pokemon}."
-            )
-            print()
-
-            input("Press Enter to exit...")
-            return
-
         print()
         print(
             f"AVAILABLE VARIANTS FOR "
@@ -342,11 +500,53 @@ def main() -> None:
         )
         print("-" * 60)
 
-        for number, variant in enumerate(
-            variants,
+        available_variants: list[dict[str, str]] = []
+
+        for variant_data in all_variants:
+
+            variant_id = variant_data["id"]
+            variant_name = variant_data["name"]
+
+            sprite = find_sprite(
+                pokemon,
+                variant_id,
+            )
+
+            if sprite is None:
+                continue
+
+            available_variants.append(
+                variant_data
+            )
+
+        if not available_variants:
+
+            print()
+            print(
+                f"ERROR: No sprites were found for "
+                f"{pokemon}."
+            )
+            print()
+
+            input(
+                "Press Enter to exit..."
+            )
+
+            return
+
+        for number, variant_data in enumerate(
+            available_variants,
             start=1,
         ):
-            print(f"{number:3}. {variant}")
+
+            variant_id = variant_data["id"]
+            variant_name = variant_data["name"]
+
+            print(
+                f"{number:3}. "
+                f"{variant_name} "
+                f"({variant_id})"
+            )
 
         print()
 
@@ -365,22 +565,41 @@ def main() -> None:
 
         if variant_input.isdigit():
 
-            number = int(variant_input)
+            number = int(
+                variant_input
+            )
 
-            if number < 1 or number > len(variants):
+            if (
+                number < 1
+                or number > len(available_variants)
+            ):
 
-                print("ERROR: Invalid variant number.")
-                input("Press Enter to exit...")
+                print(
+                    "ERROR: Invalid variant number."
+                )
+
+                input(
+                    "Press Enter to exit..."
+                )
+
                 return
 
-            variant = variants[number - 1]
+            selected_variant = (
+                available_variants[number - 1]
+            )
 
         else:
 
             matches = [
                 item
-                for item in variants
-                if item.lower() == variant_input.lower()
+                for item in available_variants
+                if (
+                    item["id"].lower()
+                    == variant_input.lower()
+                    or
+                    item["name"].lower()
+                    == variant_input.lower()
+                )
             ]
 
             if not matches:
@@ -393,10 +612,15 @@ def main() -> None:
                 )
                 print()
 
-                input("Press Enter to exit...")
+                input(
+                    "Press Enter to exit..."
+                )
+
                 return
 
-            variant = matches[0]
+            selected_variant = matches[0]
+
+        variant = selected_variant["id"]
 
         # ----------------------------------------------------
         # Find sprite
@@ -410,10 +634,15 @@ def main() -> None:
         if sprite is None:
 
             print()
-            print("ERROR: Sprite file was not found.")
+            print(
+                "ERROR: Sprite file was not found."
+            )
             print()
 
-            input("Press Enter to exit...")
+            input(
+                "Press Enter to exit..."
+            )
+
             return
 
         # ----------------------------------------------------
@@ -426,28 +655,52 @@ def main() -> None:
         print("=" * 60)
         print()
 
-        print(f"Player       : {player['display_name']}")
+        print(
+            f"Player       : "
+            f"{player['display_name']}"
+        )
+
         print()
 
         print("CURRENT")
-        print(f"  Species ID : {starter['species_id']}")
-        print(f"  Variant    : {starter['variant']}")
+        print(
+            f"  Species ID : "
+            f"{starter['species_id']}"
+        )
+        print(
+            f"  Variant    : "
+            f"{starter['variant']}"
+        )
+
         print()
 
         print("NEW")
-        print(f"  Pokémon    : {pokemon}")
-        print(f"  Variant    : {variant}")
+        print(
+            f"  Pokémon    : "
+            f"{pokemon}"
+        )
+        print(
+            f"  Variant    : "
+            f"{selected_variant['name']} "
+            f"({variant})"
+        )
+
         print()
 
         print("SPRITE")
-        print(f"  {sprite}")
+        print(
+            f"  {sprite}"
+        )
+
         print()
 
-        print("The existing Pokémon record will be preserved.")
-        print()
         print(
-            "Preserved:"
+            "The existing Pokémon record will be preserved."
         )
+
+        print()
+
+        print("Preserved:")
         print("  • Level")
         print("  • Experience")
         print("  • IVs")
@@ -457,6 +710,7 @@ def main() -> None:
         print("  • Nickname")
         print("  • Shiny status")
         print("  • Pokémon database ID")
+
         print()
 
         confirmation = input(
@@ -469,7 +723,10 @@ def main() -> None:
         }:
 
             print()
-            print("Cancelled. No changes were made.")
+            print(
+                "Cancelled. No changes were made."
+            )
+
             return
 
         # ----------------------------------------------------
@@ -525,11 +782,16 @@ def main() -> None:
         )
 
         print()
+
         print("Sprite:")
         print(sprite)
+
         print()
 
-        print("No other Pokémon data was changed.")
+        print(
+            "No other Pokémon data was changed."
+        )
+
         print()
 
     except sqlite3.Error as error:
@@ -546,7 +808,9 @@ def main() -> None:
 
         db.close()
 
-    input("Press Enter to exit...")
+    input(
+        "Press Enter to exit..."
+    )
 
 
 if __name__ == "__main__":

@@ -1,0 +1,35 @@
+<div class="admin-stat-card">
+
+    <div class="admin-stat-icon">
+        {{ icon|default("•") }}
+    </div>
+
+    <div class="admin-stat-content">
+
+        <div class="admin-stat-label">
+            {{ label|default("Statistic") }}
+        </div>
+
+        <div class="admin-stat-value">
+            {{ value|default(0) }}
+        </div>
+
+        {% if description %}
+        <div class="admin-stat-description">
+            {{ description }}
+        </div>
+        {% endif %}
+
+    </div>
+
+    {% if link_url %}
+    <a
+        href="{{ link_url }}"
+        class="admin-stat-link"
+        aria-label="View {{ label|default('details') }}"
+    >
+        →
+    </a>
+    {% endif %}
+
+</div>

@@ -1,0 +1,80 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Items{% endblock %}
+
+{% block content %}
+<div class="admin-page-header">
+    <div>
+        <h1>Items</h1>
+        <p class="admin-subtitle">
+            View and manage player inventories.
+        </p>
+    </div>
+</div>
+
+<section class="admin-section">
+    <div class="admin-section-header">
+        <div>
+            <h2>Player Inventory</h2>
+            <p>
+                Inspect item quantities belonging to player accounts.
+            </p>
+        </div>
+    </div>
+
+    {% if items %}
+    <div class="admin-table-container">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Player</th>
+                    <th>Item</th>
+                    <th>Quantity</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for item in items %}
+                <tr>
+                    <td>{{ item.id|default("—") }}</td>
+
+                    <td>
+                        {{ item.username|default(item.player_id|default("—")) }}
+                    </td>
+
+                    <td>
+                        <strong>
+                            {{ item.item_name|default(item.name|default(item.item_id|default("—"))) }}
+                        </strong>
+                    </td>
+
+                    <td>
+                        {{ item.quantity|default(0) }}
+                    </td>
+
+                    <td>
+                        <a
+                            class="admin-button admin-button-small"
+                            href="{{ url_for('admin.items_edit', item_id=item.id) }}"
+                        >
+                            Edit
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% else %}
+    <div class="admin-empty-state">
+        <h3>No Items Found</h3>
+        <p>
+            There are currently no inventory records to display.
+        </p>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}

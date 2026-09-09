@@ -1,0 +1,48 @@
+<header class="admin-navbar">
+
+    <div class="admin-navbar-left">
+
+        <button
+            type="button"
+            class="admin-menu-toggle"
+            id="adminMenuToggle"
+            aria-label="Toggle navigation"
+            aria-expanded="false"
+        >
+            ☰
+        </button>
+
+        <div class="admin-navbar-page">
+            {% block navbar_title %}
+                {% block page_heading %}{% endblock %}
+            {% endblock %}
+        </div>
+
+    </div>
+
+
+    <div class="admin-navbar-right">
+
+        {% if session.get("player_id") %}
+
+        <div class="admin-user-menu">
+
+            <div class="admin-user-info">
+
+                <span class="admin-user-label">
+                    Staff Account
+                </span>
+
+                <span class="admin-user-id">
+                    #{{ session.get("player_id") }}
+                </span>
+
+            </div>
+
+        </div>
+
+        {% endif %}
+
+    </div>
+
+</header>

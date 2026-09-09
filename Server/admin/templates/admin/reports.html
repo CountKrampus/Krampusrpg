@@ -1,0 +1,115 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Reports{% endblock %}
+
+{% block content %}
+<div class="admin-page-header">
+    <div>
+        <h1>Reports</h1>
+        <p class="admin-subtitle">
+            Review player reports and moderation issues.
+        </p>
+    </div>
+</div>
+
+<section class="admin-section">
+    <div class="admin-section-header">
+        <div>
+            <h2>Player Reports</h2>
+            <p>
+                Review reports submitted by players and take appropriate
+                moderation action.
+            </p>
+        </div>
+    </div>
+
+    {% if reports %}
+    <div class="admin-table-container">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Reporter</th>
+                    <th>Reported Player</th>
+                    <th>Reason</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for report in reports %}
+                <tr>
+                    <td>
+                        {{ report.id|default("—") }}
+                    </td>
+
+                    <td>
+                        {{ report.reporter_username|default(report.reporter_id|default("—")) }}
+                    </td>
+
+                    <td>
+                        <strong>
+                            {{ report.reported_username|default(report.reported_player_id|default("—")) }}
+                        </strong>
+                    </td>
+
+                    <td>
+                        {{ report.reason|default("—") }}
+                    </td>
+
+                    <td>
+                        {% set report_status = report.status|default("open") %}
+
+                        {% if report_status == "open" %}
+                            <span class="admin-status-badge status-warning">
+                                Open
+                            </span>
+                        {% elif report_status == "resolved" %}
+                            <span class="admin-status-badge status-success">
+                                Resolved
+                            </span>
+                        {% elif report_status == "dismissed" %}
+                            <span class="admin-status-badge">
+                                Dismissed
+                            </span>
+                        {% else %}
+                            <span class="admin-status-badge">
+                                {{ report_status|replace("_", " ")|title }}
+                            </span>
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        {{ report.created_at|default("—") }}
+                    </td>
+
+                    <td>
+                        {% if report.id %}
+                        <a
+                            class="admin-button admin-button-small"
+                            href="#report-{{ report.id }}"
+                        >
+                            Review
+                        </a>
+                        {% else %}
+                        —
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% else %}
+    <div class="admin-empty-state">
+        <h3>No Reports</h3>
+        <p>
+            There are currently no player reports to review.
+        </p>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}

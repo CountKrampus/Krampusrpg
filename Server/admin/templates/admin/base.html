@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        {% block title %}Admin{% endblock %} | Krampus RPG
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('admin.static', filename='css/admin.css') }}"
+    >
+
+    {% block extra_head %}{% endblock %}
+</head>
+
+<body class="admin-body">
+
+    <div class="admin-layout">
+
+        <aside class="admin-sidebar">
+
+            <div class="admin-brand">
+                <div class="admin-brand-title">
+                    Krampus RPG
+                </div>
+
+                <div class="admin-brand-subtitle">
+                    Staff Control Panel
+                </div>
+            </div>
+
+            <nav class="admin-navigation">
+
+                <div class="admin-nav-section">
+                    <div class="admin-nav-heading">
+                        Overview
+                    </div>
+
+                    <a
+                        href="{{ url_for('admin.dashboard') }}"
+                        class="admin-nav-link {% if request.endpoint == 'admin.dashboard' %}active{% endif %}"
+                    >
+                        <span>Dashboard</span>
+                    </a>
+                </div>
+
+                <div class="admin-nav-section">
+                    <div class="admin-nav-heading">
+                        Management
+                    </div>
+
+                    <a
+                        href="{{ url_for('admin.players') }}"
+                        class="admin-nav-link {% if request.endpoint in ['admin.players', 'admin.players_edit'] %}active{% endif %}"
+                    >
+                        <span>Players</span>
+                    </a>
+
+                    <a
+                        href="{{ url_for('admin.pokemon') }}"
+                        class="admin-nav-link {% if request.endpoint in ['admin.pokemon', 'admin.pokemon_edit'] %}active{% endif %}"
+                    >
+                        <span>Pokémon</span>
+                    </a>
+
+                    <a
+                        href="{{ url_for('admin.items') }}"
+                        class="admin-nav-link {% if request.endpoint in ['admin.items', 'admin.items_edit'] %}active{% endif %}"
+                    >
+                        <span>Items</span>
+                    </a>
+
+                    <a
+                        href="{{ url_for('admin.quests') }}"
+                        class="admin-nav-link {% if request.endpoint in ['admin.quests', 'admin.quests_edit'] %}active{% endif %}"
+                    >
+                        <span>Quests</span>
+                    </a>
+                </div>
+
+                <div class="admin-nav-section">
+                    <div class="admin-nav-heading">
+                        Events
+                    </div>
+
+                    <a
+                        href="{{ url_for('admin.promos') }}"
+                        class="admin-nav-link {% if request.endpoint in ['admin.promos', 'admin.promos_edit'] %}active{% endif %}"
+                    >
+                        <span>Daily Promos</span>
+                    </a>
+
+                    <a
+                        href="{{ url_for('admin.events') }}"
+                        class="admin-nav-link {% if request.endpoint in ['admin.events', 'admin.events_edit'] %}active{% endif %}"
+                    >
+                        <span>Events</span>
+                    </a>
+                </div>
+
+                <div class="admin-nav-section">
+                    <div class="admin-nav-heading">
+                        Moderation
+                    </div>
+
+                    <a
+                        href="{{ url_for('admin.reports') }}"
+                        class="admin-nav-link {% if request.endpoint == 'admin.reports' %}active{% endif %}"
+                    >
+                        <span>Reports</span>
+                    </a>
+
+                    <a
+                        href="{{ url_for('admin.audit_log') }}"
+                        class="admin-nav-link {% if request.endpoint == 'admin.audit_log' %}active{% endif %}"
+                    >
+                        <span>Audit Log</span>
+                    </a>
+                </div>
+
+                <div class="admin-nav-section">
+                    <div class="admin-nav-heading">
+                        System
+                    </div>
+
+                    <a
+                        href="{{ url_for('admin.roles') }}"
+                        class="admin-nav-link {% if request.endpoint == 'admin.roles' %}active{% endif %}"
+                    >
+                        <span>Roles & Permissions</span>
+                    </a>
+
+                    <a
+                        href="{{ url_for('admin.settings') }}"
+                        class="admin-nav-link {% if request.endpoint == 'admin.settings' %}active{% endif %}"
+                    >
+                        <span>Settings</span>
+                    </a>
+
+                    <a
+                        href="{{ url_for('admin.database') }}"
+                        class="admin-nav-link {% if request.endpoint == 'admin.database' %}active{% endif %}"
+                    >
+                        <span>Database</span>
+                    </a>
+                </div>
+
+            </nav>
+
+            <div class="admin-sidebar-footer">
+                <a
+                    href="{{ url_for('dashboard') }}"
+                    class="admin-nav-link"
+                >
+                    ← Return to Game
+                </a>
+            </div>
+
+        </aside>
+
+
+        <main class="admin-main">
+
+            <header class="admin-navbar">
+
+                <div class="admin-navbar-left">
+                    <button
+                        type="button"
+                        class="admin-menu-toggle"
+                        id="adminMenuToggle"
+                        aria-label="Toggle navigation"
+                    >
+                        ☰
+                    </button>
+
+                    <span class="admin-navbar-title">
+                        {% block page_heading %}{% endblock %}
+                    </span>
+                </div>
+
+                <div class="admin-navbar-right">
+
+                    {% if session.get("player_id") %}
+                    <span class="admin-user">
+                        Staff Account #{{ session.get("player_id") }}
+                    </span>
+                    {% endif %}
+
+                </div>
+
+            </header>
+
+
+            <div class="admin-content">
+
+                {% block alerts %}
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        <div class="admin-alerts">
+
+                            {% for category, message in messages %}
+                            <div
+                                class="admin-alert admin-alert-{{ category }}"
+                                role="alert"
+                            >
+                                {{ message }}
+                            </div>
+                            {% endfor %}
+
+                        </div>
+                    {% endif %}
+                {% endwith %}
+                {% endblock %}
+
+
+                {% block content %}
+                {% endblock %}
+
+            </div>
+
+        </main>
+
+    </div>
+
+
+    <script
+        src="{{ url_for('admin.static', filename='js/admin.js') }}"
+    ></script>
+
+    {% block extra_scripts %}{% endblock %}
+
+</body>
+</html>

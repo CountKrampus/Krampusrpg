@@ -1,0 +1,127 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Daily Promos{% endblock %}
+
+{% block content %}
+<div class="admin-page-header">
+    <div>
+        <h1>Daily Promos</h1>
+        <p class="admin-subtitle">
+            Manage limited-time Pokémon promotions and daily claims.
+        </p>
+    </div>
+
+    <div class="admin-page-actions">
+        <a
+            class="admin-button admin-button-primary"
+            href="{{ url_for('admin.promos_edit') }}"
+        >
+            Create Promo
+        </a>
+    </div>
+</div>
+
+<section class="admin-section">
+    <div class="admin-section-header">
+        <div>
+            <h2>Promotions</h2>
+            <p>
+                Create special Pokémon offers that players can claim during
+                a defined 24-hour period.
+            </p>
+        </div>
+    </div>
+
+    {% if promos %}
+    <div class="admin-table-container">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Pokémon</th>
+                    <th>Variant</th>
+                    <th>Level</th>
+                    <th>Starts</th>
+                    <th>Ends</th>
+                    <th>Status</th>
+                    <th>Claims</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for promo in promos %}
+                <tr>
+                    <td>
+                        {{ promo.id|default("—") }}
+                    </td>
+
+                    <td>
+                        <strong>
+                            {{ promo.species_name|default(promo.species_id|default("—")) }}
+                        </strong>
+                    </td>
+
+                    <td>
+                        {{ promo.variant|default("normal")|replace("_", " ")|title }}
+                    </td>
+
+                    <td>
+                        {{ promo.level|default(1) }}
+                    </td>
+
+                    <td>
+                        {{ promo.starts_at|default("—") }}
+                    </td>
+
+                    <td>
+                        {{ promo.ends_at|default("—") }}
+                    </td>
+
+                    <td>
+                        {% if promo.active %}
+                            <span class="admin-status-badge status-success">
+                                Active
+                            </span>
+                        {% else %}
+                            <span class="admin-status-badge">
+                                Inactive
+                            </span>
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        {{ promo.claim_count|default(0) }}
+                    </td>
+
+                    <td>
+                        <a
+                            class="admin-button admin-button-small"
+                            href="{{ url_for('admin.promos_edit', promo_id=promo.id) }}"
+                        >
+                            Edit
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% else %}
+    <div class="admin-empty-state">
+        <h3>No Daily Promos</h3>
+        <p>
+            No daily Pokémon promotions have been created yet.
+        </p>
+
+        <a
+            class="admin-button admin-button-primary"
+            href="{{ url_for('admin.promos_edit') }}"
+        >
+            Create Your First Promo
+        </a>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}

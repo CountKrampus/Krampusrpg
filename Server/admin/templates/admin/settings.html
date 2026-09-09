@@ -1,0 +1,79 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Settings{% endblock %}
+
+{% block content %}
+<div class="admin-page-header">
+    <div>
+        <h1>Settings</h1>
+        <p class="admin-subtitle">
+            Manage Krampus RPG server and game configuration.
+        </p>
+    </div>
+</div>
+
+<section class="admin-section">
+    <div class="admin-section-header">
+        <div>
+            <h2>System Settings</h2>
+            <p>
+                Changes made here can affect the behavior of the game server.
+            </p>
+        </div>
+    </div>
+
+    {% if settings %}
+    <div class="admin-table-container">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Value</th>
+                    <th>Description</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for setting in settings %}
+                <tr>
+                    <td>
+                        <strong>
+                            {{ setting.name }}
+                        </strong>
+                    </td>
+
+                    <td>
+                        <code>
+                            {{ setting.value|default("") }}
+                        </code>
+                    </td>
+
+                    <td>
+                        {{ setting.description|default("—") }}
+                    </td>
+
+                    <td>
+                        <a
+                            class="admin-button admin-button-small"
+                            href="#setting-{{ setting.name }}"
+                        >
+                            Edit
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% else %}
+    <div class="admin-empty-state">
+        <h3>No Settings Found</h3>
+        <p>
+            No configurable settings have been added yet.
+        </p>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}

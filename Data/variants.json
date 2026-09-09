@@ -28,5 +28,10 @@
         "id": "silver",
         "name": "Silver",
         "suffix": "-silver"
+    },
+ {
+        "id": "undead",
+        "name": "Undead",
+        "suffix": "-undead"
     }
 ]

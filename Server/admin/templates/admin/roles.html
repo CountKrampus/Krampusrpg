@@ -1,0 +1,117 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Roles & Permissions{% endblock %}
+
+{% block content %}
+<div class="admin-page-header">
+    <div>
+        <h1>Roles & Permissions</h1>
+        <p class="admin-subtitle">
+            Manage staff roles and control what each role can access.
+        </p>
+    </div>
+</div>
+
+<section class="admin-section">
+    <div class="admin-section-header">
+        <div>
+            <h2>Roles</h2>
+            <p>
+                Roles determine which administrative permissions an account receives.
+            </p>
+        </div>
+    </div>
+
+    {% if roles %}
+    <div class="admin-table-container">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Role</th>
+                    <th>Description</th>
+                    <th>Permissions</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for role in roles %}
+                <tr>
+                    <td>
+                        {{ role.id }}
+                    </td>
+
+                    <td>
+                        <strong>
+                            {{ role.name|replace("_", " ")|title }}
+                        </strong>
+                    </td>
+
+                    <td>
+                        {{ role.description|default("—") }}
+                    </td>
+
+                    <td>
+                        {{ role.permission_count|default(0) }}
+                    </td>
+
+                    <td>
+                        <a
+                            class="admin-button admin-button-small"
+                            href="#role-{{ role.id }}"
+                        >
+                            Manage Permissions
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% else %}
+    <div class="admin-empty-state">
+        <h3>No Roles Found</h3>
+        <p>
+            The role system has not been initialized yet.
+        </p>
+    </div>
+    {% endif %}
+</section>
+
+<section class="admin-section">
+    <div class="admin-section-header">
+        <div>
+            <h2>Available Permissions</h2>
+            <p>
+                These permissions can be assigned to roles.
+            </p>
+        </div>
+    </div>
+
+    {% if permissions %}
+    <div class="admin-permission-grid">
+        {% for permission in permissions %}
+        <div class="admin-permission-card">
+            <div class="admin-permission-name">
+                {{ permission.name }}
+            </div>
+
+            <div class="admin-permission-description">
+                {{ permission.description|default("No description available.") }}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% else %}
+    <div class="admin-empty-state">
+        <h3>No Permissions Found</h3>
+        <p>
+            The permission system has not been initialized yet.
+        </p>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}

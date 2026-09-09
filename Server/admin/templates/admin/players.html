@@ -1,0 +1,85 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Players{% endblock %}
+
+{% block content %}
+<div class="admin-page-header">
+    <div>
+        <h1>Players</h1>
+        <p class="admin-subtitle">
+            Manage player accounts and staff roles.
+        </p>
+    </div>
+</div>
+
+<section class="admin-section">
+    <div class="admin-section-header">
+        <div>
+            <h2>Player Accounts</h2>
+            <p>
+                View registered players and manage account roles.
+            </p>
+        </div>
+    </div>
+
+    {% if players %}
+    <div class="admin-table-container">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Username</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Created</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for player in players %}
+                <tr>
+                    <td>{{ player.id }}</td>
+
+                    <td>
+                        <strong>{{ player.username }}</strong>
+                    </td>
+
+                    <td>
+                        {{ player.email|default("—") }}
+                    </td>
+
+                    <td>
+                        <span class="admin-role-badge role-{{ player.role_name|default('player') }}">
+                            {{ player.role_name|default("player")|replace("_", " ")|title }}
+                        </span>
+                    </td>
+
+                    <td>
+                        {{ player.created_at|default("—") }}
+                    </td>
+
+                    <td>
+                        <a
+                            class="admin-button admin-button-small"
+                            href="{{ url_for('admin.players_edit', player_id=player.id) }}"
+                        >
+                            Edit
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% else %}
+    <div class="admin-empty-state">
+        <h3>No Players Found</h3>
+        <p>
+            There are currently no player accounts to display.
+        </p>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}
