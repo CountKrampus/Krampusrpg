@@ -1,0 +1,44 @@
+[
+    {
+        "id": "poke_ball",
+        "name": "Poké Ball",
+        "type": "pokeball",
+        "price": 200,
+        "sell_price": 100,
+        "description": "A standard ball used to catch wild Pokémon."
+    },
+    {
+        "id": "great_ball",
+        "name": "Great Ball",
+        "type": "pokeball",
+        "price": 600,
+        "sell_price": 300,
+        "description": "A better ball with a higher catch rate."
+    },
+    {
+        "id": "ultra_ball",
+        "name": "Ultra Ball",
+        "type": "pokeball",
+        "price": 1200,
+        "sell_price": 600,
+        "description": "A high-performance Pokémon catching device."
+    },
+    {
+        "id": "potion",
+        "name": "Potion",
+        "type": "healing",
+        "price": 300,
+        "sell_price": 150,
+        "heal": 20,
+        "description": "Restores HP."
+    },
+    {
+        "id": "super_potion",
+        "name": "Super Potion",
+        "type": "healing",
+        "price": 700,
+        "sell_price": 350,
+        "heal": 60,
+        "description": "Restores a moderate amount of HP."
+    }
+]

@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}Create Account{% endblock %}
+
+{% block content %}
+<div class="card form-card">
+    <h1>Create Account</h1>
+
+    {% if error %}
+        <div class="error">{{ error }}</div>
+    {% endif %}
+
+    <form method="post">
+        <label>Username</label>
+        <input
+            type="text"
+            name="username"
+            required
+            minlength="3"
+        >
+
+        <label>Display Name</label>
+        <input
+            type="text"
+            name="display_name"
+        >
+
+        <label>Password</label>
+        <input
+            type="password"
+            name="password"
+            required
+            minlength="6"
+        >
+
+        <button type="submit">
+            Create Account
+        </button>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,43 @@
+[
+    {
+        "id": "krampus_town",
+        "name": "Krampus Town",
+        "region": "krampus",
+        "type": "town",
+        "description": "The starting town of the Krampus RPG world.",
+        "encounters": []
+    },
+    {
+        "id": "frostbite_route",
+        "name": "Frostbite Route",
+        "region": "krampus",
+        "type": "route",
+        "description": "A snowy route outside Krampus Town.",
+        "encounters": [
+            {
+                "species_id": "pikachu",
+                "min_level": 3,
+                "max_level": 6,
+                "weight": 20
+            },
+            {
+                "species_id": "bulbasaur",
+                "min_level": 3,
+                "max_level": 5,
+                "weight": 10
+            },
+            {
+                "species_id": "charmander",
+                "min_level": 3,
+                "max_level": 5,
+                "weight": 10
+            },
+            {
+                "species_id": "squirtle",
+                "min_level": 3,
+                "max_level": 5,
+                "weight": 10
+            }
+        ]
+    }
+]

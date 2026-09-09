@@ -1,0 +1,32 @@
+[
+    {
+        "id": "normal",
+        "name": "Normal",
+        "suffix": ""
+    },
+    {
+        "id": "ruby",
+        "name": "Ruby",
+        "suffix": "-ruby"
+    },
+    {
+        "id": "sapphire",
+        "name": "Sapphire",
+        "suffix": "-sapphire"
+    },
+    {
+        "id": "emerald",
+        "name": "Emerald",
+        "suffix": "-emerald"
+    },
+    {
+        "id": "gold",
+        "name": "Gold",
+        "suffix": "-gold"
+    },
+    {
+        "id": "silver",
+        "name": "Silver",
+        "suffix": "-silver"
+    }
+]

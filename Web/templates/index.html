@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block title %}Krampus RPG{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <h1>Krampus RPG</h1>
+
+    <p>
+        Build your team. Explore the world. Catch Pokémon.
+    </p>
+
+    <div class="buttons">
+        <a class="button" href="{{ url_for('register') }}">
+            Create Account
+        </a>
+
+        <a class="button secondary" href="{{ url_for('login') }}">
+            Login
+        </a>
+    </div>
+</section>
+{% endblock %}

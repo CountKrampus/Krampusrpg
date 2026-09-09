@@ -1,0 +1,18 @@
+[
+    {
+        "id": "welcome_to_krampus",
+        "name": "Welcome to Krampus RPG",
+        "description": "Choose your first Pokémon and begin your adventure.",
+        "reward_money": 500,
+        "reward_item": "poke_ball",
+        "reward_quantity": 5
+    },
+    {
+        "id": "first_capture",
+        "name": "First Capture",
+        "description": "Catch your first wild Pokémon.",
+        "reward_money": 250,
+        "reward_item": "poke_ball",
+        "reward_quantity": 3
+    }
+]

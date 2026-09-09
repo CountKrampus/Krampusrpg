@@ -1,0 +1,66 @@
+[
+    {
+        "id": "bulbasaur",
+        "name": "Bulbasaur",
+        "type": ["grass", "poison"],
+        "base_stats": {
+            "hp": 45,
+            "attack": 49,
+            "defense": 49,
+            "sp_attack": 65,
+            "sp_defense": 65,
+            "speed": 45
+        },
+        "abilities": ["overgrow"],
+        "starting_moves": ["tackle"],
+        "gender_ratio": "mixed"
+    },
+    {
+        "id": "charmander",
+        "name": "Charmander",
+        "type": ["fire"],
+        "base_stats": {
+            "hp": 39,
+            "attack": 52,
+            "defense": 43,
+            "sp_attack": 60,
+            "sp_defense": 50,
+            "speed": 65
+        },
+        "abilities": ["blaze"],
+        "starting_moves": ["scratch"],
+        "gender_ratio": "mixed"
+    },
+    {
+        "id": "squirtle",
+        "name": "Squirtle",
+        "type": ["water"],
+        "base_stats": {
+            "hp": 44,
+            "attack": 48,
+            "defense": 65,
+            "sp_attack": 50,
+            "sp_defense": 64,
+            "speed": 43
+        },
+        "abilities": ["torrent"],
+        "starting_moves": ["tackle"],
+        "gender_ratio": "mixed"
+    },
+    {
+        "id": "pikachu",
+        "name": "Pikachu",
+        "type": ["electric"],
+        "base_stats": {
+            "hp": 35,
+            "attack": 55,
+            "defense": 40,
+            "sp_attack": 50,
+            "sp_defense": 50,
+            "speed": 90
+        },
+        "abilities": ["static"],
+        "starting_moves": ["tackle", "thundershock"],
+        "gender_ratio": "mixed"
+    }
+]
