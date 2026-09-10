@@ -1,39 +1,775 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
-    <title>{% block title %}Krampus RPG{% endblock %}</title>
-    <link
-        rel="stylesheet"
-        href="{{ url_for('static', filename='css/style.css') }}"
-    >
-</head>
-<body>
-    <header class="topbar">
-        <div class="logo">KRAMPUS RPG</div>
+<!DOCTYPE html><html lang="en"><head>
+    <meta charset="UTF-8"><meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+>
 
-        <nav>
-            {% if session.get("player_id") %}
-                <a href="{{ url_for('dashboard') }}">Dashboard</a>
-                <a href="{{ url_for('starter') }}">Starter</a>
-                <a href="{{ url_for('logout') }}">Logout</a>
+<title>
+    {% block title %}
+        Krampus RPG
+    {% endblock %}
+</title>
+
+<link
+    rel="stylesheet"
+    href="{{ url_for('static', filename='css/style.css') }}"
+>
+
+</head><body><header class="site-header">
+
+    <div class="site-brand">
+        <a href="{{ url_for('dashboard') }}">
+            <span class="brand-mark">❄</span>
+            KRAMPUS RPG
+        </a>
+    </div>
+
+    {% if session.get("player_id") %}
+
+        <div class="header-player">
+
+            {% if player is defined %}
+                <strong>
+                    {{ player.display_name }}
+                    (#{{ player.id }})
+                </strong>
             {% else %}
-                <a href="{{ url_for('login') }}">Login</a>
-                <a href="{{ url_for('register') }}">Register</a>
+                <strong>
+                    Player #{{ session.get("player_id") }}
+                </strong>
             {% endif %}
-        </nav>
-    </header>
 
-    <main class="container">
-        {% block content %}{% endblock %}
+            {% if progress is defined %}
+                <span class="header-resource">
+                    💰 {{ progress.money }}
+                </span>
+            {% endif %}
+
+            <a
+                class="header-link"
+                href="{{ url_for('logout') }}"
+            >
+                Logout
+            </a>
+
+        </div>
+
+    {% else %}
+
+        <nav class="public-navigation">
+            <a href="{{ url_for('login') }}">
+                Login
+            </a>
+
+            <a href="{{ url_for('register') }}">
+                Register
+            </a>
+        </nav>
+
+    {% endif %}
+
+</header>
+
+
+{% if session.get("player_id") %}
+
+    <div class="mobile-game-bar">
+
+        <button
+            type="button"
+            class="mobile-sidebar-button"
+            data-sidebar-toggle="left-sidebar"
+        >
+            ☰
+        </button>
+
+        <span>
+            KRAMPUS RPG
+        </span>
+
+        <button
+            type="button"
+            class="mobile-sidebar-button"
+            data-sidebar-toggle="right-sidebar"
+        >
+            ☷
+        </button>
+
+    </div>
+
+
+    <div class="game-shell">
+
+        <!-- LEFT SIDEBAR -->
+
+        <aside
+            id="left-sidebar"
+            class="game-sidebar left-sidebar"
+        >
+
+            <div class="sidebar-mobile-header">
+                <span>Navigation</span>
+
+                <button
+                    type="button"
+                    class="sidebar-close"
+                    data-sidebar-close="left-sidebar"
+                >
+                    ×
+                </button>
+            </div>
+
+
+            {% if player is defined %}
+
+                <section class="player-panel">
+
+                    <div class="player-panel-label">
+                        PLAYER
+                    </div>
+
+                    <div class="player-name">
+                        {{ player.display_name }}
+                    </div>
+
+                    <div class="player-id">
+                        #{{ player.id }}
+                    </div>
+
+                    {% if progress is defined %}
+
+                        <div class="player-resources">
+
+                            <div class="resource-row">
+                                <span>💰</span>
+                                <span>{{ progress.money }}</span>
+                            </div>
+
+                            <div class="resource-row">
+                                <span>💎</span>
+                                <span>{{ progress.gems or 0 }}</span>
+                            </div>
+
+                        </div>
+
+                    {% endif %}
+
+                </section>
+
+            {% endif %}
+
+
+            <nav class="sidebar-navigation">
+
+                <section class="nav-section">
+
+                    <h2>
+                        General
+                    </h2>
+
+                    <a href="{{ url_for('dashboard') }}">
+                        <span>⌂</span>
+                        Home
+                    </a>
+
+                    <a href="#">
+                        <span>📖</span>
+                        MonsterDex
+                    </a>
+
+                    <a href="#">
+                        <span>🔄</span>
+                        Trades
+                    </a>
+
+                    <a href="#">
+                        <span>👥</span>
+                        Friends
+                    </a>
+
+                    <a href="#">
+                        <span>🛡</span>
+                        Staff List
+                    </a>
+
+                    <a href="#">
+                        <span>📜</span>
+                        Rules
+                    </a>
+
+                    <a href="#">
+                        <span>💬</span>
+                        Forums
+                    </a>
+
+                    <a href="{{ url_for('logout') }}">
+                        <span>↪</span>
+                        Logout
+                    </a>
+
+                </section>
+
+
+                <section class="nav-section">
+
+                    <h2>
+                        Miscellaneous
+                    </h2>
+
+                    <a href="#">
+                        <span>👤</span>
+                        Profile
+                    </a>
+
+                    <a href="#">
+                        <span>🖼</span>
+                        Change Image
+                    </a>
+
+                    <a href="#">
+                        <span>📝</span>
+                        Applications
+                    </a>
+
+                    <a href="#">
+                        <span>📊</span>
+                        Records
+                    </a>
+
+                    <a href="#">
+                        <span>🏆</span>
+                        Awards
+                    </a>
+
+                    <a href="#">
+                        <span>🎁</span>
+                        Referral Center
+                    </a>
+
+                    <a href="#">
+                        <span>🎵</span>
+                        Music Shop
+                    </a>
+
+                </section>
+
+
+                <section class="nav-section">
+
+                    <h2>
+                        Explore
+                    </h2>
+
+                    <a href="#">
+                        <span>⚔</span>
+                        Battle Arena
+                    </a>
+
+                    <a href="#">
+                        <span>📖</span>
+                        Story Adventure
+                    </a>
+
+                    <a href="#">
+                        <span>🗺</span>
+                        World Exploration
+                    </a>
+
+                    <a href="#">
+                        <span>⛏</span>
+                        Mines
+                    </a>
+
+                    <a href="#">
+                        <span>❤️</span>
+                        Pokémon Center
+                    </a>
+
+                    <a href="#">
+                        <span>🎮</span>
+                        Minigame Center
+                    </a>
+
+                    <a href="#">
+                        <span>🔬</span>
+                        Research Center
+                    </a>
+
+                    <a href="#">
+                        <span>💎</span>
+                        Rock Exchange
+                    </a>
+
+                </section>
+
+
+                <section class="nav-section">
+
+                    <h2>
+                        Pokémon
+                    </h2>
+
+                    <a href="#">
+                        <span>🐾</span>
+                        My Party
+                    </a>
+
+                    <a href="#">
+                        <span>🖥</span>
+                        Krampus PC
+                    </a>
+
+                    <a href="#">
+                        <span>📖</span>
+                        MonsterDex
+                    </a>
+
+                    <a href="#">
+                        <span>🎒</span>
+                        Pokémon Items
+                    </a>
+
+                    <a href="#">
+                        <span>💪</span>
+                        Training
+                    </a>
+
+                </section>
+
+
+                <section class="nav-section">
+
+                    <h2>
+                        Plazas
+                    </h2>
+
+                    <a href="#">
+                        <span>🏛</span>
+                        Main Plaza
+                    </a>
+
+                    <a href="#">
+                        <span>🔄</span>
+                        Plaza Trades
+                    </a>
+
+                    <a href="#">
+                        <span>⭐</span>
+                        Plaza Market
+                    </a>
+
+                    <a href="#">
+                        <span>🐾</span>
+                        Pokémon Trades
+                    </a>
+
+                </section>
+
+
+                <section class="nav-section">
+
+                    <h2>
+                        World
+                    </h2>
+
+                    <a href="#">
+                        <span>🌲</span>
+                        Locations
+                    </a>
+
+                    <a href="#">
+                        <span>🏛</span>
+                        Special Areas
+                    </a>
+
+                    <a href="#">
+                        <span>🎃</span>
+                        Events
+                    </a>
+
+                </section>
+
+            </nav>
+
+        </aside>
+
+
+        <!-- CENTER GAME AREA -->
+
+        <main class="game-main">
+
+            {% block content %}
+            {% endblock %}
+
+        </main>
+
+
+        <!-- RIGHT SIDEBAR -->
+
+        <aside
+            id="right-sidebar"
+            class="game-sidebar right-sidebar"
+        >
+
+            <div class="sidebar-mobile-header">
+
+                <span>
+                    Game Information
+                </span>
+
+                <button
+                    type="button"
+                    class="sidebar-close"
+                    data-sidebar-close="right-sidebar"
+                >
+                    ×
+                </button>
+
+            </div>
+
+
+            <section class="sidebar-section">
+
+                <h2>
+                    Information
+                </h2>
+
+                <div class="info-list">
+
+                    <div>
+                        <span>Players</span>
+                        <strong>—</strong>
+                    </div>
+
+                    <div>
+                        <span>Online</span>
+                        <strong>—</strong>
+                    </div>
+
+                    <div>
+                        <span>Your ID</span>
+
+                        <strong>
+                            #{{ session.get("player_id") }}
+                        </strong>
+                    </div>
+
+                    <div>
+                        <span>Server Time</span>
+                        <strong>—</strong>
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <section class="sidebar-section">
+
+                <h2>
+                    Account
+                </h2>
+
+                <a href="#">
+                    Profile
+                </a>
+
+                <a href="#">
+                    Inventory
+                </a>
+
+                <a href="#">
+                    Account Data
+                </a>
+
+                <a href="#">
+                    Settings
+                </a>
+
+            </section>
+
+
+            <section class="sidebar-section">
+
+                <h2>
+                    Free Stuff
+                </h2>
+
+                <a href="#">
+                    🎁 Daily Reward
+                </a>
+
+                <a href="#">
+                    🎁 Daily Bonus
+                </a>
+
+                <a href="#">
+                    ⭐ Event Reward
+                </a>
+
+            </section>
+
+
+            <section class="sidebar-section">
+
+                <h2>
+                    Ranks
+                </h2>
+
+                <a href="#">
+                    Pokémon
+                </a>
+
+                <a href="#">
+                    Money
+                </a>
+
+                <a href="#">
+                    Battles
+                </a>
+
+                <a href="#">
+                    Collection
+                </a>
+
+            </section>
+
+
+            <section class="sidebar-section">
+
+                <h2>
+                    Treasury
+                </h2>
+
+                {% if progress is defined %}
+
+                    <div class="treasury-total">
+
+                        <div>
+                            <span>💰</span>
+                            {{ progress.money }}
+                        </div>
+
+                        <div>
+                            <span>💎</span>
+                            {{ progress.gems or 0 }}
+                        </div>
+
+                    </div>
+
+                {% endif %}
+
+                <a href="#">
+                    🏪 Item Shop
+                </a>
+
+                <a href="#">
+                    🐾 Pokémon Market
+                </a>
+
+                <a href="#">
+                    🔄 Trading
+                </a>
+
+            </section>
+
+
+            <section class="sidebar-section">
+
+                <h2>
+                    Party
+                </h2>
+
+                {% if party is defined and party %}
+
+                    {% for mon in party %}
+
+                        <div class="sidebar-party-member">
+
+                            <div class="party-name">
+                                {{
+                                    mon.nickname
+                                    or
+                                    mon.species_id|title
+                                }}
+                            </div>
+
+                            <div class="party-level">
+                                Lv. {{ mon.level }}
+                            </div>
+
+                            <div class="party-hp">
+                                {{ mon.current_hp }}
+                                /
+                                {{ mon.max_hp }}
+                            </div>
+
+                        </div>
+
+                    {% endfor %}
+
+                {% else %}
+
+                    <div class="sidebar-empty">
+                        No Pokémon in party.
+                    </div>
+
+                {% endif %}
+
+            </section>
+
+        </aside>
+
+    </div>
+
+
+    <div
+        id="sidebar-overlay"
+        class="sidebar-overlay"
+    ></div>
+
+
+{% else %}
+
+    <main class="public-main">
+
+        {% block public_content %}
+        {% endblock %}
+
     </main>
 
-    <footer>
-        Krampus RPG Foundation
-    </footer>
+{% endif %}
+
+
+<footer class="site-footer">
+    Krampus RPG Foundation
+</footer>
+
+
+<script>
+
+    document.addEventListener(
+        "DOMContentLoaded",
+        function () {
+
+            const overlay =
+                document.getElementById(
+                    "sidebar-overlay"
+                );
+
+            function openSidebar(id) {
+
+                const sidebar =
+                    document.getElementById(id);
+
+                if (!sidebar) {
+                    return;
+                }
+
+                sidebar.classList.add(
+                    "sidebar-open"
+                );
+
+                if (overlay) {
+                    overlay.classList.add(
+                        "overlay-visible"
+                    );
+                }
+
+            }
+
+
+            function closeSidebar(id) {
+
+                const sidebar =
+                    document.getElementById(id);
+
+                if (!sidebar) {
+                    return;
+                }
+
+                sidebar.classList.remove(
+                    "sidebar-open"
+                );
+
+                if (overlay) {
+                    overlay.classList.remove(
+                        "overlay-visible"
+                    );
+                }
+
+            }
+
+
+            document
+                .querySelectorAll(
+                    "[data-sidebar-toggle]"
+                )
+                .forEach(
+                    function (button) {
+
+                        button.addEventListener(
+                            "click",
+                            function () {
+
+                                openSidebar(
+                                    button.dataset
+                                        .sidebarToggle
+                                );
+
+                            }
+                        );
+
+                    }
+                );
+
+
+            document
+                .querySelectorAll(
+                    "[data-sidebar-close]"
+                )
+                .forEach(
+                    function (button) {
+
+                        button.addEventListener(
+                            "click",
+                            function () {
+
+                                closeSidebar(
+                                    button.dataset
+                                        .sidebarClose
+                                );
+
+                            }
+                        );
+
+                    }
+                );
+
+
+            if (overlay) {
+
+                overlay.addEventListener(
+                    "click",
+                    function () {
+
+                        closeSidebar(
+                            "left-sidebar"
+                        );
+
+                        closeSidebar(
+                            "right-sidebar"
+                        );
+
+                    }
+                );
+
+            }
+
+        }
+    );
+
+</script>
+
 </body>
 </html>

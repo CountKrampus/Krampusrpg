@@ -202,6 +202,14 @@ def create_app() -> Flask:
                 (player_id,),
             ).fetchone()
 
+            # The session may contain a player ID that no longer
+            # exists in the database, for example after an account
+            # was deleted. Clear the stale session instead of
+            # attempting dict(None), which causes a 500 error.
+            if player is None:
+                session.clear()
+                return redirect(url_for("login"))
+
             progress = db.execute(
                 """
                 SELECT *
@@ -320,6 +328,16 @@ def create_app() -> Flask:
                 (player_id,),
             ).fetchone()
 
+            # Treat a stale session as logged out.
+            if player is None:
+                session.clear()
+
+                return jsonify(
+                    {
+                        "logged_in": False,
+                    }
+                )
+
             progress = db.execute(
                 """
                 SELECT *
@@ -332,7 +350,7 @@ def create_app() -> Flask:
         return jsonify(
             {
                 "logged_in": True,
-                "player": dict(player) if player else None,
+                "player": dict(player),
                 "progress": dict(progress)
                 if progress
                 else None,

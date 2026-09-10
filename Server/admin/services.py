@@ -94,6 +94,10 @@ def get_players(
 ) -> list[dict[str, Any]]:
     """
     Retrieve players for the admin player-management page.
+
+    The current players table does not contain an email column,
+    so this query intentionally uses only fields that exist in
+    the current database schema.
     """
 
     limit = max(1, min(int(limit), 500))
@@ -107,9 +111,14 @@ def get_players(
             SELECT
                 p.id,
                 p.username,
-                p.email,
-                p.role_id
+                p.display_name,
+                p.role_id,
+                r.name AS role_name,
+                p.created_at,
+                p.last_login
             FROM players p
+            LEFT JOIN roles r
+                ON r.id = p.role_id
             ORDER BY p.id DESC
             LIMIT ?
             OFFSET ?
@@ -134,6 +143,8 @@ def get_player(
 ) -> dict[str, Any] | None:
     """
     Retrieve a single player by ID.
+
+    The current players table does not contain an email column.
     """
 
     db = get_connection()
@@ -144,9 +155,14 @@ def get_player(
             SELECT
                 p.id,
                 p.username,
-                p.email,
-                p.role_id
+                p.display_name,
+                p.role_id,
+                r.name AS role_name,
+                p.created_at,
+                p.last_login
             FROM players p
+            LEFT JOIN roles r
+                ON r.id = p.role_id
             WHERE p.id = ?
             """,
             (player_id,),
@@ -567,9 +583,6 @@ def get_audit_logs(
 ) -> list[dict[str, Any]]:
     """
     Retrieve administrative audit log entries.
-
-    The audit_log table will be added when we implement the
-    database changes.
     """
 
     limit = max(1, min(int(limit), 500))
@@ -612,7 +625,8 @@ def get_setting(
     """
     Retrieve a site setting.
 
-    The settings table will be added during database setup.
+    The settings table uses setting_name and setting_value
+    in the current database schema.
     """
 
     db = get_connection()
@@ -620,9 +634,9 @@ def get_setting(
     try:
         row = db.execute(
             """
-            SELECT value
+            SELECT setting_value
             FROM settings
-            WHERE name = ?
+            WHERE setting_name = ?
             """,
             (setting_name,),
         ).fetchone()
@@ -630,7 +644,7 @@ def get_setting(
         if row is None:
             return default
 
-        return row["value"]
+        return row["setting_value"]
 
     finally:
         db.close()
@@ -650,13 +664,14 @@ def set_setting(
         db.execute(
             """
             INSERT INTO settings (
-                name,
-                value
+                setting_name,
+                setting_value
             )
             VALUES (?, ?)
-            ON CONFLICT(name)
+            ON CONFLICT(setting_name)
             DO UPDATE SET
-                value = excluded.value
+                setting_value = excluded.setting_value,
+                updated_at = CURRENT_TIMESTAMP
             """,
             (
                 setting_name,

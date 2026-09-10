@@ -8,7 +8,12 @@ from ..auth import create_password
 from ..database import get_connection, init_db
 
 
-WEBMASTER_ROLE_ID = 2
+# Role IDs from Server/database.py
+PLAYER_ROLE_ID = 1
+MODERATOR_ROLE_ID = 2
+EVENT_STAFF_ROLE_ID = 3
+ADMIN_ROLE_ID = 4
+WEBMASTER_ROLE_ID = 5
 
 
 def find_player(

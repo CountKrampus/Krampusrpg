@@ -1,23 +1,120 @@
 {% extends "base.html" %}
 
-{% block title %}Krampus RPG{% endblock %}
+{% block title %}
+    Krampus RPG
+{% endblock %}
 
 {% block content %}
+
 <section class="hero">
-    <h1>Krampus RPG</h1>
+
+    <div class="page-kicker">
+        A DARK POKÉMON RPG
+    </div>
+
+    <h1>
+        Krampus RPG
+    </h1>
 
     <p>
-        Build your team. Explore the world. Catch Pokémon.
+        Build your team. Explore the world.
+        Catch Pokémon. Become the trainer you were meant to be.
     </p>
 
     <div class="buttons">
-        <a class="button" href="{{ url_for('register') }}">
+
+        <a
+            class="button button-primary"
+            href="{{ url_for('register') }}"
+        >
             Create Account
         </a>
 
-        <a class="button secondary" href="{{ url_for('login') }}">
+        <a
+            class="button secondary"
+            href="{{ url_for('login') }}"
+        >
             Login
         </a>
+
     </div>
+
 </section>
+
+
+<section class="dashboard-section">
+
+    <div class="section-heading">
+
+        <div>
+
+            <span class="section-kicker">
+                KRAMPUS RPG
+            </span>
+
+            <h2>
+                Your Adventure Awaits
+            </h2>
+
+        </div>
+
+    </div>
+
+
+    <div class="quick-actions">
+
+        <div class="quick-action">
+
+            <span class="quick-icon">
+                🗺️
+            </span>
+
+            <span>
+                <strong>Explore</strong>
+
+                <small>
+                    Discover new locations and areas.
+                </small>
+            </span>
+
+        </div>
+
+
+        <div class="quick-action">
+
+            <span class="quick-icon">
+                ⚔️
+            </span>
+
+            <span>
+                <strong>Battle</strong>
+
+                <small>
+                    Train your Pokémon and fight other trainers.
+                </small>
+            </span>
+
+        </div>
+
+
+        <div class="quick-action">
+
+            <span class="quick-icon">
+                🐾
+            </span>
+
+            <span>
+                <strong>Build Your Team</strong>
+
+                <small>
+                    Catch Pokémon and create your perfect party.
+                </small>
+            </span>
+
+        </div>
+
+    </div>
+
+</section>
+
 {% endblock %}

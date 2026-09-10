@@ -1,135 +1,175 @@
 {% extends "base.html" %}
 
-{% block title %}Dashboard{% endblock %}
+{% block title %}
+Dashboard
+{% endblock %}
 
 {% block content %}
-<div class="dashboard-header">
-    <div>
-        <h1>
-            Welcome,
-            {{ player.display_name }}
-        </h1>
 
-        <p>
-            Region:
-            {{ progress.current_region }}
-            |
-            Area:
-            {{ progress.current_area }}
-        </p>
-    </div>
+<div class="dashboard-header"><div>
 
-    <div class="money">
-        {{ progress.money }} Pokécoins
-    </div>
+    <h1>
+        Welcome,
+        {{ player.display_name }}
+        (#{{ player.id }})
+    </h1>
+
+    <p>
+        Region:
+        {{ progress.current_region }}
+        |
+        Area:
+        {{ progress.current_area }}
+    </p>
+
 </div>
 
-{% if pokemon|length == 0 %}
-    <div class="card">
-        <h2>Your adventure begins here.</h2>
+<div class="money">
+    {{ progress.money }}
+    Pokécoins
+</div>
 
-        <p>
-            You do not have a Pokémon yet.
-        </p>
+</div>{% if pokemon|length == 0 %}
 
-        <a
-            class="button"
-            href="{{ url_for('starter') }}"
-        >
-            Choose Starter
-        </a>
-    </div>
+<div class="card">
+
+    <h2>
+        Your adventure begins here.
+    </h2>
+
+    <p>
+        You do not have a Pokémon yet.
+    </p>
+
+    <a
+        class="button"
+        href="{{ url_for('starter') }}"
+    >
+        Choose Starter
+    </a>
+
+</div>
+
 {% else %}
-    <section>
-        <h2>Your Party</h2>
 
-        <div class="pokemon-grid">
-            {% for mon in party %}
-                <div class="pokemon-card">
-                    <img
-                        src="{{ url_for(
-                            'static',
-                            filename='sprites/' +
-                            mon.species_id +
-                            (
-                                '-' + mon.variant
-                                if mon.variant != 'normal'
-                                else ''
-                            ) +
-                            (
-                                '-shiny'
-                                if mon.shiny
-                                else ''
-                            ) +
-                            '.png'
-                        ) }}"
-                        alt="{{ mon.species_id }}"
-                        onerror="this.style.display='none'"
-                    >
+<section>
 
-                    <h3>
-                        {{
-                            mon.nickname
-                            or
-                            mon.species_id|title
-                        }}
-                    </h3>
+    <h2>
+        Your Party
+    </h2>
 
+    <div class="pokemon-grid">
+
+        {% for mon in party %}
+
+            <div class="pokemon-card">
+
+                <img
+                    src="{{ url_for(
+                        'static',
+                        filename='sprites/' +
+                        mon.species_id +
+                        (
+                            '-' + mon.variant
+                            if mon.variant != 'normal'
+                            else ''
+                        ) +
+                        (
+                            '-shiny'
+                            if mon.shiny
+                            else ''
+                        ) +
+                        '.png'
+                    ) }}"
+                    alt="{{ mon.species_id }}"
+                    onerror="this.style.display='none'"
+                >
+
+                <h3>
+                    {{
+                        mon.nickname
+                        or
+                        mon.species_id|title
+                    }}
+                </h3>
+
+                <p>
+                    Level {{ mon.level }}
+                </p>
+
+                <p>
+                    HP
+                    {{ mon.current_hp }}
+                    /
+                    {{ mon.max_hp }}
+                </p>
+
+                <p>
+                    Variant:
+                    {{ mon.variant }}
+                </p>
+
+                {% if mon.shiny %}
                     <p>
-                        Level {{ mon.level }}
+                        ✨ Shiny
                     </p>
+                {% endif %}
 
-                    <p>
-                        HP
-                        {{ mon.current_hp }}
-                        /
-                        {{ mon.max_hp }}
-                    </p>
+            </div>
 
-                    <p>
-                        Variant:
-                        {{ mon.variant }}
-                    </p>
+        {% endfor %}
+
+    </div>
+
+</section>
+
+
+<section>
+
+    <h2>
+        Pokémon Collection
+    </h2>
+
+    <div class="pokemon-grid">
+
+        {% for mon in pokemon %}
+
+            <div class="pokemon-card small">
+
+                <h3>
+                    {{
+                        mon.nickname
+                        or
+                        mon.species_id|title
+                    }}
+                </h3>
+
+                <p>
+                    ID:
+                    {{ mon.unique_id }}
+                </p>
+
+                <p>
+                    Level
+                    {{ mon.level }}
+                </p>
+
+                <p>
+                    {{ mon.variant }}
 
                     {% if mon.shiny %}
-                        <p>✨ Shiny</p>
+                        · Shiny
                     {% endif %}
-                </div>
-            {% endfor %}
-        </div>
-    </section>
+                </p>
 
-    <section>
-        <h2>Pokémon Collection</h2>
+            </div>
 
-        <div class="pokemon-grid">
-            {% for mon in pokemon %}
-                <div class="pokemon-card small">
-                    <h3>
-                        {{
-                            mon.nickname
-                            or
-                            mon.species_id|title
-                        }}
-                    </h3>
+        {% endfor %}
 
-                    <p>
-                        ID: {{ mon.unique_id }}
-                    </p>
+    </div>
 
-                    <p>
-                        Level {{ mon.level }}
-                    </p>
+</section>
 
-                    <p>
-                        {{ mon.variant }}
-                        {% if mon.shiny %}
-                            · Shiny
-                        {% endif %}
-                    </p>
-                </div>
-            {% endfor %}
-        </div>
-    </section>
 {% endif %}
+
 {% endblock %}

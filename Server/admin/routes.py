@@ -63,7 +63,7 @@ admin_bp = Blueprint(
     url_prefix="/admin",
     template_folder="templates",
     static_folder="static",
-    static_url_path="/admin/static",
+    static_url_path="/static",
 )
 
 

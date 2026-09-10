@@ -1,41 +1,58 @@
 {% extends "base.html" %}
 
-{% block title %}Create Account{% endblock %}
+{% block title %}Create Account - Krampus RPG{% endblock %}
 
-{% block content %}
-<div class="card form-card">
-    <h1>Create Account</h1>
+{% block public_content %}
 
-    {% if error %}
+<div class="public-page">
+    <div class="card form-card">
+        <div class="card-header">
+            <span class="eyebrow">KRAMPUS RPG</span>
+            <h1>Create Account</h1>
+            <p>Create your trainer account and begin your adventure.</p>
+        </div>    {% if error %}
         <div class="error">{{ error }}</div>
     {% endif %}
 
-    <form method="post">
-        <label>Username</label>
+    <form method="post" class="game-form">
+        <label for="username">Username</label>
         <input
+            id="username"
             type="text"
             name="username"
-            required
+            autocomplete="username"
             minlength="3"
+            required
         >
 
-        <label>Display Name</label>
+        <label for="display_name">Display Name</label>
         <input
+            id="display_name"
             type="text"
             name="display_name"
+            autocomplete="nickname"
         >
 
-        <label>Password</label>
+        <label for="password">Password</label>
         <input
+            id="password"
             type="password"
             name="password"
-            required
+            autocomplete="new-password"
             minlength="6"
+            required
         >
 
-        <button type="submit">
+        <button type="submit" class="primary-button">
             Create Account
         </button>
     </form>
+
+    <div class="form-footer">
+        <span>Already have an account?</span>
+        <a href="{{ url_for('login') }}">Login</a>
+    </div>
+</div>
+
 </div>
 {% endblock %}
