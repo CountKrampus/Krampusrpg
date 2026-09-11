@@ -1,0 +1,255 @@
+{% extends "base.html" %}
+
+{% block title %}{{ player.display_name }}'s Profile{% endblock %}
+
+{% block content %}
+
+<div class="dashboard-page">
+
+    <!-- PROFILE HEADER -->
+    <section class="card">
+
+        <div class="card-header">
+
+            <div>
+                <span class="section-kicker">PLAYER PROFILE</span>
+
+                <h1>
+                    {{ player.display_name }}
+                    <span class="muted">
+                        (#{{ player.id }})
+                    </span>
+                </h1>
+            </div>
+
+        </div>
+
+        <div class="adventure-content">
+
+            <p class="muted">
+                {{ player.username }}
+            </p>
+
+        </div>
+
+    </section>
+
+
+    <!-- PLAYER INFORMATION -->
+    <section class="card">
+
+        <div class="card-header">
+
+            <div>
+                <span class="section-kicker">ACCOUNT</span>
+                <h2>Player Information</h2>
+            </div>
+
+        </div>
+
+        <div class="info-list">
+
+            <div>
+                <span>Player ID</span>
+                <strong>#{{ player.id }}</strong>
+            </div>
+
+            <div>
+                <span>Username</span>
+                <strong>{{ player.username }}</strong>
+            </div>
+
+            <div>
+                <span>Display Name</span>
+                <strong>{{ player.display_name }}</strong>
+            </div>
+
+            <div>
+                <span>Joined</span>
+                <strong>{{ player.created_at }}</strong>
+            </div>
+
+            <div>
+                <span>Last Login</span>
+                <strong>
+                    {{ player.last_login or "Never" }}
+                </strong>
+            </div>
+
+            <div>
+                <span>Money</span>
+                <strong>
+                    💰 {{ progress.money if progress else 0 }}
+                </strong>
+            </div>
+
+            <div>
+                <span>Badges</span>
+                <strong>
+                    🏅 {{ progress.badges if progress else 0 }}
+                </strong>
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- COLLECTION -->
+    <section class="card">
+
+        <div class="card-header">
+
+            <div>
+                <span class="section-kicker">COLLECTION</span>
+                <h2>Pokémon</h2>
+            </div>
+
+        </div>
+
+        <div class="info-list">
+
+            <div>
+                <span>Pokémon Owned</span>
+                <strong>{{ pokemon_count }}</strong>
+            </div>
+
+            <div>
+                <span>Party Pokémon</span>
+                <strong>{{ party_count }} / 6</strong>
+            </div>
+
+        </div>
+
+        <div class="adventure-actions">
+
+            <a
+                href="#"
+                class="button button-primary"
+            >
+                View My Pokémon
+            </a>
+
+            <a
+                href="#"
+                class="button"
+            >
+                Krampus PC
+            </a>
+
+        </div>
+
+    </section>
+
+
+    <!-- TRAINING -->
+    <section class="card">
+
+        <div class="card-header">
+
+            <div>
+                <span class="section-kicker">TRAINING</span>
+                <h2>Training Battles</h2>
+            </div>
+
+        </div>
+
+        <div class="adventure-content">
+
+            <p>
+                Battle your own Pokémon to train your team.
+            </p>
+
+            <p class="muted">
+                Choose between a one-on-one battle or a full-team
+                training battle.
+            </p>
+
+            <div class="adventure-actions">
+
+                <a
+                    href="#"
+                    class="button button-primary"
+                >
+                    1 Pokémon
+                </a>
+
+                <a
+                    href="#"
+                    class="button"
+                >
+                    Full Team
+                </a>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- CURRENT PARTY -->
+    <section class="card">
+
+        <div class="card-header">
+
+            <div>
+                <span class="section-kicker">YOUR TEAM</span>
+                <h2>Current Party</h2>
+            </div>
+
+        </div>
+
+        {% if party %}
+
+            <div class="pokemon-grid">
+
+                {% for mon in party %}
+
+                    <article class="pokemon-card">
+
+                        <h3>
+                            {{ mon.nickname or mon.species_id|title }}
+                        </h3>
+
+                        <p>
+                            Level {{ mon.level }}
+                        </p>
+
+                        <p>
+                            HP:
+                            {{ mon.current_hp }}
+                            /
+                            {{ mon.max_hp }}
+                        </p>
+
+                        <p class="muted">
+                            {{ mon.variant|title }}
+                            {% if mon.shiny %}
+                                · Shiny
+                            {% endif %}
+                        </p>
+
+                    </article>
+
+                {% endfor %}
+
+            </div>
+
+        {% else %}
+
+            <div class="adventure-content">
+
+                <p class="muted">
+                    You don't have any Pokémon in your party yet.
+                </p>
+
+            </div>
+
+        {% endif %}
+
+    </section>
+
+</div>
+
+{% endblock %}

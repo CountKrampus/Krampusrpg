@@ -1,60 +1,58 @@
-<!DOCTYPE html><html lang="en"><head>
-    <meta charset="UTF-8"><meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0"
->
+<!DOCTYPE html>
+<html lang="en">
 
-<title>
-    {% block title %}
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>
+        {% block title %}
         Krampus RPG
-    {% endblock %}
-</title>
+        {% endblock %}
+    </title>
 
-<link
-    rel="stylesheet"
-    href="{{ url_for('static', filename='css/style.css') }}"
->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 
-</head><body><header class="site-header">
+</head>
 
-    <div class="site-brand">
-        <a href="{{ url_for('dashboard') }}">
-            <span class="brand-mark">❄</span>
-            KRAMPUS RPG
-        </a>
-    </div>
+<body>
+    <header class="site-header">
 
-    {% if session.get("player_id") %}
+        <div class="site-brand">
+            <a href="{{ url_for('dashboard') }}">
+                <span class="brand-mark">❄</span>
+                KRAMPUS RPG
+            </a>
+        </div>
+
+        {% if session.get("player_id") %}
 
         <div class="header-player">
 
             {% if player is defined %}
-                <strong>
-                    {{ player.display_name }}
-                    (#{{ player.id }})
-                </strong>
+            <strong>
+                {{ player.display_name }}
+                (#{{ player.id }})
+            </strong>
             {% else %}
-                <strong>
-                    Player #{{ session.get("player_id") }}
-                </strong>
+            <strong>
+                Player #{{ session.get("player_id") }}
+            </strong>
             {% endif %}
 
             {% if progress is defined %}
-                <span class="header-resource">
-                    💰 {{ progress.money }}
-                </span>
+            <span class="header-resource">
+                💰 {{ progress.money }}
+            </span>
             {% endif %}
 
-            <a
-                class="header-link"
-                href="{{ url_for('logout') }}"
-            >
+            <a class="header-link" href="{{ url_for('logout') }}">
                 Logout
             </a>
 
         </div>
 
-    {% else %}
+        {% else %}
 
         <nav class="public-navigation">
             <a href="{{ url_for('login') }}">
@@ -66,20 +64,16 @@
             </a>
         </nav>
 
-    {% endif %}
+        {% endif %}
 
-</header>
+    </header>
 
 
-{% if session.get("player_id") %}
+    {% if session.get("player_id") %}
 
     <div class="mobile-game-bar">
 
-        <button
-            type="button"
-            class="mobile-sidebar-button"
-            data-sidebar-toggle="left-sidebar"
-        >
+        <button type="button" class="mobile-sidebar-button" data-sidebar-toggle="left-sidebar">
             ☰
         </button>
 
@@ -87,11 +81,7 @@
             KRAMPUS RPG
         </span>
 
-        <button
-            type="button"
-            class="mobile-sidebar-button"
-            data-sidebar-toggle="right-sidebar"
-        >
+        <button type="button" class="mobile-sidebar-button" data-sidebar-toggle="right-sidebar">
             ☷
         </button>
 
@@ -102,19 +92,12 @@
 
         <!-- LEFT SIDEBAR -->
 
-        <aside
-            id="left-sidebar"
-            class="game-sidebar left-sidebar"
-        >
+        <aside id="left-sidebar" class="game-sidebar left-sidebar">
 
             <div class="sidebar-mobile-header">
                 <span>Navigation</span>
 
-                <button
-                    type="button"
-                    class="sidebar-close"
-                    data-sidebar-close="left-sidebar"
-                >
+                <button type="button" class="sidebar-close" data-sidebar-close="left-sidebar">
                     ×
                 </button>
             </div>
@@ -122,39 +105,39 @@
 
             {% if player is defined %}
 
-                <section class="player-panel">
+            <section class="player-panel">
 
-                    <div class="player-panel-label">
-                        PLAYER
+                <div class="player-panel-label">
+                    PLAYER
+                </div>
+
+                <div class="player-name">
+                    {{ player.display_name }}
+                </div>
+
+                <div class="player-id">
+                    #{{ player.id }}
+                </div>
+
+                {% if progress is defined %}
+
+                <div class="player-resources">
+
+                    <div class="resource-row">
+                        <span>💰</span>
+                        <span>{{ progress.money }}</span>
                     </div>
 
-                    <div class="player-name">
-                        {{ player.display_name }}
+                    <div class="resource-row">
+                        <span>💎</span>
+                        <span>{{ progress.gems or 0 }}</span>
                     </div>
 
-                    <div class="player-id">
-                        #{{ player.id }}
-                    </div>
+                </div>
 
-                    {% if progress is defined %}
+                {% endif %}
 
-                        <div class="player-resources">
-
-                            <div class="resource-row">
-                                <span>💰</span>
-                                <span>{{ progress.money }}</span>
-                            </div>
-
-                            <div class="resource-row">
-                                <span>💎</span>
-                                <span>{{ progress.gems or 0 }}</span>
-                            </div>
-
-                        </div>
-
-                    {% endif %}
-
-                </section>
+            </section>
 
             {% endif %}
 
@@ -216,7 +199,7 @@
                         Miscellaneous
                     </h2>
 
-                    <a href="#">
+                    <a href="{{ url_for('profile') }}">
                         <span>👤</span>
                         Profile
                     </a>
@@ -406,10 +389,7 @@
 
         <!-- RIGHT SIDEBAR -->
 
-        <aside
-            id="right-sidebar"
-            class="game-sidebar right-sidebar"
-        >
+        <aside id="right-sidebar" class="game-sidebar right-sidebar">
 
             <div class="sidebar-mobile-header">
 
@@ -417,11 +397,7 @@
                     Game Information
                 </span>
 
-                <button
-                    type="button"
-                    class="sidebar-close"
-                    data-sidebar-close="right-sidebar"
-                >
+                <button type="button" class="sidebar-close" data-sidebar-close="right-sidebar">
                     ×
                 </button>
 
@@ -470,7 +446,8 @@
                     Account
                 </h2>
 
-                <a href="#">
+                <a href="{{ url_for('profile') }}">
+                    <span>👤</span>
                     Profile
                 </a>
 
@@ -543,19 +520,19 @@
 
                 {% if progress is defined %}
 
-                    <div class="treasury-total">
+                <div class="treasury-total">
 
-                        <div>
-                            <span>💰</span>
-                            {{ progress.money }}
-                        </div>
-
-                        <div>
-                            <span>💎</span>
-                            {{ progress.gems or 0 }}
-                        </div>
-
+                    <div>
+                        <span>💰</span>
+                        {{ progress.money }}
                     </div>
+
+                    <div>
+                        <span>💎</span>
+                        {{ progress.gems or 0 }}
+                    </div>
+
+                </div>
 
                 {% endif %}
 
@@ -582,37 +559,37 @@
 
                 {% if party is defined and party %}
 
-                    {% for mon in party %}
+                {% for mon in party %}
 
-                        <div class="sidebar-party-member">
+                <div class="sidebar-party-member">
 
-                            <div class="party-name">
-                                {{
-                                    mon.nickname
-                                    or
-                                    mon.species_id|title
-                                }}
-                            </div>
+                    <div class="party-name">
+                        {{
+                        mon.nickname
+                        or
+                        mon.species_id|title
+                        }}
+                    </div>
 
-                            <div class="party-level">
-                                Lv. {{ mon.level }}
-                            </div>
+                    <div class="party-level">
+                        Lv. {{ mon.level }}
+                    </div>
 
-                            <div class="party-hp">
-                                {{ mon.current_hp }}
-                                /
-                                {{ mon.max_hp }}
-                            </div>
+                    <div class="party-hp">
+                        {{ mon.current_hp }}
+                        /
+                        {{ mon.max_hp }}
+                    </div>
 
-                        </div>
+                </div>
 
-                    {% endfor %}
+                {% endfor %}
 
                 {% else %}
 
-                    <div class="sidebar-empty">
-                        No Pokémon in party.
-                    </div>
+                <div class="sidebar-empty">
+                    No Pokémon in party.
+                </div>
 
                 {% endif %}
 
@@ -623,13 +600,10 @@
     </div>
 
 
-    <div
-        id="sidebar-overlay"
-        class="sidebar-overlay"
-    ></div>
+    <div id="sidebar-overlay" class="sidebar-overlay"></div>
 
 
-{% else %}
+    {% else %}
 
     <main class="public-main">
 
@@ -638,138 +612,139 @@
 
     </main>
 
-{% endif %}
+    {% endif %}
 
 
-<footer class="site-footer">
-    Krampus RPG Foundation
-</footer>
+    <footer class="site-footer">
+        Krampus RPG Foundation
+    </footer>
 
 
-<script>
+    <script>
 
-    document.addEventListener(
-        "DOMContentLoaded",
-        function () {
+        document.addEventListener(
+            "DOMContentLoaded",
+            function () {
 
-            const overlay =
-                document.getElementById(
-                    "sidebar-overlay"
-                );
+                const overlay =
+                    document.getElementById(
+                        "sidebar-overlay"
+                    );
 
-            function openSidebar(id) {
+                function openSidebar(id) {
 
-                const sidebar =
-                    document.getElementById(id);
+                    const sidebar =
+                        document.getElementById(id);
 
-                if (!sidebar) {
-                    return;
+                    if (!sidebar) {
+                        return;
+                    }
+
+                    sidebar.classList.add(
+                        "sidebar-open"
+                    );
+
+                    if (overlay) {
+                        overlay.classList.add(
+                            "overlay-visible"
+                        );
+                    }
+
                 }
 
-                sidebar.classList.add(
-                    "sidebar-open"
-                );
+
+                function closeSidebar(id) {
+
+                    const sidebar =
+                        document.getElementById(id);
+
+                    if (!sidebar) {
+                        return;
+                    }
+
+                    sidebar.classList.remove(
+                        "sidebar-open"
+                    );
+
+                    if (overlay) {
+                        overlay.classList.remove(
+                            "overlay-visible"
+                        );
+                    }
+
+                }
+
+
+                document
+                    .querySelectorAll(
+                        "[data-sidebar-toggle]"
+                    )
+                    .forEach(
+                        function (button) {
+
+                            button.addEventListener(
+                                "click",
+                                function () {
+
+                                    openSidebar(
+                                        button.dataset
+                                            .sidebarToggle
+                                    );
+
+                                }
+                            );
+
+                        }
+                    );
+
+
+                document
+                    .querySelectorAll(
+                        "[data-sidebar-close]"
+                    )
+                    .forEach(
+                        function (button) {
+
+                            button.addEventListener(
+                                "click",
+                                function () {
+
+                                    closeSidebar(
+                                        button.dataset
+                                            .sidebarClose
+                                    );
+
+                                }
+                            );
+
+                        }
+                    );
+
 
                 if (overlay) {
-                    overlay.classList.add(
-                        "overlay-visible"
+
+                    overlay.addEventListener(
+                        "click",
+                        function () {
+
+                            closeSidebar(
+                                "left-sidebar"
+                            );
+
+                            closeSidebar(
+                                "right-sidebar"
+                            );
+
+                        }
                     );
+
                 }
 
             }
+        );
 
-
-            function closeSidebar(id) {
-
-                const sidebar =
-                    document.getElementById(id);
-
-                if (!sidebar) {
-                    return;
-                }
-
-                sidebar.classList.remove(
-                    "sidebar-open"
-                );
-
-                if (overlay) {
-                    overlay.classList.remove(
-                        "overlay-visible"
-                    );
-                }
-
-            }
-
-
-            document
-                .querySelectorAll(
-                    "[data-sidebar-toggle]"
-                )
-                .forEach(
-                    function (button) {
-
-                        button.addEventListener(
-                            "click",
-                            function () {
-
-                                openSidebar(
-                                    button.dataset
-                                        .sidebarToggle
-                                );
-
-                            }
-                        );
-
-                    }
-                );
-
-
-            document
-                .querySelectorAll(
-                    "[data-sidebar-close]"
-                )
-                .forEach(
-                    function (button) {
-
-                        button.addEventListener(
-                            "click",
-                            function () {
-
-                                closeSidebar(
-                                    button.dataset
-                                        .sidebarClose
-                                );
-
-                            }
-                        );
-
-                    }
-                );
-
-
-            if (overlay) {
-
-                overlay.addEventListener(
-                    "click",
-                    function () {
-
-                        closeSidebar(
-                            "left-sidebar"
-                        );
-
-                        closeSidebar(
-                            "right-sidebar"
-                        );
-
-                    }
-                );
-
-            }
-
-        }
-    );
-
-</script>
+    </script>
 
 </body>
+
 </html>

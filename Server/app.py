@@ -21,10 +21,6 @@ from .auth import (
 )
 from .config import DATABASE_PATH, SECRET_KEY, WEB_DIR
 from .database import get_connection, init_db, seed_database
-from .news import (
-    ensure_news_table,
-    get_published_news,
-)
 from .services import (
     add_to_party,
     create_pokemon,
@@ -33,8 +29,11 @@ from .services import (
     get_species,
     remove_from_party,
 )
+from .news import (
+    ensure_news_table,
+    get_published_news,
+)
 
-# Staff/admin dashboard
 from .admin.routes import admin_bp
 
 
@@ -48,12 +47,10 @@ def create_app() -> Flask:
     app.config["SECRET_KEY"] = SECRET_KEY
     app.config["DATABASE"] = DATABASE_PATH
 
-    # Initialize and migrate the database.
     init_db()
     seed_database()
     ensure_news_table()
 
-    # Register the staff/admin dashboard.
     app.register_blueprint(admin_bp)
 
     @app.get("/")
@@ -79,16 +76,8 @@ def create_app() -> Flask:
         if request.method == "GET":
             return render_template("register.html")
 
-        username = request.form.get(
-            "username",
-            "",
-        ).strip()
-
-        password = request.form.get(
-            "password",
-            "",
-        )
-
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
         display_name = request.form.get(
             "display_name",
             username,
@@ -161,15 +150,8 @@ def create_app() -> Flask:
         if request.method == "GET":
             return render_template("login.html")
 
-        username = request.form.get(
-            "username",
-            "",
-        ).strip()
-
-        password = request.form.get(
-            "password",
-            "",
-        )
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
 
         with get_connection() as db:
             player = db.execute(
@@ -203,19 +185,14 @@ def create_app() -> Flask:
     @app.get("/logout")
     def logout():
         logout_user()
-
-        return redirect(
-            url_for("index")
-        )
+        return redirect(url_for("index"))
 
     @app.get("/dashboard")
     def dashboard():
         player_id = current_player_id()
 
         if player_id is None:
-            return redirect(
-                url_for("login")
-            )
+            return redirect(url_for("login"))
 
         with get_connection() as db:
             player = db.execute(
@@ -227,16 +204,9 @@ def create_app() -> Flask:
                 (player_id,),
             ).fetchone()
 
-            # The session may contain a player ID that no longer
-            # exists in the database, for example after an account
-            # was deleted. Clear the stale session instead of
-            # attempting dict(None), which causes a 500 error.
             if player is None:
                 session.clear()
-
-                return redirect(
-                    url_for("login")
-                )
+                return redirect(url_for("login"))
 
             progress = db.execute(
                 """
@@ -247,28 +217,84 @@ def create_app() -> Flask:
                 (player_id,),
             ).fetchone()
 
-        pokemon = get_player_pokemon(
-            player_id
-        )
-
-        party = get_party(
-            player_id
-        )
-
-        # Only published articles are exposed to players.
+        pokemon = get_player_pokemon(player_id)
+        party = get_party(player_id)
         news_posts = get_published_news()
 
         return render_template(
             "dashboard.html",
             player=dict(player),
-            progress=(
-                dict(progress)
-                if progress
-                else {}
-            ),
+            progress=dict(progress) if progress else {},
             pokemon=pokemon,
             party=party,
             news_posts=news_posts,
+        )
+
+    @app.get("/profile")
+    def profile():
+        player_id = current_player_id()
+
+        if player_id is None:
+            return redirect(url_for("login"))
+
+        with get_connection() as db:
+            player = db.execute(
+                """
+                SELECT
+                    id,
+                    username,
+                    display_name,
+                    created_at,
+                    last_login
+                FROM players
+                WHERE id = ?
+                """,
+                (player_id,),
+            ).fetchone()
+
+            if player is None:
+                session.clear()
+                return redirect(url_for("login"))
+
+            progress = db.execute(
+                """
+                SELECT *
+                FROM player_progress
+                WHERE player_id = ?
+                """,
+                (player_id,),
+            ).fetchone()
+
+            pokemon_count = db.execute(
+                """
+                SELECT COUNT(*) AS count
+                FROM pokemon
+                WHERE owner_id = ?
+                """,
+                (player_id,),
+            ).fetchone()["count"]
+
+            party_count = db.execute(
+                """
+                SELECT COUNT(*) AS count
+                FROM pokemon
+                WHERE owner_id = ?
+                  AND is_active = 1
+                """,
+                (player_id,),
+            ).fetchone()["count"]
+
+        pokemon = get_player_pokemon(player_id)
+        party = get_party(player_id)
+
+        return render_template(
+            "profile.html",
+            player=dict(player),
+            progress=dict(progress) if progress else {},
+            pokemon=pokemon,
+            party=party,
+            pokemon_count=pokemon_count,
+            party_count=party_count,
         )
 
     @app.route("/starter", methods=["GET", "POST"])
@@ -276,9 +302,7 @@ def create_app() -> Flask:
         player_id = current_player_id()
 
         if player_id is None:
-            return redirect(
-                url_for("login")
-            )
+            return redirect(url_for("login"))
 
         if request.method == "GET":
             return render_template(
@@ -314,9 +338,7 @@ def create_app() -> Flask:
             ).fetchone()
 
         if existing:
-            return redirect(
-                url_for("dashboard")
-            )
+            return redirect(url_for("dashboard"))
 
         create_pokemon(
             owner_id=player_id,
@@ -345,9 +367,7 @@ def create_app() -> Flask:
 
             db.commit()
 
-        return redirect(
-            url_for("dashboard")
-        )
+        return redirect(url_for("dashboard"))
 
     @app.get("/api/me")
     def api_me():
@@ -375,7 +395,6 @@ def create_app() -> Flask:
                 (player_id,),
             ).fetchone()
 
-            # Treat a stale session as logged out.
             if player is None:
                 session.clear()
 
@@ -398,11 +417,9 @@ def create_app() -> Flask:
             {
                 "logged_in": True,
                 "player": dict(player),
-                "progress": (
-                    dict(progress)
-                    if progress
-                    else None
-                ),
+                "progress": dict(progress)
+                if progress
+                else None,
             }
         )
 
@@ -419,12 +436,8 @@ def create_app() -> Flask:
 
         return jsonify(
             {
-                "pokemon": get_player_pokemon(
-                    player_id
-                ),
-                "party": get_party(
-                    player_id
-                ),
+                "pokemon": get_player_pokemon(player_id),
+                "party": get_party(player_id),
             }
         )
 
@@ -439,15 +452,10 @@ def create_app() -> Flask:
                 }
             ), 401
 
-        data = request.get_json(
-            silent=True
-        ) or {}
+        data = request.get_json(silent=True) or {}
 
         species_id = str(
-            data.get(
-                "species_id",
-                "",
-            )
+            data.get("species_id", "")
         ).strip().lower()
 
         if not species_id:
@@ -457,9 +465,7 @@ def create_app() -> Flask:
                 }
             ), 400
 
-        if get_species(
-            species_id
-        ) is None:
+        if get_species(species_id) is None:
             return jsonify(
                 {
                     "error": "Unknown species.",
@@ -467,35 +473,17 @@ def create_app() -> Flask:
             ), 400
 
         try:
-            level = int(
-                data.get(
-                    "level",
-                    5,
-                )
-            )
-        except (
-            TypeError,
-            ValueError,
-        ):
+            level = int(data.get("level", 5))
+        except (TypeError, ValueError):
             level = 5
 
         variant = str(
-            data.get(
-                "variant",
-                "normal",
-            )
+            data.get("variant", "normal")
         ).strip().lower()
 
-        shiny = bool(
-            data.get(
-                "shiny",
-                False,
-            )
-        )
+        shiny = bool(data.get("shiny", False))
 
-        nickname = data.get(
-            "nickname"
-        )
+        nickname = data.get("nickname")
 
         try:
             pokemon = create_pokemon(
@@ -506,7 +494,6 @@ def create_app() -> Flask:
                 shiny=shiny,
                 nickname=nickname,
             )
-
         except ValueError as exc:
             return jsonify(
                 {
@@ -521,12 +508,8 @@ def create_app() -> Flask:
             }
         ), 201
 
-    @app.post(
-        "/api/pokemon/<int:pokemon_id>/party"
-    )
-    def api_party(
-        pokemon_id: int,
-    ):
+    @app.post("/api/pokemon/<int:pokemon_id>/party")
+    def api_party(pokemon_id: int):
         player_id = current_player_id()
 
         if player_id is None:
@@ -536,14 +519,8 @@ def create_app() -> Flask:
                 }
             ), 401
 
-        data = request.get_json(
-            silent=True
-        ) or {}
-
-        action = data.get(
-            "action",
-            "add",
-        )
+        data = request.get_json(silent=True) or {}
+        action = data.get("action", "add")
 
         if action == "remove":
             success = remove_from_party(
@@ -567,9 +544,7 @@ def create_app() -> Flask:
         return jsonify(
             {
                 "success": True,
-                "party": get_party(
-                    player_id
-                ),
+                "party": get_party(player_id),
             }
         )
 
