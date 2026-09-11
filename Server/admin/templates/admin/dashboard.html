@@ -1,225 +1,162 @@
-{% extends "admin/base.html" %}
+{% extends "base.html" %}
 
-{% block title %}Admin Dashboard{% endblock %}
-
-{% block page_heading %}
-    Admin Dashboard
-{% endblock %}
+{% block title %}Dashboard{% endblock %}
 
 {% block content %}
 
-<div class="admin-page-header">
-    <div>
-        <h1>Admin Dashboard</h1>
-        <p class="admin-page-description">
-            Manage Krampus RPG players, Pokémon, items, quests, events, and staff systems.
-        </p>
-    </div>
-</div>
+<div class="dashboard-page">
 
-{% include "admin/components/stat_card.html" with context %}
+    <!-- YOUR ADVENTURE -->
+    <section class="card adventure-card">
 
-<section class="admin-section">
-
-    <div class="admin-section-header">
-        <div>
-            <h2>Game Overview</h2>
-            <p>Current database totals.</p>
-        </div>
-    </div>
-
-    <div class="admin-stats-grid">
-
-        <div class="admin-stat-card">
-            <div class="admin-stat-icon">👤</div>
-            <div class="admin-stat-content">
-                <div class="admin-stat-label">Players</div>
-                <div class="admin-stat-value">
-                    {{ stats.players|default(0) }}
-                </div>
-                <div class="admin-stat-description">
-                    Registered players
-                </div>
-            </div>
-        </div>
-
-        <div class="admin-stat-card">
-            <div class="admin-stat-icon">⚡</div>
-            <div class="admin-stat-content">
-                <div class="admin-stat-label">Pokémon</div>
-                <div class="admin-stat-value">
-                    {{ stats.pokemon|default(0) }}
-                </div>
-                <div class="admin-stat-description">
-                    Pokémon owned by players
-                </div>
-            </div>
-        </div>
-
-        <div class="admin-stat-card">
-            <div class="admin-stat-icon">🎒</div>
-            <div class="admin-stat-content">
-                <div class="admin-stat-label">Items</div>
-                <div class="admin-stat-value">
-                    {{ stats.items|default(0) }}
-                </div>
-                <div class="admin-stat-description">
-                    Item records
-                </div>
-            </div>
-        </div>
-
-        <div class="admin-stat-card">
-            <div class="admin-stat-icon">📜</div>
-            <div class="admin-stat-content">
-                <div class="admin-stat-label">Quests</div>
-                <div class="admin-stat-value">
-                    {{ stats.quests|default(0) }}
-                </div>
-                <div class="admin-stat-description">
-                    Available quests
-                </div>
-            </div>
-        </div>
-
-    </div>
-
-</section>
-
-<section class="admin-section">
-
-    <div class="admin-section-header">
-        <div>
-            <h2>Administration</h2>
-            <p>Quick access to the main management systems.</p>
-        </div>
-    </div>
-
-    <div class="admin-card-grid">
-
-        <a href="{{ url_for('admin.players') }}" class="admin-card admin-card-link">
-            <div class="admin-card-icon">👥</div>
-            <h3>Players</h3>
-            <p>
-                View and manage player accounts, roles, and player data.
-            </p>
-        </a>
-
-        <a href="{{ url_for('admin.pokemon') }}" class="admin-card admin-card-link">
-            <div class="admin-card-icon">🐉</div>
-            <h3>Pokémon</h3>
-            <p>
-                Inspect and manage Pokémon owned by players.
-            </p>
-        </a>
-
-        <a href="{{ url_for('admin.items') }}" class="admin-card admin-card-link">
-            <div class="admin-card-icon">🎒</div>
-            <h3>Items</h3>
-            <p>
-                Manage player inventory and item records.
-            </p>
-        </a>
-
-        <a href="{{ url_for('admin.quests') }}" class="admin-card admin-card-link">
-            <div class="admin-card-icon">📜</div>
-            <h3>Quests</h3>
-            <p>
-                Manage quests and quest requirements.
-            </p>
-        </a>
-
-        <a href="{{ url_for('admin.promos') }}" class="admin-card admin-card-link">
-            <div class="admin-card-icon">🎁</div>
-            <h3>Promotions</h3>
-            <p>
-                Create and manage promotional rewards.
-            </p>
-        </a>
-
-        <a href="{{ url_for('admin.events') }}" class="admin-card admin-card-link">
-            <div class="admin-card-icon">🎉</div>
-            <h3>Events</h3>
-            <p>
-                Manage special events and event schedules.
-            </p>
-        </a>
-
-        <a href="{{ url_for('admin.reports') }}" class="admin-card admin-card-link">
-            <div class="admin-card-icon">🚨</div>
-            <h3>Reports</h3>
-            <p>
-                Review player reports and moderation issues.
-            </p>
-        </a>
-
-        <a href="{{ url_for('admin.audit_log') }}" class="admin-card admin-card-link">
-            <div class="admin-card-icon">📋</div>
-            <h3>Audit Log</h3>
-            <p>
-                Review administrative actions and changes.
-            </p>
-        </a>
-
-        <a href="{{ url_for('admin.roles') }}" class="admin-card admin-card-link">
-            <div class="admin-card-icon">🛡️</div>
-            <h3>Roles & Permissions</h3>
-            <p>
-                Manage staff roles and permission assignments.
-            </p>
-        </a>
-
-        <a href="{{ url_for('admin.settings') }}" class="admin-card admin-card-link">
-            <div class="admin-card-icon">⚙️</div>
-            <h3>Settings</h3>
-            <p>
-                Manage server and game configuration.
-            </p>
-        </a>
-
-        <a href="{{ url_for('admin.database') }}" class="admin-card admin-card-link">
-            <div class="admin-card-icon">🗄️</div>
-            <h3>Database</h3>
-            <p>
-                Database status and maintenance tools.
-            </p>
-        </a>
-
-    </div>
-
-</section>
-
-<section class="admin-section">
-
-    <div class="admin-card">
-
-        <div class="admin-card-header">
+        <div class="card-header">
             <div>
-                <h2>Staff Session</h2>
-                <p>Current administrative account.</p>
+                <span class="section-kicker">KRAMPUS RPG</span>
+                <h1>Your Adventure</h1>
             </div>
         </div>
 
-        <div class="admin-info-list">
+        <div class="adventure-content">
 
-            <div class="admin-info-row">
-                <span class="admin-info-label">Player ID</span>
-                <span class="admin-info-value">
-                    #{{ session.get("player_id", "Unknown") }}
-                </span>
+            <h2>
+                Welcome, {{ player.display_name }} (#{{ player.id }})
+            </h2>
+
+            <p>
+                Your adventure in Krampus RPG begins here.
+            </p>
+
+            <p class="muted">
+                The world is waiting to be explored. Discover Pokémon,
+                uncover the mysteries of Krampus, and begin your journey.
+            </p>
+
+            <div class="adventure-location">
+                <span>Current Location</span>
+                <strong>
+                    {{ progress.current_region or "Unknown Region" }}
+                    ·
+                    {{ progress.current_area or "Unknown Area" }}
+                </strong>
             </div>
 
-            <div class="admin-info-row">
-                <span class="admin-info-label">Access</span>
-                <span class="admin-info-value admin-badge admin-badge-role">
-                    Administrative
-                </span>
+            <div class="adventure-actions">
+                <a href="#" class="button button-primary">
+                    Continue Adventure
+                </a>
             </div>
 
         </div>
 
-    </div>
+    </section>
 
-</section>
+
+    <!-- NEWS & UPDATES -->
+    <section class="card news-card">
+
+        <div class="card-header">
+            <div>
+                <span class="section-kicker">KRAMPUS RPG</span>
+                <h2>News &amp; Updates</h2>
+            </div>
+        </div>
+
+        <div class="news-content">
+
+            {% if news_posts is defined and news_posts %}
+
+                {% for post in news_posts %}
+
+                    <article class="news-post">
+
+                        <!-- ARTICLE TITLE -->
+                        <div class="news-post-header">
+
+                            <h3>{{ post.title }}</h3>
+
+                        </div>
+
+
+                        <!-- ARTICLE CONTENT -->
+                        <div class="news-post-content">
+                            {{ post.content|safe }}
+                        </div>
+
+
+                        <!-- ARTICLE INFORMATION -->
+                        <div class="news-post-meta">
+
+                            {% if post.author_name is defined and post.author_name %}
+                                <span class="news-author">
+                                    Posted by <strong>{{ post.author_name }}</strong>
+                                </span>
+                            {% endif %}
+
+                            {% if post.created_at is defined and post.created_at %}
+                                <time
+                                    class="news-date"
+                                    datetime="{{ post.created_at }}"
+                                >
+                                    {{ post.created_at }}
+                                </time>
+                            {% endif %}
+
+                        </div>
+
+
+                        <!-- UPDATED INFORMATION -->
+                        {% if post.updated_at is defined
+                              and post.updated_at
+                              and post.updated_at != post.created_at %}
+
+                            <div class="news-updated">
+                                Updated: {{ post.updated_at }}
+                            </div>
+
+                        {% endif %}
+
+                    </article>
+
+                {% endfor %}
+
+            {% else %}
+
+                <article class="news-post">
+
+                    <div class="news-empty">
+
+                        <div class="news-empty-icon">
+                            ❄
+                        </div>
+
+                        <div>
+
+                            <h3>
+                                Welcome to Krampus RPG
+                            </h3>
+
+                            <p>
+                                The world is frozen, mysterious Pokémon are
+                                appearing, and your adventure is just beginning.
+                            </p>
+
+                            <p>
+                                Check back here for development updates,
+                                events, announcements, and world news.
+                            </p>
+
+                        </div>
+
+                    </div>
+
+                </article>
+
+            {% endif %}
+
+        </div>
+
+    </section>
+
+</div>
 
 {% endblock %}

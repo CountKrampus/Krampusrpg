@@ -5,9 +5,31 @@ Central administrative dashboard and staff-management routes.
 
 The admin system is organized around permissions rather than
 a simple "is_admin" flag.
+
+News management is restricted to Webmaster accounts.
 """
 
-from flask import Blueprint, render_template
+from functools import wraps
+
+from flask import (
+    Blueprint,
+    abort,
+    render_template,
+    request,
+    session,
+    redirect,
+    url_for,
+)
+
+from ..database import get_connection
+from ..news import (
+    ensure_news_table,
+    create_news_post,
+    delete_news_post,
+    get_all_news,
+    get_news_post,
+    update_news_post,
+)
 
 from .decorators import (
     dashboard_required,
@@ -41,6 +63,11 @@ from .decorators import (
     database_required,
 )
 
+from .permissions import (
+    ROLE_WEBMASTER,
+    get_player_role,
+)
+
 from .services import (
     get_dashboard_stats,
     get_players,
@@ -65,6 +92,81 @@ admin_bp = Blueprint(
     static_folder="static",
     static_url_path="/static",
 )
+
+
+# ============================================================
+# WEBMASTER HELPERS
+# ============================================================
+
+def webmaster_required(func):
+    """
+    Restrict a route to Webmaster accounts only.
+
+    This is intentionally separate from normal permission checks.
+    News management is explicitly Webmaster-only.
+    """
+
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+
+        player_id = session.get(
+            "player_id"
+        )
+
+        if player_id is None:
+            abort(403)
+
+        with get_connection() as db:
+            role_name = get_player_role(
+                db,
+                int(player_id),
+            )
+
+        if role_name != ROLE_WEBMASTER:
+            abort(403)
+
+        return func(
+            *args,
+            **kwargs,
+        )
+
+    return wrapper
+
+
+@admin_bp.app_template_global(
+    "current_user_is_webmaster"
+)
+def current_user_is_webmaster():
+    """
+    Return True when the current logged-in account is Webmaster.
+
+    Used only to control visibility of Webmaster-only admin
+    navigation. Routes remain protected server-side.
+    """
+
+    player_id = session.get(
+        "player_id"
+    )
+
+    if player_id is None:
+        return False
+
+    try:
+        player_id = int(player_id)
+    except (
+        TypeError,
+        ValueError,
+    ):
+        return False
+
+    with get_connection() as db:
+        return (
+            get_player_role(
+                db,
+                player_id,
+            )
+            == ROLE_WEBMASTER
+        )
 
 
 # ============================================================
@@ -243,8 +345,6 @@ def promos():
 def promos_edit():
     """
     Create/edit daily promotions.
-
-    The Daily Promo system will be implemented separately.
     """
 
     return render_template(
@@ -273,8 +373,6 @@ def events():
 def events_edit():
     """
     Create/edit events.
-
-    Event functionality will be implemented separately.
     """
 
     return render_template(
@@ -367,4 +465,189 @@ def database():
 
     return render_template(
         "admin/database.html"
+    )
+
+
+# ============================================================
+# NEWS
+# WEBMASTER ONLY
+# ============================================================
+
+@admin_bp.route("/news")
+@webmaster_required
+def news():
+    """
+    Webmaster news management.
+    """
+
+    ensure_news_table()
+
+    posts = get_all_news()
+
+    return render_template(
+        "admin/news.html",
+        posts=posts,
+    )
+
+
+@admin_bp.route(
+    "/news/create",
+    methods=["GET", "POST"],
+)
+@webmaster_required
+def news_create():
+    """
+    Create a new news article.
+    """
+
+    ensure_news_table()
+
+    if request.method == "GET":
+        return render_template(
+            "admin/news.html",
+            posts=get_all_news(),
+            editing=None,
+            create_mode=True,
+        )
+
+    title = request.form.get(
+        "title",
+        "",
+    )
+
+    content = request.form.get(
+        "content",
+        "",
+    )
+
+    published = (
+        request.form.get(
+            "published"
+        )
+        == "1"
+    )
+
+    player_id = session.get(
+        "player_id"
+    )
+
+    try:
+        create_news_post(
+            title=title,
+            content=content,
+            author_id=int(player_id),
+            published=published,
+        )
+
+    except ValueError as exc:
+        return render_template(
+            "admin/news.html",
+            posts=get_all_news(),
+            editing={
+                "title": title,
+                "content": content,
+                "published": published,
+            },
+            create_mode=True,
+            error=str(exc),
+        )
+
+    return redirect(
+        url_for("admin.news")
+    )
+
+
+@admin_bp.route(
+    "/news/edit/<int:post_id>",
+    methods=["GET", "POST"],
+)
+@webmaster_required
+def news_edit(post_id: int):
+    """
+    Edit an existing news article.
+    """
+
+    ensure_news_table()
+
+    post = get_news_post(
+        post_id
+    )
+
+    if post is None:
+        abort(404)
+
+    if request.method == "GET":
+        return render_template(
+            "admin/news.html",
+            posts=get_all_news(),
+            editing=post,
+            create_mode=False,
+        )
+
+    title = request.form.get(
+        "title",
+        "",
+    )
+
+    content = request.form.get(
+        "content",
+        "",
+    )
+
+    published = (
+        request.form.get(
+            "published"
+        )
+        == "1"
+    )
+
+    try:
+        success = update_news_post(
+            post_id=post_id,
+            title=title,
+            content=content,
+            published=published,
+        )
+
+    except ValueError as exc:
+        editing = dict(post)
+        editing["title"] = title
+        editing["content"] = content
+        editing["published"] = (
+            1 if published else 0
+        )
+
+        return render_template(
+            "admin/news.html",
+            posts=get_all_news(),
+            editing=editing,
+            create_mode=False,
+            error=str(exc),
+        )
+
+    if not success:
+        abort(404)
+
+    return redirect(
+        url_for("admin.news")
+    )
+
+
+@admin_bp.post(
+    "/news/delete/<int:post_id>"
+)
+@webmaster_required
+def news_delete(post_id: int):
+    """
+    Delete a news article.
+    """
+
+    ensure_news_table()
+
+    delete_news_post(
+        post_id
+    )
+
+    return redirect(
+        url_for("admin.news")
     )

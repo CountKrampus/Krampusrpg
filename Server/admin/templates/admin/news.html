@@ -1,0 +1,294 @@
+{% extends "admin/base.html" %}
+
+{% block title %}News{% endblock %}
+
+{% block page_heading %}
+News Management
+{% endblock %}
+
+{% block content %}
+
+<div class="admin-page">
+
+    <div class="admin-page-header">
+
+        <div>
+            <h1>News Management</h1>
+
+            <p>
+                Webmaster-only management of Krampus RPG news.
+            </p>
+        </div>
+
+        <div>
+            <a
+                href="{{ url_for('admin.news_create') }}"
+                class="admin-button"
+            >
+                + Create Article
+            </a>
+        </div>
+
+    </div>
+
+
+    {% if error %}
+
+    <div class="admin-alert admin-alert-error">
+        {{ error }}
+    </div>
+
+    {% endif %}
+
+
+    {% if create_mode or editing %}
+
+    <section class="admin-card">
+
+        <div class="admin-card-header">
+
+            <h2>
+                {% if create_mode %}
+                    Create Article
+                {% else %}
+                    Edit Article
+                {% endif %}
+            </h2>
+
+        </div>
+
+
+        <form
+            method="post"
+            action="{% if create_mode %}
+                {{ url_for('admin.news_create') }}
+            {% else %}
+                {{ url_for('admin.news_edit', post_id=editing.id) }}
+            {% endif %}"
+            class="admin-form"
+        >
+
+            <div class="admin-form-group">
+
+                <label for="title">
+                    Title
+                </label>
+
+                <input
+                    type="text"
+                    id="title"
+                    name="title"
+                    value="{{ editing.title if editing else '' }}"
+                    required
+                    maxlength="200"
+                >
+
+            </div>
+
+
+            <div class="admin-form-group">
+
+                <label for="content">
+                    Article Content
+                </label>
+
+                <textarea
+                    id="content"
+                    name="content"
+                    rows="16"
+                    required
+                >{{ editing.content if editing else '' }}</textarea>
+
+                <small>
+                    HTML can be used for formatting.
+                    Only trusted Webmaster accounts can edit this field.
+                </small>
+
+            </div>
+
+
+            <div class="admin-form-group">
+
+                <label>
+
+                    <input
+                        type="checkbox"
+                        name="published"
+                        value="1"
+                        {% if editing and editing.published %}
+                            checked
+                        {% elif create_mode and editing and editing.published %}
+                            checked
+                        {% endif %}
+                    >
+
+                    Publish this article
+
+                </label>
+
+            </div>
+
+
+            <div class="admin-form-actions">
+
+                <button
+                    type="submit"
+                    class="admin-button"
+                >
+                    {% if create_mode %}
+                        Create Article
+                    {% else %}
+                        Save Changes
+                    {% endif %}
+                </button>
+
+                <a
+                    href="{{ url_for('admin.news') }}"
+                    class="admin-button admin-button-secondary"
+                >
+                    Cancel
+                </a>
+
+            </div>
+
+        </form>
+
+    </section>
+
+    {% endif %}
+
+
+    <section class="admin-card">
+
+        <div class="admin-card-header">
+
+            <h2>
+                Articles
+            </h2>
+
+        </div>
+
+
+        {% if posts %}
+
+        <div class="admin-table-wrapper">
+
+            <table class="admin-table">
+
+                <thead>
+
+                    <tr>
+                        <th>ID</th>
+                        <th>Title</th>
+                        <th>Author</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+
+                </thead>
+
+
+                <tbody>
+
+                    {% for post in posts %}
+
+                    <tr>
+
+                        <td>
+                            #{{ post.id }}
+                        </td>
+
+                        <td>
+                            <strong>
+                                {{ post.title }}
+                            </strong>
+                        </td>
+
+                        <td>
+                            {{ post.author_name or "Unknown" }}
+                        </td>
+
+                        <td>
+
+                            {% if post.published %}
+
+                            <span class="admin-status admin-status-success">
+                                Published
+                            </span>
+
+                            {% else %}
+
+                            <span class="admin-status">
+                                Draft
+                            </span>
+
+                            {% endif %}
+
+                        </td>
+
+                        <td>
+                            {{ post.created_at }}
+                        </td>
+
+                        <td>
+
+                            <a
+                                href="{{ url_for('admin.news_edit', post_id=post.id) }}"
+                                class="admin-button admin-button-small"
+                            >
+                                Edit
+                            </a>
+
+                            <form
+                                method="post"
+                                action="{{ url_for('admin.news_delete', post_id=post.id) }}"
+                                style="display: inline;"
+                                onsubmit="return confirm('Delete this news article?');"
+                            >
+
+                                <button
+                                    type="submit"
+                                    class="admin-button admin-button-small admin-button-danger"
+                                >
+                                    Delete
+                                </button>
+
+                            </form>
+
+                        </td>
+
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+        {% else %}
+
+        <div class="admin-empty">
+
+            <p>
+                No news articles exist yet.
+            </p>
+
+            <a
+                href="{{ url_for('admin.news_create') }}"
+                class="admin-button"
+            >
+                Create the First Article
+            </a>
+
+        </div>
+
+        {% endif %}
+
+    </section>
+
+</div>
+
+{% endblock %}

@@ -36,9 +36,11 @@
                 </div>
             </div>
 
+
             <nav class="admin-navigation">
 
                 <div class="admin-nav-section">
+
                     <div class="admin-nav-heading">
                         Overview
                     </div>
@@ -49,9 +51,12 @@
                     >
                         <span>Dashboard</span>
                     </a>
+
                 </div>
 
+
                 <div class="admin-nav-section">
+
                     <div class="admin-nav-heading">
                         Management
                     </div>
@@ -83,9 +88,12 @@
                     >
                         <span>Quests</span>
                     </a>
+
                 </div>
 
+
                 <div class="admin-nav-section">
+
                     <div class="admin-nav-heading">
                         Events
                     </div>
@@ -103,9 +111,32 @@
                     >
                         <span>Events</span>
                     </a>
+
                 </div>
 
+
+                {% if current_user_is_webmaster() %}
+
                 <div class="admin-nav-section">
+
+                    <div class="admin-nav-heading">
+                        Webmaster
+                    </div>
+
+                    <a
+                        href="{{ url_for('admin.news') }}"
+                        class="admin-nav-link {% if request.endpoint in ['admin.news', 'admin.news_create', 'admin.news_edit'] %}active{% endif %}"
+                    >
+                        <span>News</span>
+                    </a>
+
+                </div>
+
+                {% endif %}
+
+
+                <div class="admin-nav-section">
+
                     <div class="admin-nav-heading">
                         Moderation
                     </div>
@@ -123,9 +154,12 @@
                     >
                         <span>Audit Log</span>
                     </a>
+
                 </div>
 
+
                 <div class="admin-nav-section">
+
                     <div class="admin-nav-heading">
                         System
                     </div>
@@ -134,7 +168,7 @@
                         href="{{ url_for('admin.roles') }}"
                         class="admin-nav-link {% if request.endpoint == 'admin.roles' %}active{% endif %}"
                     >
-                        <span>Roles & Permissions</span>
+                        <span>Roles &amp; Permissions</span>
                     </a>
 
                     <a
@@ -150,17 +184,21 @@
                     >
                         <span>Database</span>
                     </a>
+
                 </div>
 
             </nav>
 
+
             <div class="admin-sidebar-footer">
+
                 <a
                     href="{{ url_for('dashboard') }}"
                     class="admin-nav-link"
                 >
                     ← Return to Game
                 </a>
+
             </div>
 
         </aside>
@@ -171,6 +209,7 @@
             <header class="admin-navbar">
 
                 <div class="admin-navbar-left">
+
                     <button
                         type="button"
                         class="admin-menu-toggle"
@@ -183,14 +222,18 @@
                     <span class="admin-navbar-title">
                         {% block page_heading %}{% endblock %}
                     </span>
+
                 </div>
+
 
                 <div class="admin-navbar-right">
 
                     {% if session.get("player_id") %}
+
                     <span class="admin-user">
                         Staff Account #{{ session.get("player_id") }}
                     </span>
+
                     {% endif %}
 
                 </div>
@@ -201,22 +244,30 @@
             <div class="admin-content">
 
                 {% block alerts %}
+
                 {% with messages = get_flashed_messages(with_categories=true) %}
+
                     {% if messages %}
-                        <div class="admin-alerts">
 
-                            {% for category, message in messages %}
-                            <div
-                                class="admin-alert admin-alert-{{ category }}"
-                                role="alert"
-                            >
-                                {{ message }}
-                            </div>
-                            {% endfor %}
+                    <div class="admin-alerts">
 
+                        {% for category, message in messages %}
+
+                        <div
+                            class="admin-alert admin-alert-{{ category }}"
+                            role="alert"
+                        >
+                            {{ message }}
                         </div>
+
+                        {% endfor %}
+
+                    </div>
+
                     {% endif %}
+
                 {% endwith %}
+
                 {% endblock %}
 
 
