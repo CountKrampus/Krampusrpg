@@ -1,162 +1,353 @@
-{% extends "base.html" %}
+{% extends "admin/base.html" %}
 
-{% block title %}Dashboard{% endblock %}
+{% block title %}Admin Dashboard{% endblock %}
+
+{% block page_heading %}Dashboard{% endblock %}
 
 {% block content %}
 
-<div class="dashboard-page">
+<div class="admin-page-header"><div>
+    <h1>Admin Dashboard</h1>
+    <p class="admin-subtitle">
+        Krampus RPG staff control panel and game administration.
+    </p>
+</div>
 
-    <!-- YOUR ADVENTURE -->
-    <section class="card adventure-card">
+</div><!-- DATABASE OVERVIEW --><section class="admin-section"><div class="admin-section-header">
 
-        <div class="card-header">
-            <div>
-                <span class="section-kicker">KRAMPUS RPG</span>
-                <h1>Your Adventure</h1>
-            </div>
-        </div>
-
-        <div class="adventure-content">
-
-            <h2>
-                Welcome, {{ player.display_name }} (#{{ player.id }})
-            </h2>
-
-            <p>
-                Your adventure in Krampus RPG begins here.
-            </p>
-
-            <p class="muted">
-                The world is waiting to be explored. Discover Pokémon,
-                uncover the mysteries of Krampus, and begin your journey.
-            </p>
-
-            <div class="adventure-location">
-                <span>Current Location</span>
-                <strong>
-                    {{ progress.current_region or "Unknown Region" }}
-                    ·
-                    {{ progress.current_area or "Unknown Area" }}
-                </strong>
-            </div>
-
-            <div class="adventure-actions">
-                <a href="#" class="button button-primary">
-                    Continue Adventure
-                </a>
-            </div>
-
-        </div>
-
-    </section>
-
-
-    <!-- NEWS & UPDATES -->
-    <section class="card news-card">
-
-        <div class="card-header">
-            <div>
-                <span class="section-kicker">KRAMPUS RPG</span>
-                <h2>News &amp; Updates</h2>
-            </div>
-        </div>
-
-        <div class="news-content">
-
-            {% if news_posts is defined and news_posts %}
-
-                {% for post in news_posts %}
-
-                    <article class="news-post">
-
-                        <!-- ARTICLE TITLE -->
-                        <div class="news-post-header">
-
-                            <h3>{{ post.title }}</h3>
-
-                        </div>
-
-
-                        <!-- ARTICLE CONTENT -->
-                        <div class="news-post-content">
-                            {{ post.content|safe }}
-                        </div>
-
-
-                        <!-- ARTICLE INFORMATION -->
-                        <div class="news-post-meta">
-
-                            {% if post.author_name is defined and post.author_name %}
-                                <span class="news-author">
-                                    Posted by <strong>{{ post.author_name }}</strong>
-                                </span>
-                            {% endif %}
-
-                            {% if post.created_at is defined and post.created_at %}
-                                <time
-                                    class="news-date"
-                                    datetime="{{ post.created_at }}"
-                                >
-                                    {{ post.created_at }}
-                                </time>
-                            {% endif %}
-
-                        </div>
-
-
-                        <!-- UPDATED INFORMATION -->
-                        {% if post.updated_at is defined
-                              and post.updated_at
-                              and post.updated_at != post.created_at %}
-
-                            <div class="news-updated">
-                                Updated: {{ post.updated_at }}
-                            </div>
-
-                        {% endif %}
-
-                    </article>
-
-                {% endfor %}
-
-            {% else %}
-
-                <article class="news-post">
-
-                    <div class="news-empty">
-
-                        <div class="news-empty-icon">
-                            ❄
-                        </div>
-
-                        <div>
-
-                            <h3>
-                                Welcome to Krampus RPG
-                            </h3>
-
-                            <p>
-                                The world is frozen, mysterious Pokémon are
-                                appearing, and your adventure is just beginning.
-                            </p>
-
-                            <p>
-                                Check back here for development updates,
-                                events, announcements, and world news.
-                            </p>
-
-                        </div>
-
-                    </div>
-
-                </article>
-
-            {% endif %}
-
-        </div>
-
-    </section>
+    <div>
+        <h2>Database Overview</h2>
+        <p>
+            Current statistics from the Krampus RPG database.
+        </p>
+    </div>
 
 </div>
 
-{% endblock %}
+
+<div class="admin-table-container">
+
+    <table class="admin-table">
+
+        <thead>
+            <tr>
+                <th>System</th>
+                <th>Total</th>
+                <th>Management</th>
+            </tr>
+        </thead>
+
+        <tbody>
+
+            <tr>
+                <td>
+                    <strong>Players</strong>
+                </td>
+
+                <td>
+                    {{ stats.players|default(0) }}
+                </td>
+
+                <td>
+                    <a
+                        class="admin-button admin-button-small"
+                        href="{{ url_for('admin.players') }}"
+                    >
+                        Manage Players
+                    </a>
+                </td>
+            </tr>
+
+
+            <tr>
+                <td>
+                    <strong>Pokémon</strong>
+                </td>
+
+                <td>
+                    {{ stats.pokemon|default(0) }}
+                </td>
+
+                <td>
+                    <a
+                        class="admin-button admin-button-small"
+                        href="{{ url_for('admin.pokemon') }}"
+                    >
+                        Manage Pokémon
+                    </a>
+                </td>
+            </tr>
+
+
+            <tr>
+                <td>
+                    <strong>Player Inventory Records</strong>
+                </td>
+
+                <td>
+                    {{ stats.items|default(0) }}
+                </td>
+
+                <td>
+                    <a
+                        class="admin-button admin-button-small"
+                        href="{{ url_for('admin.items') }}"
+                    >
+                        Manage Items
+                    </a>
+                </td>
+            </tr>
+
+
+            <tr>
+                <td>
+                    <strong>Quests</strong>
+                </td>
+
+                <td>
+                    {{ stats.quests|default(0) }}
+                </td>
+
+                <td>
+                    <a
+                        class="admin-button admin-button-small"
+                        href="{{ url_for('admin.quests') }}"
+                    >
+                        Manage Quests
+                    </a>
+                </td>
+            </tr>
+
+        </tbody>
+
+    </table>
+
+</div>
+
+</section><!-- GAME MANAGEMENT --><section class="admin-section"><div class="admin-section-header">
+
+    <div>
+        <h2>Game Management</h2>
+        <p>
+            Manage live game content and player-facing systems.
+        </p>
+    </div>
+
+</div>
+
+
+<div class="admin-table-container">
+
+    <table class="admin-table">
+
+        <thead>
+            <tr>
+                <th>System</th>
+                <th>Description</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+
+        <tbody>
+
+            <tr>
+                <td>
+                    <strong>Daily Promos</strong>
+                </td>
+
+                <td>
+                    Manage limited-time Pokémon promotions and daily claims.
+                </td>
+
+                <td>
+                    <a
+                        class="admin-button admin-button-small"
+                        href="{{ url_for('admin.promos') }}"
+                    >
+                        Open
+                    </a>
+                </td>
+            </tr>
+
+
+            <tr>
+                <td>
+                    <strong>Events</strong>
+                </td>
+
+                <td>
+                    Manage special events and temporary game content.
+                </td>
+
+                <td>
+                    <a
+                        class="admin-button admin-button-small"
+                        href="{{ url_for('admin.events') }}"
+                    >
+                        Open
+                    </a>
+                </td>
+            </tr>
+
+
+            <tr>
+                <td>
+                    <strong>Reports</strong>
+                </td>
+
+                <td>
+                    Review player and moderation reports.
+                </td>
+
+                <td>
+                    <a
+                        class="admin-button admin-button-small"
+                        href="{{ url_for('admin.reports') }}"
+                    >
+                        Open
+                    </a>
+                </td>
+            </tr>
+
+
+            <tr>
+                <td>
+                    <strong>Audit Log</strong>
+                </td>
+
+                <td>
+                    Review administrative actions and system changes.
+                </td>
+
+                <td>
+                    <a
+                        class="admin-button admin-button-small"
+                        href="{{ url_for('admin.audit_log') }}"
+                    >
+                        Open
+                    </a>
+                </td>
+            </tr>
+
+        </tbody>
+
+    </table>
+
+</div>
+
+</section><!-- SYSTEM ADMINISTRATION --><section class="admin-section"><div class="admin-section-header">
+
+    <div>
+        <h2>System Administration</h2>
+        <p>
+            Configure staff access and core administrative settings.
+        </p>
+    </div>
+
+</div>
+
+
+<div class="admin-table-container">
+
+    <table class="admin-table">
+
+        <thead>
+            <tr>
+                <th>System</th>
+                <th>Description</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+
+        <tbody>
+
+            <tr>
+                <td>
+                    <strong>Roles &amp; Permissions</strong>
+                </td>
+
+                <td>
+                    Manage administrative roles and permissions.
+                </td>
+
+                <td>
+                    <a
+                        class="admin-button admin-button-small"
+                        href="{{ url_for('admin.roles') }}"
+                    >
+                        Open
+                    </a>
+                </td>
+            </tr>
+
+
+            <tr>
+                <td>
+                    <strong>Site Settings</strong>
+                </td>
+
+                <td>
+                    Configure Krampus RPG administrative settings.
+                </td>
+
+                <td>
+                    <a
+                        class="admin-button admin-button-small"
+                        href="{{ url_for('admin.settings') }}"
+                    >
+                        Open
+                    </a>
+                </td>
+            </tr>
+
+
+            <tr>
+                <td>
+                    <strong>Database</strong>
+                </td>
+
+                <td>
+                    Access database administration tools.
+                </td>
+
+                <td>
+                    <a
+                        class="admin-button admin-button-small"
+                        href="{{ url_for('admin.database') }}"
+                    >
+                        Open
+                    </a>
+                </td>
+            </tr>
+
+
+            {% if current_user_is_webmaster() %}
+
+            <tr>
+                <td>
+                    <strong>News Management</strong>
+                </td>
+
+                <td>
+                    Create, edit, publish, and delete Krampus RPG news.
+                </td>
+
+                <td>
+                    <a
+                        class="admin-button admin-button-small"
+                        href="{{ url_for('admin.news') }}"
+                    >
+                        Open
+                    </a>
+                </td>
+            </tr>
+
+            {% endif %}
+
+        </tbody>
+
+    </table>
+
+</div>
+
+</section>{% endblock %}
