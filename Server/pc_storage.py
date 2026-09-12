@@ -4,7 +4,6 @@ import sqlite3
 from typing import Any
 
 from .database import get_connection
-from .pokemon_catalog import ensure_catalog_schema
 from .party_storage import (
     MAX_PARTY_SIZE,
     ensure_party_schema,
@@ -55,13 +54,11 @@ def ensure_pc_schema(
     db: sqlite3.Connection | None = None,
 ) -> None:
     if db is not None:
-        ensure_catalog_schema(db)
         ensure_party_schema(db)
         db.executescript(PC_SCHEMA)
         return
 
     with get_connection() as connection:
-        ensure_catalog_schema(connection)
         ensure_party_schema(connection)
         connection.executescript(PC_SCHEMA)
         connection.commit()
@@ -815,7 +812,7 @@ def search_pc(
             """
             (
                 LOWER(COALESCE(p.nickname, '')) LIKE ?
-                OR LOWER(COALESCE(c.name, '')) LIKE ?
+                OR LOWER(COALESCE(s.name, '')) LIKE ?
                 OR LOWER(COALESCE(p.species_id, '')) LIKE ?
             )
             """
@@ -843,20 +840,19 @@ def search_pc(
     if pokemon_type:
         conditions.append(
             """
-            (
-                LOWER(COALESCE(c.type_1, '')) = ?
-                OR LOWER(COALESCE(c.type_2, '')) = ?
+            EXISTS (
+                SELECT 1
+                FROM pokemon_species_types filter_st
+                INNER JOIN pokemon_types filter_t
+                    ON filter_t.id = filter_st.type_id
+                WHERE filter_st.species_id = p.species_id
+                  AND LOWER(filter_t.name) = ?
             )
             """
         )
 
-        type_value = pokemon_type.lower()
-
-        parameters.extend(
-            [
-                type_value,
-                type_value,
-            ]
+        parameters.append(
+            pokemon_type.lower()
         )
 
     where_clause = " AND ".join(
@@ -886,17 +882,23 @@ def search_pc(
             p.max_hp,
             p.status,
 
-            c.name AS species_name,
-            c.type_1,
-            c.type_2
+            s.name AS species_name,
+
+            (
+                SELECT GROUP_CONCAT(t.name, ', ')
+                FROM pokemon_species_types st
+                INNER JOIN pokemon_types t
+                    ON t.id = st.type_id
+                WHERE st.species_id = p.species_id
+            ) AS types
 
         FROM pc_storage pc
 
         INNER JOIN pokemon p
             ON p.id = pc.pokemon_id
 
-        LEFT JOIN pokemon_catalog c
-            ON CAST(c.species_id AS TEXT)
+        LEFT JOIN pokemon_species s
+            ON CAST(s.id AS TEXT)
              = CAST(p.species_id AS TEXT)
 
         WHERE {where_clause}
@@ -906,7 +908,36 @@ def search_pc(
         parameters,
     ).fetchall()
 
-    return [dict(row) for row in rows]
+    result = []
+
+    for row in rows:
+        item = dict(row)
+
+        item["type_1"] = None
+        item["type_2"] = None
+
+        type_rows = db.execute(
+            """
+            SELECT t.name
+            FROM pokemon_species_types st
+            INNER JOIN pokemon_types t
+                ON t.id = st.type_id
+            WHERE st.species_id = ?
+            ORDER BY st.slot
+            LIMIT 2
+            """,
+            (item["species_id"],),
+        ).fetchall()
+
+        if len(type_rows) >= 1:
+            item["type_1"] = type_rows[0]["name"]
+
+        if len(type_rows) >= 2:
+            item["type_2"] = type_rows[1]["name"]
+
+        result.append(item)
+
+    return result
 
 
 def get_pc_count(
@@ -937,14 +968,15 @@ def get_pc_search_filters(
 
     variants = db.execute(
         """
-        SELECT DISTINCT variant
+        SELECT DISTINCT
+            p.variant
         FROM pc_storage pc
         INNER JOIN pokemon p
             ON p.id = pc.pokemon_id
         WHERE pc.player_id = ?
           AND p.owner_id = ?
           AND COALESCE(p.variant, '') != ''
-        ORDER BY variant
+        ORDER BY p.variant
         """,
         (
             player_id,
@@ -954,42 +986,21 @@ def get_pc_search_filters(
 
     types = db.execute(
         """
-        SELECT DISTINCT type_name
-        FROM
-        (
-            SELECT
-                LOWER(c.type_1) AS type_name
-            FROM pc_storage pc
-            INNER JOIN pokemon p
-                ON p.id = pc.pokemon_id
-            INNER JOIN pokemon_catalog c
-                ON CAST(c.species_id AS TEXT)
-                 = CAST(p.species_id AS TEXT)
-            WHERE pc.player_id = ?
-              AND p.owner_id = ?
-              AND COALESCE(c.type_1, '') != ''
-
-            UNION
-
-            SELECT
-                LOWER(c.type_2) AS type_name
-            FROM pc_storage pc
-            INNER JOIN pokemon p
-                ON p.id = pc.pokemon_id
-            INNER JOIN pokemon_catalog c
-                ON CAST(c.species_id AS TEXT)
-                 = CAST(p.species_id AS TEXT)
-            WHERE pc.player_id = ?
-              AND p.owner_id = ?
-              AND COALESCE(c.type_2, '') != ''
-        )
-        WHERE type_name IS NOT NULL
-          AND type_name != ''
+        SELECT DISTINCT
+            LOWER(t.name) AS type_name
+        FROM pc_storage pc
+        INNER JOIN pokemon p
+            ON p.id = pc.pokemon_id
+        INNER JOIN pokemon_species_types st
+            ON st.species_id = p.species_id
+        INNER JOIN pokemon_types t
+            ON t.id = st.type_id
+        WHERE pc.player_id = ?
+          AND p.owner_id = ?
+          AND COALESCE(t.name, '') != ''
         ORDER BY type_name
         """,
         (
-            player_id,
-            player_id,
             player_id,
             player_id,
         ),

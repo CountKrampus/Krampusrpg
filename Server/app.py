@@ -314,9 +314,8 @@ def create_app() -> Flask:
             party_count = db.execute(
                 """
                 SELECT COUNT(*) AS count
-                FROM pokemon
-                WHERE owner_id = ?
-                  AND is_active = 1
+                FROM party
+                WHERE player_id = ?
                 """,
                 (player_id,),
             ).fetchone()["count"]

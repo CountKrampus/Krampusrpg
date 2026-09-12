@@ -1,817 +1,1097 @@
 from __future__ import annotations
 
-import json
+import argparse
 import sqlite3
+import sys
 from pathlib import Path
 
 
 # ============================================================
-# KRAMPUS RPG - CHANGE STARTER
+# PROJECT PATH
 # ============================================================
 
-PROJECT_DIR = Path(__file__).resolve().parent
+BASE_DIR = Path(__file__).resolve().parent
 
-DATABASE_PATH = (
-    PROJECT_DIR
-    / "instance"
-    / "krampus_rpg.sqlite3"
+
+# ============================================================
+# IMPORT PROJECT CODE
+# ============================================================
+
+if str(BASE_DIR) not in sys.path:
+    sys.path.insert(0, str(BASE_DIR))
+
+
+from Server.database import get_connection, init_db, seed_database
+from Server.party_storage import (
+    MAX_PARTY_SIZE,
+    ensure_party_schema,
+)
+from Server.pc_storage import (
+    ensure_pc_schema,
+    first_empty_slot,
 )
 
-DATA_DIR = (
-    PROJECT_DIR
-    / "Data"
-)
 
-SPRITES_DIR = (
-    PROJECT_DIR
-    / "Web"
-    / "static"
-    / "sprites"
-)
+# ============================================================
+# DEFAULT STARTERS
+# ============================================================
+
+DEFAULT_STARTERS = {
+    "bulbasaur": "Bulbasaur",
+    "charmander": "Charmander",
+    "squirtle": "Squirtle",
+}
 
 
 # ============================================================
-# VARIANT FUNCTIONS
+# HELPERS
 # ============================================================
 
-def get_all_variants() -> list[dict[str, str]]:
-    """Load the master variant list from Data/variants.json."""
+def normalize_species(value: str) -> str:
+    return value.strip().lower().replace(" ", "-")
 
-    variants_file = DATA_DIR / "variants.json"
-
-    if not variants_file.exists():
-        return []
-
-    try:
-        with variants_file.open(
-            "r",
-            encoding="utf-8",
-        ) as file:
-            data = json.load(file)
-
-    except (OSError, json.JSONDecodeError):
-        return []
-
-    if not isinstance(data, list):
-        return []
-
-    variants: list[dict[str, str]] = []
-
-    for item in data:
-
-        if not isinstance(item, dict):
-            continue
-
-        variant_id = str(
-            item.get("id", "")
-        ).strip()
-
-        name = str(
-            item.get("name", variant_id)
-        ).strip()
-
-        suffix = str(
-            item.get("suffix", "")
-        ).strip()
-
-        if not variant_id:
-            continue
-
-        variants.append(
-            {
-                "id": variant_id,
-                "name": name,
-                "suffix": suffix,
-            }
-        )
-
-    return variants
-
-
-# ============================================================
-# POKEMON FUNCTIONS
-# ============================================================
-
-def get_available_pokemon() -> list[str]:
-    """
-    Find all Pokémon folders in the variants directory.
-
-    These folders are used to determine which Pokémon have
-    custom variant sprites available.
-    """
-
-    variants_dir = (
-        SPRITES_DIR
-        / "variants"
-    )
-
-    if not variants_dir.exists():
-        return []
-
-    return sorted(
-        folder.name
-        for folder in variants_dir.iterdir()
-        if folder.is_dir()
-    )
-
-
-# ============================================================
-# SPRITE FUNCTIONS
-# ============================================================
-
-def find_sprite(
-    pokemon: str,
-    variant: str,
-) -> Path | None:
-    """
-    Find the actual game sprite.
-
-    Game naming convention:
-
-        <pokemon>-<variant>.png
-
-    Normal sprites use:
-
-        <pokemon>.png
-
-    Example:
-
-        gastly.png
-        gastly-undead.png
-        gastly-ruby.png
-    """
-
-    pokemon = pokemon.lower().strip()
-    variant = variant.lower().strip()
-
-    # --------------------------------------------------------
-    # Normal variant
-    # --------------------------------------------------------
-
-    if variant == "normal":
-
-        possible_files = [
-            SPRITES_DIR / f"{pokemon}.png",
-            SPRITES_DIR / f"{pokemon}-normal.png",
-        ]
-
-    # --------------------------------------------------------
-    # Other variants
-    # --------------------------------------------------------
-
-    else:
-
-        possible_files = [
-            SPRITES_DIR / f"{pokemon}-{variant}.png"
-        ]
-
-    for file in possible_files:
-
-        if file.is_file():
-            return file
-
-    return None
-
-
-def variant_has_sprite(
-    pokemon: str,
-    variant: str,
-) -> bool:
-    """Check whether a Pokémon has a sprite for a variant."""
-
-    return find_sprite(
-        pokemon,
-        variant,
-    ) is not None
-
-
-# ============================================================
-# DATABASE FUNCTIONS
-# ============================================================
 
 def get_player(
     db: sqlite3.Connection,
-) -> sqlite3.Row | None:
-    """Get the first player."""
-
+    username: str,
+):
     return db.execute(
         """
         SELECT *
         FROM players
-        ORDER BY id
+        WHERE LOWER(username) = LOWER(?)
         LIMIT 1
-        """
+        """,
+        (username,),
     ).fetchone()
 
 
-def get_starter(
+def get_pokemon_species(
+    db: sqlite3.Connection,
+) -> list[str]:
+    """
+    Read starter species from Data/pokemon.json through the
+    existing project data system when possible.
+
+    This function falls back to the original three starters.
+    """
+
+    try:
+        from Server.services import get_all_species
+
+        species = get_all_species()
+
+        result = []
+
+        for entry in species:
+            if not isinstance(entry, dict):
+                continue
+
+            species_id = entry.get("id")
+
+            if species_id is None:
+                species_id = entry.get("species_id")
+
+            name = entry.get("name")
+
+            if species_id is not None:
+                result.append(str(species_id))
+
+            elif name:
+                result.append(
+                    normalize_species(str(name))
+                )
+
+        if result:
+            return result
+
+    except Exception:
+        pass
+
+    return list(DEFAULT_STARTERS.keys())
+
+
+def pokemon_exists(
     db: sqlite3.Connection,
     player_id: int,
-) -> sqlite3.Row | None:
-    """Get the player's first Pokémon."""
-
-    return db.execute(
+) -> bool:
+    row = db.execute(
         """
-        SELECT *
+        SELECT 1
         FROM pokemon
         WHERE owner_id = ?
-        ORDER BY id
         LIMIT 1
         """,
         (player_id,),
     ).fetchone()
 
+    return row is not None
 
-# ============================================================
-# MAIN
-# ============================================================
 
-def main() -> None:
+def get_existing_pokemon(
+    db: sqlite3.Connection,
+    player_id: int,
+):
+    """
+    Return all Pokémon currently owned by the player.
 
-    print()
-    print("=" * 60)
-    print(" KRAMPUS RPG - CHANGE STARTER")
-    print("=" * 60)
-    print()
+    This intentionally does NOT use pokemon.is_active.
+    """
 
-    # --------------------------------------------------------
-    # Check database
-    # --------------------------------------------------------
+    rows = db.execute(
+        """
+        SELECT
+            id,
+            unique_id,
+            species_id,
+            nickname,
+            level,
+            experience,
+            gender,
+            shiny,
+            variant,
+            nature,
+            current_hp,
+            max_hp,
+            status
+        FROM pokemon
+        WHERE owner_id = ?
+        ORDER BY id
+        """,
+        (player_id,),
+    ).fetchall()
 
-    if not DATABASE_PATH.exists():
+    return rows
 
-        print("ERROR: Database was not found.")
-        print()
-        print("Expected:")
-        print(DATABASE_PATH)
-        print()
 
-        input("Press Enter to exit...")
-        return
+def get_party_pokemon(
+    db: sqlite3.Connection,
+    player_id: int,
+):
+    return db.execute(
+        """
+        SELECT
+            p.id,
+            p.unique_id,
+            p.species_id,
+            p.nickname,
+            p.level,
+            p.experience,
+            p.gender,
+            p.shiny,
+            p.variant,
+            p.current_hp,
+            p.max_hp,
+            party.slot
+        FROM party
+        INNER JOIN pokemon p
+            ON p.id = party.pokemon_id
+        WHERE party.player_id = ?
+        ORDER BY party.slot
+        """,
+        (player_id,),
+    ).fetchall()
 
-    print("Database found:")
-    print(DATABASE_PATH)
-    print()
 
-    # --------------------------------------------------------
-    # Check variant file
-    # --------------------------------------------------------
+def get_pc_pokemon(
+    db: sqlite3.Connection,
+    player_id: int,
+):
+    return db.execute(
+        """
+        SELECT
+            p.id,
+            p.unique_id,
+            p.species_id,
+            p.nickname,
+            p.level,
+            p.experience,
+            p.gender,
+            p.shiny,
+            p.variant,
+            p.current_hp,
+            p.max_hp,
+            pc.page,
+            pc.slot
+        FROM pc_storage pc
+        INNER JOIN pokemon p
+            ON p.id = pc.pokemon_id
+        WHERE pc.player_id = ?
+        ORDER BY pc.page, pc.slot
+        """,
+        (player_id,),
+    ).fetchall()
 
-    variants_file = (
-        DATA_DIR
-        / "variants.json"
+
+def get_pokemon_location(
+    db: sqlite3.Connection,
+    player_id: int,
+    pokemon_id: int,
+) -> str:
+    party = db.execute(
+        """
+        SELECT 1
+        FROM party
+        WHERE player_id = ?
+          AND pokemon_id = ?
+        LIMIT 1
+        """,
+        (
+            player_id,
+            pokemon_id,
+        ),
+    ).fetchone()
+
+    if party:
+        return "party"
+
+    pc = db.execute(
+        """
+        SELECT 1
+        FROM pc_storage
+        WHERE player_id = ?
+          AND pokemon_id = ?
+        LIMIT 1
+        """,
+        (
+            player_id,
+            pokemon_id,
+        ),
+    ).fetchone()
+
+    if pc:
+        return "pc"
+
+    return "unassigned"
+
+
+def add_pokemon_to_party(
+    db: sqlite3.Connection,
+    player_id: int,
+    pokemon_id: int,
+) -> int:
+    """
+    Add an existing Pokémon to the first open Party slot.
+
+    This is the new Party system.
+    """
+
+    current_count = db.execute(
+        """
+        SELECT COUNT(*) AS total
+        FROM party
+        WHERE player_id = ?
+        """,
+        (player_id,),
+    ).fetchone()
+
+    if int(current_count["total"]) >= MAX_PARTY_SIZE:
+        raise ValueError(
+            "The player's party is already full."
+        )
+
+    occupied = {
+        int(row["slot"])
+        for row in db.execute(
+            """
+            SELECT slot
+            FROM party
+            WHERE player_id = ?
+            """,
+            (player_id,),
+        ).fetchall()
+    }
+
+    party_slot = next(
+        (
+            slot
+            for slot in range(
+                1,
+                MAX_PARTY_SIZE + 1,
+            )
+            if slot not in occupied
+        ),
+        None,
     )
 
-    if not variants_file.exists():
+    if party_slot is None:
+        raise ValueError(
+            "No Party slot is available."
+        )
 
-        print("ERROR: Variant file was not found.")
-        print()
-        print("Expected:")
-        print(variants_file)
-        print()
+    existing = db.execute(
+        """
+        SELECT 1
+        FROM party
+        WHERE player_id = ?
+          AND pokemon_id = ?
+        LIMIT 1
+        """,
+        (
+            player_id,
+            pokemon_id,
+        ),
+    ).fetchone()
 
-        input("Press Enter to exit...")
-        return
+    if existing:
+        return party_slot
 
-    # --------------------------------------------------------
-    # Check sprite directory
-    # --------------------------------------------------------
-
-    if not SPRITES_DIR.exists():
-
-        print("ERROR: Sprite directory was not found.")
-        print()
-        print("Expected:")
-        print(SPRITES_DIR)
-        print()
-
-        input("Press Enter to exit...")
-        return
-
-    # --------------------------------------------------------
-    # Load variants
-    # --------------------------------------------------------
-
-    all_variants = get_all_variants()
-
-    if not all_variants:
-
-        print("ERROR: No variants were found.")
-        print()
-        print("Expected:")
-        print(variants_file)
-        print()
-
-        input("Press Enter to exit...")
-        return
-
-    # --------------------------------------------------------
-    # Connect
-    # --------------------------------------------------------
-
-    db = sqlite3.connect(
-        DATABASE_PATH
+    db.execute(
+        """
+        INSERT INTO party
+        (
+            player_id,
+            pokemon_id,
+            slot
+        )
+        VALUES (?, ?, ?)
+        """,
+        (
+            player_id,
+            pokemon_id,
+            party_slot,
+        ),
     )
 
-    db.row_factory = sqlite3.Row
+    return party_slot
 
-    try:
 
-        # ----------------------------------------------------
-        # Player
-        # ----------------------------------------------------
+def add_pokemon_to_pc(
+    db: sqlite3.Connection,
+    player_id: int,
+    pokemon_id: int,
+) -> tuple[int, int]:
+    """
+    Put an owned Pokémon into the first available PC slot.
+    """
 
-        player = get_player(db)
+    existing = db.execute(
+        """
+        SELECT page, slot
+        FROM pc_storage
+        WHERE player_id = ?
+          AND pokemon_id = ?
+        LIMIT 1
+        """,
+        (
+            player_id,
+            pokemon_id,
+        ),
+    ).fetchone()
 
-        if player is None:
-
-            print("ERROR: No players were found.")
-            print()
-
-            input("Press Enter to exit...")
-            return
-
-        player_id = int(
-            player["id"]
+    if existing:
+        return (
+            int(existing["page"]),
+            int(existing["slot"]),
         )
 
-        print("PLAYER")
-        print("-" * 60)
-        print(
-            f"Name : {player['display_name']}"
-        )
-        print(
-            f"ID   : {player_id}"
-        )
-        print()
+    page, slot = first_empty_slot(
+        db,
+        player_id,
+    )
 
-        # ----------------------------------------------------
-        # Current starter
-        # ----------------------------------------------------
+    db.execute(
+        """
+        INSERT INTO pc_storage
+        (
+            player_id,
+            pokemon_id,
+            page,
+            slot
+        )
+        VALUES (?, ?, ?, ?)
+        """,
+        (
+            player_id,
+            pokemon_id,
+            page,
+            slot,
+        ),
+    )
 
-        starter = get_starter(
+    return page, slot
+
+
+def remove_from_party(
+    db: sqlite3.Connection,
+    player_id: int,
+    pokemon_id: int,
+) -> None:
+    """
+    Move a Pokémon from Party to PC.
+
+    This is deliberately implemented here as a safety measure
+    for the recovery script. Nothing is deleted.
+    """
+
+    party_row = db.execute(
+        """
+        SELECT slot
+        FROM party
+        WHERE player_id = ?
+          AND pokemon_id = ?
+        LIMIT 1
+        """,
+        (
+            player_id,
+            pokemon_id,
+        ),
+    ).fetchone()
+
+    if party_row is None:
+        return
+
+    page, slot = add_pokemon_to_pc(
+        db,
+        player_id,
+        pokemon_id,
+    )
+
+    db.execute(
+        """
+        DELETE FROM party
+        WHERE player_id = ?
+          AND pokemon_id = ?
+        """,
+        (
+            player_id,
+            pokemon_id,
+        ),
+    )
+
+    print(
+        f"  Moved Pokémon #{pokemon_id} "
+        f"from Party to PC page {page}, slot {slot}."
+    )
+
+
+def remove_from_pc(
+    db: sqlite3.Connection,
+    player_id: int,
+    pokemon_id: int,
+) -> None:
+    db.execute(
+        """
+        DELETE FROM pc_storage
+        WHERE player_id = ?
+          AND pokemon_id = ?
+        """,
+        (
+            player_id,
+            pokemon_id,
+        ),
+    )
+
+
+# ============================================================
+# CREATE NEW STARTER
+# ============================================================
+
+def create_new_starter(
+    player_id: int,
+    species_id: str,
+    level: int = 5,
+) -> int:
+    """
+    Create a completely new starter using the project's
+    normal Pokémon creation system.
+
+    The Pokémon is immediately placed in Party.
+    """
+
+    from Server.services import create_pokemon
+
+    pokemon = create_pokemon(
+        owner_id=player_id,
+        species_id=species_id,
+        level=level,
+        shiny=False,
+        variant="normal",
+        nickname=None,
+    )
+
+    if not pokemon:
+        raise RuntimeError(
+            "The Pokémon could not be created."
+        )
+
+    if isinstance(pokemon, dict):
+        pokemon_id = pokemon.get("id")
+
+        if pokemon_id is None:
+            pokemon_id = pokemon.get("pokemon_id")
+    else:
+        pokemon_id = None
+
+    if pokemon_id is None:
+        raise RuntimeError(
+            "The Pokémon was created but its database ID "
+            "could not be determined."
+        )
+
+    pokemon_id = int(pokemon_id)
+
+    with get_connection() as db:
+        ensure_party_schema(db)
+        ensure_pc_schema(db)
+
+        add_pokemon_to_party(
             db,
             player_id,
-        )
-
-        if starter is None:
-
-            print(
-                "ERROR: This player does not have a Pokémon."
-            )
-            print()
-
-            input("Press Enter to exit...")
-            return
-
-        print("CURRENT STARTER")
-        print("-" * 60)
-        print(
-            f"Database ID : {starter['id']}"
-        )
-        print(
-            f"Species ID  : {starter['species_id']}"
-        )
-        print(
-            f"Level       : {starter['level']}"
-        )
-        print(
-            f"Nickname    : "
-            f"{starter['nickname'] or '(none)'}"
-        )
-        print(
-            f"Shiny       : "
-            f"{'Yes' if starter['shiny'] else 'No'}"
-        )
-        print(
-            f"Variant     : {starter['variant']}"
-        )
-        print()
-
-        # ----------------------------------------------------
-        # Pokémon list
-        # ----------------------------------------------------
-
-        pokemon_list = get_available_pokemon()
-
-        if not pokemon_list:
-
-            print(
-                "ERROR: No Pokémon folders were found in:"
-            )
-            print(
-                SPRITES_DIR / "variants"
-            )
-            print()
-
-            input("Press Enter to exit...")
-            return
-
-        print("AVAILABLE POKÉMON")
-        print("-" * 60)
-
-        for number, pokemon in enumerate(
-            pokemon_list,
-            start=1,
-        ):
-
-            print(
-                f"{number:3}. {pokemon}"
-            )
-
-        print()
-        print(
-            "Enter the Pokémon number or type its name."
-        )
-        print()
-
-        pokemon_input = input(
-            "Pokémon: "
-        ).strip()
-
-        if not pokemon_input:
-
-            print("Cancelled.")
-            return
-
-        # ----------------------------------------------------
-        # Pokémon selection
-        # ----------------------------------------------------
-
-        if pokemon_input.isdigit():
-
-            number = int(
-                pokemon_input
-            )
-
-            if (
-                number < 1
-                or number > len(pokemon_list)
-            ):
-
-                print(
-                    "ERROR: Invalid Pokémon number."
-                )
-
-                input(
-                    "Press Enter to exit..."
-                )
-
-                return
-
-            pokemon = pokemon_list[
-                number - 1
-            ]
-
-        else:
-
-            matches = [
-                name
-                for name in pokemon_list
-                if name.lower()
-                == pokemon_input.lower()
-            ]
-
-            if not matches:
-
-                print()
-                print(
-                    f"ERROR: Pokémon "
-                    f"'{pokemon_input}' was not found."
-                )
-                print()
-
-                input(
-                    "Press Enter to exit..."
-                )
-
-                return
-
-            pokemon = matches[0]
-
-        # ----------------------------------------------------
-        # Variant list
-        # ----------------------------------------------------
-
-        print()
-        print(
-            f"AVAILABLE VARIANTS FOR "
-            f"{pokemon.upper()}"
-        )
-        print("-" * 60)
-
-        available_variants: list[dict[str, str]] = []
-
-        for variant_data in all_variants:
-
-            variant_id = variant_data["id"]
-            variant_name = variant_data["name"]
-
-            sprite = find_sprite(
-                pokemon,
-                variant_id,
-            )
-
-            if sprite is None:
-                continue
-
-            available_variants.append(
-                variant_data
-            )
-
-        if not available_variants:
-
-            print()
-            print(
-                f"ERROR: No sprites were found for "
-                f"{pokemon}."
-            )
-            print()
-
-            input(
-                "Press Enter to exit..."
-            )
-
-            return
-
-        for number, variant_data in enumerate(
-            available_variants,
-            start=1,
-        ):
-
-            variant_id = variant_data["id"]
-            variant_name = variant_data["name"]
-
-            print(
-                f"{number:3}. "
-                f"{variant_name} "
-                f"({variant_id})"
-            )
-
-        print()
-
-        variant_input = input(
-            "Variant: "
-        ).strip()
-
-        if not variant_input:
-
-            print("Cancelled.")
-            return
-
-        # ----------------------------------------------------
-        # Variant selection
-        # ----------------------------------------------------
-
-        if variant_input.isdigit():
-
-            number = int(
-                variant_input
-            )
-
-            if (
-                number < 1
-                or number > len(available_variants)
-            ):
-
-                print(
-                    "ERROR: Invalid variant number."
-                )
-
-                input(
-                    "Press Enter to exit..."
-                )
-
-                return
-
-            selected_variant = (
-                available_variants[number - 1]
-            )
-
-        else:
-
-            matches = [
-                item
-                for item in available_variants
-                if (
-                    item["id"].lower()
-                    == variant_input.lower()
-                    or
-                    item["name"].lower()
-                    == variant_input.lower()
-                )
-            ]
-
-            if not matches:
-
-                print()
-                print(
-                    f"ERROR: Variant "
-                    f"'{variant_input}' does not exist "
-                    f"for {pokemon}."
-                )
-                print()
-
-                input(
-                    "Press Enter to exit..."
-                )
-
-                return
-
-            selected_variant = matches[0]
-
-        variant = selected_variant["id"]
-
-        # ----------------------------------------------------
-        # Find sprite
-        # ----------------------------------------------------
-
-        sprite = find_sprite(
-            pokemon,
-            variant,
-        )
-
-        if sprite is None:
-
-            print()
-            print(
-                "ERROR: Sprite file was not found."
-            )
-            print()
-
-            input(
-                "Press Enter to exit..."
-            )
-
-            return
-
-        # ----------------------------------------------------
-        # Confirmation
-        # ----------------------------------------------------
-
-        print()
-        print("=" * 60)
-        print(" CHANGE PREVIEW")
-        print("=" * 60)
-        print()
-
-        print(
-            f"Player       : "
-            f"{player['display_name']}"
-        )
-
-        print()
-
-        print("CURRENT")
-        print(
-            f"  Species ID : "
-            f"{starter['species_id']}"
-        )
-        print(
-            f"  Variant    : "
-            f"{starter['variant']}"
-        )
-
-        print()
-
-        print("NEW")
-        print(
-            f"  Pokémon    : "
-            f"{pokemon}"
-        )
-        print(
-            f"  Variant    : "
-            f"{selected_variant['name']} "
-            f"({variant})"
-        )
-
-        print()
-
-        print("SPRITE")
-        print(
-            f"  {sprite}"
-        )
-
-        print()
-
-        print(
-            "The existing Pokémon record will be preserved."
-        )
-
-        print()
-
-        print("Preserved:")
-        print("  • Level")
-        print("  • Experience")
-        print("  • IVs")
-        print("  • EVs")
-        print("  • Nature")
-        print("  • Gender")
-        print("  • Nickname")
-        print("  • Shiny status")
-        print("  • Pokémon database ID")
-
-        print()
-
-        confirmation = input(
-            "Change starter? [y/N]: "
-        ).strip().lower()
-
-        if confirmation not in {
-            "y",
-            "yes",
-        }:
-
-            print()
-            print(
-                "Cancelled. No changes were made."
-            )
-
-            return
-
-        # ----------------------------------------------------
-        # Update
-        # ----------------------------------------------------
-
-        db.execute(
-            """
-            UPDATE pokemon
-            SET
-                species_id = ?,
-                variant = ?
-            WHERE id = ?
-              AND owner_id = ?
-            """,
-            (
-                pokemon,
-                variant,
-                int(starter["id"]),
-                player_id,
-            ),
+            pokemon_id,
         )
 
         db.commit()
 
+    return pokemon_id
+
+
+# ============================================================
+# RECOVER LOST STARTER
+# ============================================================
+
+def recover_starter(
+    username: str,
+    species_id: str,
+    level: int = 5,
+) -> None:
+    """
+    Recover a starter for an existing player.
+
+    If the player still has Pokémon, they are preserved.
+
+    If the player has an existing Party, the new starter is added
+    to the Party if there is room.
+
+    If the Party is full, the starter is safely placed into PC.
+    """
+
+    species_id = normalize_species(
+        species_id
+    )
+
+    with get_connection() as db:
+        ensure_party_schema(db)
+        ensure_pc_schema(db)
+
+        player = get_player(
+            db,
+            username,
+        )
+
+        if player is None:
+            raise ValueError(
+                f"Player '{username}' was not found."
+            )
+
+        player_id = int(player["id"])
+
+        print()
+        print("=" * 60)
+        print("KRAMPUS RPG - STARTER RECOVERY")
+        print("=" * 60)
+        print()
+        print(
+            f"Player: {player['username']}"
+        )
+        print(
+            f"Starter: {species_id}"
+        )
+        print(
+            f"Level: {level}"
+        )
+        print()
+
+        existing = get_existing_pokemon(
+            db,
+            player_id,
+        )
+
+        print(
+            f"Existing Pokémon: {len(existing)}"
+        )
+
+        party = get_party_pokemon(
+            db,
+            player_id,
+        )
+
+        pc = get_pc_pokemon(
+            db,
+            player_id,
+        )
+
+        print(
+            f"Party Pokémon: {len(party)}"
+        )
+        print(
+            f"PC Pokémon: {len(pc)}"
+        )
+        print()
+
         # ----------------------------------------------------
-        # Verify
+        # If the requested species already exists, restore it
+        # instead of creating a duplicate.
         # ----------------------------------------------------
 
-        updated = db.execute(
+        existing_starter = db.execute(
             """
-            SELECT *
+            SELECT id
             FROM pokemon
-            WHERE id = ?
-              AND owner_id = ?
+            WHERE owner_id = ?
+              AND LOWER(CAST(species_id AS TEXT)) = ?
+            ORDER BY id
+            LIMIT 1
             """,
             (
-                int(starter["id"]),
                 player_id,
+                species_id,
             ),
         ).fetchone()
 
-        print()
-        print("=" * 60)
-        print(" SUCCESS")
-        print("=" * 60)
-        print()
+        if existing_starter is not None:
+            pokemon_id = int(
+                existing_starter["id"]
+            )
+
+            location = get_pokemon_location(
+                db,
+                player_id,
+                pokemon_id,
+            )
+
+            print(
+                f"Existing {species_id} found "
+                f"(Pokémon #{pokemon_id})."
+            )
+            print(
+                f"Current location: {location}"
+            )
+
+            if location == "party":
+                print(
+                    "Starter is already in the Party."
+                )
+
+                db.commit()
+
+                print()
+                print("Nothing needed to be changed.")
+                print()
+
+                return
+
+            if location == "pc":
+                remove_from_pc(
+                    db,
+                    player_id,
+                    pokemon_id,
+                )
+
+                try:
+                    party_slot = add_pokemon_to_party(
+                        db,
+                        player_id,
+                        pokemon_id,
+                    )
+
+                    db.commit()
+
+                    print(
+                        f"Restored existing starter "
+                        f"to Party slot {party_slot}."
+                    )
+
+                    print()
+                    print("Starter recovery complete.")
+                    print()
+
+                    return
+
+                except ValueError:
+                    # Party is full. Put it back in PC.
+                    add_pokemon_to_pc(
+                        db,
+                        player_id,
+                        pokemon_id,
+                    )
+
+                    db.commit()
+
+                    print(
+                        "Party is full."
+                    )
+                    print(
+                        "Existing starter was kept safely "
+                        "in the PC."
+                    )
+
+                    print()
+                    print("Recovery complete.")
+                    print()
+
+                    return
+
+            if location == "unassigned":
+                try:
+                    party_slot = add_pokemon_to_party(
+                        db,
+                        player_id,
+                        pokemon_id,
+                    )
+
+                    db.commit()
+
+                    print(
+                        f"Restored existing starter "
+                        f"to Party slot {party_slot}."
+                    )
+
+                    print()
+                    print("Starter recovery complete.")
+                    print()
+
+                    return
+
+                except ValueError:
+                    page, slot = add_pokemon_to_pc(
+                        db,
+                        player_id,
+                        pokemon_id,
+                    )
+
+                    db.commit()
+
+                    print(
+                        "Party is full."
+                    )
+                    print(
+                        f"Starter placed in PC "
+                        f"page {page}, slot {slot}."
+                    )
+
+                    print()
+                    print("Recovery complete.")
+                    print()
+
+                    return
+
+        # ----------------------------------------------------
+        # No existing starter was found.
+        # Create a new one.
+        # ----------------------------------------------------
 
         print(
-            f"Starter is now: "
-            f"{updated['species_id']} "
-            f"({updated['variant']})"
+            "No existing starter was found."
+        )
+        print(
+            "Creating a new starter..."
+        )
+        print()
+
+        from Server.services import create_pokemon
+
+        pokemon = create_pokemon(
+            owner_id=player_id,
+            species_id=species_id,
+            level=level,
+            shiny=False,
+            variant="normal",
+            nickname=None,
+        )
+
+        if not pokemon:
+            raise RuntimeError(
+                "Starter creation failed."
+            )
+
+        pokemon_id = None
+
+        if isinstance(pokemon, dict):
+            pokemon_id = pokemon.get("id")
+
+            if pokemon_id is None:
+                pokemon_id = pokemon.get(
+                    "pokemon_id"
+                )
+
+        if pokemon_id is None:
+            # Safely locate the newly-created Pokémon.
+            row = db.execute(
+                """
+                SELECT id
+                FROM pokemon
+                WHERE owner_id = ?
+                  AND CAST(species_id AS TEXT) = ?
+                ORDER BY id DESC
+                LIMIT 1
+                """,
+                (
+                    player_id,
+                    species_id,
+                ),
+            ).fetchone()
+
+            if row is None:
+                db.rollback()
+
+                raise RuntimeError(
+                    "Starter was created but could not "
+                    "be located."
+                )
+
+            pokemon_id = int(
+                row["id"]
+            )
+
+        pokemon_id = int(
+            pokemon_id
+        )
+
+        # ----------------------------------------------------
+        # Put starter into Party if possible.
+        # Otherwise PC.
+        # ----------------------------------------------------
+
+        try:
+            party_slot = add_pokemon_to_party(
+                db,
+                player_id,
+                pokemon_id,
+            )
+
+            db.commit()
+
+            print(
+                f"New starter created: "
+                f"{species_id}"
+            )
+            print(
+                f"Pokémon ID: {pokemon_id}"
+            )
+            print(
+                f"Party slot: {party_slot}"
+            )
+
+        except ValueError:
+            page, slot = add_pokemon_to_pc(
+                db,
+                player_id,
+                pokemon_id,
+            )
+
+            db.commit()
+
+            print(
+                f"New starter created: "
+                f"{species_id}"
+            )
+            print(
+                f"Pokémon ID: {pokemon_id}"
+            )
+            print(
+                f"Party is full."
+            )
+            print(
+                f"Starter placed in PC "
+                f"page {page}, slot {slot}."
+            )
+
+        print()
+        print("Starter recovery complete.")
+        print()
+
+
+# ============================================================
+# SHOW PLAYER STORAGE
+# ============================================================
+
+def show_player(
+    username: str,
+) -> None:
+    with get_connection() as db:
+        ensure_party_schema(db)
+        ensure_pc_schema(db)
+
+        player = get_player(
+            db,
+            username,
+        )
+
+        if player is None:
+            raise ValueError(
+                f"Player '{username}' was not found."
+            )
+
+        player_id = int(player["id"])
+
+        party = get_party_pokemon(
+            db,
+            player_id,
+        )
+
+        pc = get_pc_pokemon(
+            db,
+            player_id,
+        )
+
+        all_pokemon = get_existing_pokemon(
+            db,
+            player_id,
         )
 
         print()
-
-        print("Sprite:")
-        print(sprite)
-
+        print("=" * 60)
+        print("PLAYER STORAGE")
+        print("=" * 60)
         print()
-
         print(
-            "No other Pokémon data was changed."
+            f"Player: {player['username']}"
         )
+        print(
+            f"Total Pokémon: {len(all_pokemon)}"
+        )
+        print()
+
+        print("PARTY")
+        print("-" * 60)
+
+        if not party:
+            print(
+                "  Party is empty."
+            )
+        else:
+            for pokemon in party:
+                print(
+                    f"  Slot {pokemon['slot']}: "
+                    f"#{pokemon['id']} "
+                    f"{pokemon['species_id']} "
+                    f"Lv.{pokemon['level']}"
+                )
 
         print()
 
-    except sqlite3.Error as error:
+        print("PC")
+        print("-" * 60)
+
+        if not pc:
+            print(
+                "  PC is empty."
+            )
+        else:
+            for pokemon in pc:
+                print(
+                    f"  Page {pokemon['page']} "
+                    f"Slot {pokemon['slot']}: "
+                    f"#{pokemon['id']} "
+                    f"{pokemon['species_id']} "
+                    f"Lv.{pokemon['level']}"
+                )
 
         print()
-        print("=" * 60)
-        print(" DATABASE ERROR")
-        print("=" * 60)
-        print()
-        print(error)
-        print()
 
-    finally:
 
-        db.close()
+# ============================================================
+# COMMAND LINE
+# ============================================================
 
-    input(
-        "Press Enter to exit..."
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Krampus RPG starter recovery/change utility."
+        )
     )
+
+    subparsers = parser.add_subparsers(
+        dest="command",
+        required=True,
+    )
+
+    recover_parser = subparsers.add_parser(
+        "recover",
+        help="Recover or create a starter.",
+    )
+
+    recover_parser.add_argument(
+        "username",
+        help="Player username.",
+    )
+
+    recover_parser.add_argument(
+        "starter",
+        choices=sorted(
+            DEFAULT_STARTERS.keys()
+        ),
+        help="Starter Pokémon.",
+    )
+
+    recover_parser.add_argument(
+        "--level",
+        type=int,
+        default=5,
+        help="Starter level. Default: 5.",
+    )
+
+    show_parser = subparsers.add_parser(
+        "show",
+        help="Show the player's Party and PC.",
+    )
+
+    show_parser.add_argument(
+        "username",
+        help="Player username.",
+    )
+
+    return parser
+
+
+def main() -> int:
+    parser = build_parser()
+    args = parser.parse_args()
+
+    try:
+        # Make sure the current database structure exists.
+        init_db()
+        seed_database()
+
+        if args.command == "recover":
+            recover_starter(
+                username=args.username,
+                species_id=args.starter,
+                level=max(
+                    1,
+                    int(args.level),
+                ),
+            )
+
+        elif args.command == "show":
+            show_player(
+                username=args.username,
+            )
+
+        return 0
+
+    except KeyboardInterrupt:
+        print()
+        print(
+            "Operation cancelled."
+        )
+        return 1
+
+    except Exception as exc:
+        print()
+        print(
+            "ERROR:"
+        )
+        print(
+            str(exc)
+        )
+        print()
+
+        return 1
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(
+        main()
+    )
