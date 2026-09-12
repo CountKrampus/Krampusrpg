@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, render_template, request
 
 from .auth import current_player_id
 from .pc_storage import (
@@ -20,7 +20,6 @@ from .pc_storage import (
 pc_bp = Blueprint(
     "pc",
     __name__,
-    url_prefix="/api/pc",
 )
 
 
@@ -28,9 +27,7 @@ def _require_player() -> int:
     player_id = current_player_id()
 
     if player_id is None:
-        raise PermissionError(
-            "Authentication required."
-        )
+        raise PermissionError("Authentication required.")
 
     return int(player_id)
 
@@ -47,7 +44,21 @@ def _error_response(
     ), status_code
 
 
-@pc_bp.get("")
+@pc_bp.get("/pc")
+def pc_page():
+    try:
+        _require_player()
+    except PermissionError:
+        return render_template(
+            "login.html"
+        )
+
+    return render_template(
+        "pc.html"
+    )
+
+
+@pc_bp.get("/api/pc")
 def pc_index():
     try:
         player_id = _require_player()
@@ -81,8 +92,8 @@ def pc_index():
     )
 
 
-@pc_bp.get("/page/<int:page>")
-def pc_page(page: int):
+@pc_bp.get("/api/pc/page/<int:page>")
+def pc_page_api(page: int):
     try:
         player_id = _require_player()
     except PermissionError as exc:
@@ -108,7 +119,7 @@ def pc_page(page: int):
     )
 
 
-@pc_bp.get("/search")
+@pc_bp.get("/api/pc/search")
 def pc_search():
     try:
         player_id = _require_player()
@@ -149,7 +160,7 @@ def pc_search():
     )
 
 
-@pc_bp.get("/filters")
+@pc_bp.get("/api/pc/filters")
 def pc_filters():
     try:
         player_id = _require_player()
@@ -169,7 +180,7 @@ def pc_filters():
     )
 
 
-@pc_bp.get("/count")
+@pc_bp.get("/api/pc/count")
 def pc_count():
     try:
         player_id = _require_player()
@@ -190,7 +201,7 @@ def pc_count():
     )
 
 
-@pc_bp.get("/pokemon/<int:pokemon_id>")
+@pc_bp.get("/api/pc/pokemon/<int:pokemon_id>")
 def pc_pokemon_location(
     pokemon_id: int,
 ):
@@ -221,7 +232,7 @@ def pc_pokemon_location(
     )
 
 
-@pc_bp.post("/deposit")
+@pc_bp.post("/api/pc/deposit")
 def pc_deposit():
     try:
         player_id = _require_player()
@@ -285,7 +296,7 @@ def pc_deposit():
     )
 
 
-@pc_bp.post("/withdraw")
+@pc_bp.post("/api/pc/withdraw")
 def pc_withdraw():
     try:
         player_id = _require_player()
@@ -332,7 +343,7 @@ def pc_withdraw():
     )
 
 
-@pc_bp.post("/move")
+@pc_bp.post("/api/pc/move")
 def pc_move():
     try:
         player_id = _require_player()
@@ -350,12 +361,15 @@ def pc_move():
         pokemon_id = int(
             data.get("pokemon_id")
         )
+
         page = int(
             data.get("page")
         )
+
         slot = int(
             data.get("slot")
         )
+
     except (
         TypeError,
         ValueError,
@@ -387,7 +401,7 @@ def pc_move():
     )
 
 
-@pc_bp.post("/swap")
+@pc_bp.post("/api/pc/swap")
 def pc_swap():
     try:
         player_id = _require_player()
@@ -405,9 +419,11 @@ def pc_swap():
         pokemon_id_a = int(
             data.get("pokemon_id_a")
         )
+
         pokemon_id_b = int(
             data.get("pokemon_id_b")
         )
+
     except (
         TypeError,
         ValueError,

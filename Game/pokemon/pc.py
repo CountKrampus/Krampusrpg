@@ -35,6 +35,12 @@ __all__ = [
     "search_pc",
     "swap_pokemon",
     "withdraw_pokemon",
+    "get_pc_page",
+    "find_pc_pokemon",
+    "deposit_to_pc",
+    "withdraw_from_pc",
+    "move_in_pc",
+    "swap_in_pc",
 ]
 
 
@@ -42,10 +48,6 @@ def get_pc_page(
     player_id: int,
     page: int = 1,
 ) -> dict[str, Any]:
-    """
-    Game-layer wrapper for retrieving a PC page.
-    """
-
     return get_page(
         player_id,
         page,
@@ -58,10 +60,6 @@ def find_pc_pokemon(
     variant: str | None = None,
     pokemon_type: str | None = None,
 ) -> list[dict[str, Any]]:
-    """
-    Game-layer wrapper for searching the player's entire PC.
-    """
-
     return search_pc(
         player_id,
         name=name,
@@ -76,10 +74,6 @@ def deposit_to_pc(
     page: int | None = None,
     slot: int | None = None,
 ) -> dict[str, Any]:
-    """
-    Game-layer wrapper for depositing a party Pokémon.
-    """
-
     return deposit_pokemon(
         player_id,
         pokemon_id,
@@ -92,10 +86,6 @@ def withdraw_from_pc(
     player_id: int,
     pokemon_id: int,
 ) -> dict[str, Any]:
-    """
-    Game-layer wrapper for withdrawing a Pokémon into the party.
-    """
-
     return withdraw_pokemon(
         player_id,
         pokemon_id,
@@ -108,10 +98,6 @@ def move_in_pc(
     page: int,
     slot: int,
 ) -> dict[str, Any]:
-    """
-    Game-layer wrapper for moving a Pokémon.
-    """
-
     return move_pokemon(
         player_id,
         pokemon_id,
@@ -124,11 +110,7 @@ def swap_in_pc(
     player_id: int,
     pokemon_id_a: int,
     pokemon_id_b: int,
-) -> bool:
-    """
-    Game-layer wrapper for swapping two PC Pokémon.
-    """
-
+) -> dict[str, Any]:
     return swap_pokemon(
         player_id,
         pokemon_id_a,

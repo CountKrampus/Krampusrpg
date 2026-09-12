@@ -1,0 +1,451 @@
+{% extends "base.html" %}
+
+{% block title %}Krampus PC{% endblock %}
+
+{% block content %}
+
+<div class="pc-page">
+
+    <section class="pc-header-card">
+
+        <div>
+            <span class="pc-kicker">KRAMPUS RPG</span>
+
+            <h1>
+                Krampus PC
+            </h1>
+
+            <p>
+                Pokémon Storage System
+            </p>
+        </div>
+
+        <div class="pc-header-count">
+
+            <span>
+                STORED
+            </span>
+
+            <strong id="pc-total-count">
+                0
+            </strong>
+
+            <small>
+                Pokémon
+            </small>
+
+        </div>
+
+    </section>
+
+
+    <section class="pc-toolbar">
+
+        <div class="pc-search">
+
+            <label for="pc-search">
+                Search Pokémon
+            </label>
+
+            <input
+                id="pc-search"
+                type="search"
+                placeholder="Name, species or nickname..."
+                autocomplete="off"
+            >
+
+        </div>
+
+
+        <div class="pc-filter">
+
+            <label for="pc-variant">
+                Variant
+            </label>
+
+            <select id="pc-variant">
+
+                <option value="">
+                    All Variants
+                </option>
+
+            </select>
+
+        </div>
+
+
+        <div class="pc-filter">
+
+            <label for="pc-type">
+                Type
+            </label>
+
+            <select id="pc-type">
+
+                <option value="">
+                    All Types
+                </option>
+
+            </select>
+
+        </div>
+
+
+        <button
+            type="button"
+            id="pc-search-button"
+            class="pc-button pc-button-primary"
+        >
+            Search
+        </button>
+
+
+        <button
+            type="button"
+            id="pc-clear-button"
+            class="pc-button"
+        >
+            Clear
+        </button>
+
+    </section>
+
+
+    <section
+        id="pc-search-results"
+        class="pc-search-results"
+        hidden
+    >
+
+        <div class="pc-section-heading">
+
+            <div>
+                <span class="pc-kicker">
+                    SEARCH RESULTS
+                </span>
+
+                <h2>
+                    Pokémon Found
+                </h2>
+            </div>
+
+            <button
+                type="button"
+                id="pc-close-search"
+                class="pc-button"
+            >
+                Return to PC
+            </button>
+
+        </div>
+
+
+        <div
+            id="pc-results-grid"
+            class="pc-results-grid"
+        ></div>
+
+    </section>
+
+
+    <section
+        id="pc-storage-section"
+        class="pc-storage-section"
+    >
+
+        <div class="pc-storage-header">
+
+            <div>
+
+                <span class="pc-kicker">
+                    STORAGE SYSTEM
+                </span>
+
+                <h2>
+                    PC Box
+                    <span id="pc-current-page">
+                        1
+                    </span>
+                </h2>
+
+            </div>
+
+
+            <div class="pc-pagination">
+
+                <button
+                    type="button"
+                    id="pc-first-page"
+                    class="pc-page-button"
+                    title="First page"
+                >
+                    «
+                </button>
+
+                <button
+                    type="button"
+                    id="pc-prev-page"
+                    class="pc-page-button"
+                    title="Previous page"
+                >
+                    ‹
+                </button>
+
+                <span id="pc-page-label">
+                    Page 1
+                </span>
+
+                <button
+                    type="button"
+                    id="pc-next-page"
+                    class="pc-page-button"
+                    title="Next page"
+                >
+                    ›
+                </button>
+
+                <button
+                    type="button"
+                    id="pc-last-page"
+                    class="pc-page-button"
+                    title="Last populated page"
+                >
+                    »
+                </button>
+
+            </div>
+
+        </div>
+
+
+        <div
+            id="pc-grid"
+            class="pc-grid"
+        ></div>
+
+
+        <div class="pc-page-jump">
+
+            <label for="pc-page-input">
+                Go to page
+            </label>
+
+            <input
+                id="pc-page-input"
+                type="number"
+                min="1"
+                value="1"
+            >
+
+            <button
+                type="button"
+                id="pc-page-go"
+                class="pc-button"
+            >
+                Go
+            </button>
+
+        </div>
+
+    </section>
+
+
+    <section class="pc-party-panel">
+
+        <div class="pc-section-heading">
+
+            <div>
+                <span class="pc-kicker">
+                    TRAINER
+                </span>
+
+                <h2>
+                    Current Party
+                </h2>
+            </div>
+
+            <span class="pc-party-limit">
+                0 / 6
+            </span>
+
+        </div>
+
+
+        <div
+            id="pc-party-grid"
+            class="pc-party-grid"
+        ></div>
+
+    </section>
+
+
+    <section
+        id="pc-details"
+        class="pc-details"
+        hidden
+    >
+
+        <div class="pc-details-header">
+
+            <div>
+
+                <span class="pc-kicker">
+                    POKÉMON DETAILS
+                </span>
+
+                <h2 id="pc-detail-name">
+                    Pokémon
+                </h2>
+
+            </div>
+
+            <button
+                type="button"
+                id="pc-detail-close"
+                class="pc-detail-close"
+            >
+                ×
+            </button>
+
+        </div>
+
+
+        <div class="pc-detail-content">
+
+            <div class="pc-detail-sprite">
+
+                <img
+                    id="pc-detail-image"
+                    src=""
+                    alt=""
+                >
+
+            </div>
+
+
+            <div class="pc-detail-info">
+
+                <div class="pc-detail-stat">
+
+                    <span>
+                        Species
+                    </span>
+
+                    <strong id="pc-detail-species">
+                        —
+                    </strong>
+
+                </div>
+
+
+                <div class="pc-detail-stat">
+
+                    <span>
+                        Level
+                    </span>
+
+                    <strong id="pc-detail-level">
+                        —
+                    </strong>
+
+                </div>
+
+
+                <div class="pc-detail-stat">
+
+                    <span>
+                        Variant
+                    </span>
+
+                    <strong id="pc-detail-variant">
+                        —
+                    </strong>
+
+                </div>
+
+
+                <div class="pc-detail-stat">
+
+                    <span>
+                        Type
+                    </span>
+
+                    <strong id="pc-detail-type">
+                        —
+                    </strong>
+
+                </div>
+
+
+                <div class="pc-detail-stat">
+
+                    <span>
+                        HP
+                    </span>
+
+                    <strong id="pc-detail-hp">
+                        —
+                    </strong>
+
+                </div>
+
+
+                <div class="pc-detail-stat">
+
+                    <span>
+                        Location
+                    </span>
+
+                    <strong id="pc-detail-location">
+                        —
+                    </strong>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div class="pc-detail-actions">
+
+            <button
+                type="button"
+                id="pc-withdraw-button"
+                class="pc-button pc-button-primary"
+            >
+                Withdraw to Party
+            </button>
+
+            <button
+                type="button"
+                id="pc-move-button"
+                class="pc-button"
+            >
+                Move Pokémon
+            </button>
+
+        </div>
+
+    </section>
+
+
+    <div
+        id="pc-message"
+        class="pc-message"
+        hidden
+    ></div>
+
+</div>
+
+<link
+    rel="stylesheet"
+    href="{{ url_for('static', filename='css/pc.css') }}"
+>
+
+<script
+    src="{{ url_for('static', filename='js/pc.js') }}"
+    defer
+></script>
+
+{% endblock %}
