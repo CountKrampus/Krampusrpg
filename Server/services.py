@@ -42,7 +42,10 @@ def clear_data_cache() -> None:
     _DATA_CACHE.clear()
 
 
-def _as_list(data: Any, keys: tuple[str, ...] = ()) -> list[dict[str, Any]]:
+def _as_list(
+    data: Any,
+    keys: tuple[str, ...] = (),
+) -> list[dict[str, Any]]:
     """
     Convert common JSON formats into a list.
 
@@ -96,7 +99,9 @@ def _table_exists(db, table_name: str) -> bool:
 # PLAYER / ACCOUNT FUNCTIONS
 # ============================================================
 
-def get_player_by_username(username: str) -> dict[str, Any] | None:
+def get_player_by_username(
+    username: str,
+) -> dict[str, Any] | None:
     """Find a player by username."""
     with get_connection() as db:
         row = db.execute(
@@ -111,7 +116,9 @@ def get_player_by_username(username: str) -> dict[str, Any] | None:
         return dict(row) if row else None
 
 
-def get_player(player_id: int) -> dict[str, Any] | None:
+def get_player(
+    player_id: int,
+) -> dict[str, Any] | None:
     """Find a player by ID."""
     with get_connection() as db:
         row = db.execute(
@@ -194,7 +201,9 @@ def get_all_species() -> list[dict[str, Any]]:
     )
 
 
-def get_species(species_id: int | str) -> dict[str, Any] | None:
+def get_species(
+    species_id: int | str,
+) -> dict[str, Any] | None:
     """Find a Pokémon species by ID."""
     wanted = str(species_id)
 
@@ -233,7 +242,9 @@ def get_all_moves() -> list[dict[str, Any]]:
     )
 
 
-def get_move(move_id: int | str) -> dict[str, Any] | None:
+def get_move(
+    move_id: int | str,
+) -> dict[str, Any] | None:
     """Find a move by ID."""
     wanted = str(move_id)
 
@@ -272,7 +283,9 @@ def get_all_abilities() -> list[dict[str, Any]]:
     )
 
 
-def get_ability(ability_id: int | str) -> dict[str, Any] | None:
+def get_ability(
+    ability_id: int | str,
+) -> dict[str, Any] | None:
     """Find an ability by ID."""
     wanted = str(ability_id)
 
@@ -303,7 +316,9 @@ def get_all_variants() -> list[dict[str, Any]]:
     )
 
 
-def get_variant(variant_id: str | None) -> dict[str, Any] | None:
+def get_variant(
+    variant_id: str | None,
+) -> dict[str, Any] | None:
     """Find a variant."""
     if not variant_id:
         return None
@@ -374,7 +389,9 @@ def generate_nature() -> str:
     return random.choice(natures)
 
 
-def generate_gender(species: dict[str, Any]) -> str:
+def generate_gender(
+    species: dict[str, Any],
+) -> str:
     """
     Generate gender using common JSON gender formats.
     """
@@ -421,7 +438,9 @@ def generate_gender(species: dict[str, Any]) -> str:
 # STATS
 # ============================================================
 
-def get_base_hp(species: dict[str, Any]) -> int:
+def get_base_hp(
+    species: dict[str, Any],
+) -> int:
     """Extract base HP from a species record."""
     value = species.get("base_hp")
 
@@ -537,7 +556,6 @@ def add_starting_moves(
     """
     move_ids = get_species_starting_moves(species)
 
-    # If species data has no explicit moves, don't invent moves.
     if not move_ids:
         return
 
@@ -562,7 +580,13 @@ def add_starting_moves(
                 pokemon_id,
                 str(move_id),
                 slot,
-                int(move.get("pp", move.get("max_pp", 0)) or 0),
+                int(
+                    move.get(
+                        "pp",
+                        move.get("max_pp", 0),
+                    )
+                    or 0
+                ),
             ),
         )
 
@@ -583,7 +607,8 @@ def create_pokemon(
     """
     Create a Pokémon belonging to a player.
 
-    Matches the actual database schema in Server/database.py.
+    Party/PC location is handled separately by the storage system.
+    This function creates the Pokémon record only.
     """
     species = get_species(species_id)
 
@@ -627,10 +652,9 @@ def create_pokemon(
                 nature,
                 current_hp,
                 max_hp,
-                status,
-                is_active
+                status
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 unique_id,
@@ -646,15 +670,10 @@ def create_pokemon(
                 max_hp,
                 max_hp,
                 "healthy",
-                1,
             ),
         )
 
         pokemon_id = int(cursor.lastrowid)
-
-        # --------------------------------------------------------
-        # IV / EV record
-        # --------------------------------------------------------
 
         db.execute(
             """
@@ -692,10 +711,6 @@ def create_pokemon(
                 0,
             ),
         )
-
-        # --------------------------------------------------------
-        # Starting moves
-        # --------------------------------------------------------
 
         add_starting_moves(
             db,
@@ -743,10 +758,6 @@ def get_pokemon(
 
         pokemon = dict(row)
 
-        # --------------------------------------------------------
-        # Species
-        # --------------------------------------------------------
-
         species = get_species(
             pokemon.get("species_id")
         )
@@ -757,10 +768,6 @@ def get_pokemon(
                 "name",
                 "Unknown",
             )
-
-        # --------------------------------------------------------
-        # Stats
-        # --------------------------------------------------------
 
         stats_row = db.execute(
             """
@@ -776,20 +783,12 @@ def get_pokemon(
         else:
             pokemon["stats"] = {}
 
-        # --------------------------------------------------------
-        # Variant
-        # --------------------------------------------------------
-
         variant = get_variant(
             pokemon.get("variant")
         )
 
         if variant:
             pokemon["variant_data"] = variant
-
-        # --------------------------------------------------------
-        # Moves
-        # --------------------------------------------------------
 
         pokemon["moves"] = []
 
@@ -888,119 +887,62 @@ def get_party(
     owner_id: int,
 ) -> list[dict[str, Any]]:
     """
-    Return the player's active party.
+    Return the player's database-backed party.
 
-    The current database does not have a separate party table.
-    Party membership is represented by pokemon.is_active.
+    The party table is authoritative.
+
+    No Pokémon state is inferred from pokemon.is_active.
     """
-    with get_connection() as db:
-        rows = db.execute(
-            """
-            SELECT *
-            FROM pokemon
-            WHERE owner_id = ?
-              AND is_active = 1
-            ORDER BY id
-            LIMIT 6
-            """,
-            (owner_id,),
-        ).fetchall()
+    from .party_storage import get_party as get_storage_party
 
-        return [dict(row) for row in rows]
+    return get_storage_party(owner_id)
 
 
 def add_to_party(
     owner_id: int,
     pokemon_id: int,
 ) -> bool:
-    """Add a Pokémon to the active party."""
-    with get_connection() as db:
-        pokemon = db.execute(
-            """
-            SELECT id
-            FROM pokemon
-            WHERE id = ?
-              AND owner_id = ?
-            """,
-            (
-                pokemon_id,
-                owner_id,
-            ),
-        ).fetchone()
+    """
+    Add a Pokémon to the database-backed party.
 
-        if pokemon is None:
-            return False
+    Party membership and ordering are handled by party_storage.
+    """
+    from .party_storage import add_to_party as add_storage_party
 
-        party_count = db.execute(
-            """
-            SELECT COUNT(*) AS count
-            FROM pokemon
-            WHERE owner_id = ?
-              AND is_active = 1
-            """,
-            (owner_id,),
-        ).fetchone()["count"]
-
-        # Already active.
-        current = db.execute(
-            """
-            SELECT is_active
-            FROM pokemon
-            WHERE id = ?
-              AND owner_id = ?
-            """,
-            (
-                pokemon_id,
-                owner_id,
-            ),
-        ).fetchone()
-
-        if current and current["is_active"]:
-            return True
-
-        if party_count >= 6:
-            return False
-
-        db.execute(
-            """
-            UPDATE pokemon
-            SET is_active = 1
-            WHERE id = ?
-              AND owner_id = ?
-            """,
-            (
-                pokemon_id,
-                owner_id,
-            ),
+    return bool(
+        add_storage_party(
+            owner_id,
+            pokemon_id,
         )
-
-        db.commit()
-
-        return True
+    )
 
 
 def remove_from_party(
     owner_id: int,
     pokemon_id: int,
 ) -> bool:
-    """Remove a Pokémon from the active party."""
-    with get_connection() as db:
-        cursor = db.execute(
-            """
-            UPDATE pokemon
-            SET is_active = 0
-            WHERE id = ?
-              AND owner_id = ?
-            """,
-            (
-                pokemon_id,
-                owner_id,
-            ),
+    """
+    Remove a Pokémon from the party.
+
+    Removing from the party ALWAYS moves the Pokémon into the PC.
+
+    The database-backed storage layer handles the transaction.
+    """
+    from .party_storage import (
+        remove_from_party as remove_storage_party,
+    )
+
+    result = remove_storage_party(
+        owner_id,
+        pokemon_id,
+    )
+
+    if isinstance(result, dict):
+        return bool(
+            result.get("success", True)
         )
 
-        db.commit()
-
-        return cursor.rowcount > 0
+    return bool(result)
 
 
 # ============================================================
@@ -1012,7 +954,8 @@ def give_starter(
     species_id: int | str,
 ) -> dict[str, Any] | None:
     """
-    Give a player a level-5 starter and make it active.
+    Give a player a level-5 starter and place it directly
+    into the database-backed party.
     """
     pokemon = create_pokemon(
         owner_id=owner_id,
@@ -1028,10 +971,16 @@ def give_starter(
     pokemon_id = pokemon.get("id")
 
     if pokemon_id is not None:
-        add_to_party(
+        added = add_to_party(
             owner_id,
             int(pokemon_id),
         )
+
+        if not added:
+            return get_pokemon(
+                owner_id,
+                int(pokemon_id),
+            )
 
         pokemon = get_pokemon(
             owner_id,

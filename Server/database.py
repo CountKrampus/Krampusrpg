@@ -9,13 +9,6 @@ from .config import DATABASE_PATH, DATA_DIR, INSTANCE_DIR
 # ---------------------------------------------------------------------------
 # Base database schema
 # ---------------------------------------------------------------------------
-#
-# IMPORTANT:
-# The role_id column is intentionally NOT included in the players table here.
-# Existing installations need to be migrated safely.
-#
-# Indexes that depend on role_id are also created AFTER the migration.
-#
 
 SCHEMA = """
 PRAGMA foreign_keys = ON;
@@ -79,7 +72,6 @@ CREATE TABLE IF NOT EXISTS pokemon (
     current_hp INTEGER NOT NULL DEFAULT 1,
     max_hp INTEGER NOT NULL DEFAULT 1,
     status TEXT NOT NULL DEFAULT 'healthy',
-    is_active INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (owner_id)
         REFERENCES players(id)
@@ -214,6 +206,81 @@ ON audit_log(created_at);
 
 
 # ---------------------------------------------------------------------------
+# Party / PC schemas
+# ---------------------------------------------------------------------------
+
+PARTY_SCHEMA = """
+CREATE TABLE IF NOT EXISTS party (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+    player_id INTEGER NOT NULL,
+    pokemon_id INTEGER NOT NULL UNIQUE,
+    slot INTEGER NOT NULL,
+
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (player_id)
+        REFERENCES players(id)
+        ON DELETE CASCADE,
+
+    FOREIGN KEY (pokemon_id)
+        REFERENCES pokemon(id)
+        ON DELETE CASCADE,
+
+    CHECK (slot >= 1 AND slot <= 6),
+
+    UNIQUE(player_id, slot)
+);
+
+CREATE INDEX IF NOT EXISTS idx_party_player
+ON party(player_id);
+
+CREATE INDEX IF NOT EXISTS idx_party_pokemon
+ON party(pokemon_id);
+
+CREATE INDEX IF NOT EXISTS idx_party_player_slot
+ON party(player_id, slot);
+"""
+
+
+PC_SCHEMA = """
+CREATE TABLE IF NOT EXISTS pc_storage (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+    player_id INTEGER NOT NULL,
+    pokemon_id INTEGER NOT NULL UNIQUE,
+
+    page INTEGER NOT NULL DEFAULT 1,
+    slot INTEGER NOT NULL,
+
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (player_id)
+        REFERENCES players(id)
+        ON DELETE CASCADE,
+
+    FOREIGN KEY (pokemon_id)
+        REFERENCES pokemon(id)
+        ON DELETE CASCADE,
+
+    CHECK (page >= 1),
+    CHECK (slot >= 1 AND slot <= 30),
+
+    UNIQUE(player_id, page, slot)
+);
+
+CREATE INDEX IF NOT EXISTS idx_pc_storage_player
+ON pc_storage(player_id);
+
+CREATE INDEX IF NOT EXISTS idx_pc_storage_page
+ON pc_storage(player_id, page);
+
+CREATE INDEX IF NOT EXISTS idx_pc_storage_pokemon
+ON pc_storage(pokemon_id);
+"""
+
+
+# ---------------------------------------------------------------------------
 # Roles
 # ---------------------------------------------------------------------------
 
@@ -335,7 +402,7 @@ PERMISSIONS = [
 
 
 # ---------------------------------------------------------------------------
-# Role -> Permission assignments
+# Role permissions
 # ---------------------------------------------------------------------------
 
 ROLE_PERMISSIONS = {
@@ -414,7 +481,7 @@ def get_connection() -> sqlite3.Connection:
 
 
 # ---------------------------------------------------------------------------
-# Database inspection helpers
+# Database inspection
 # ---------------------------------------------------------------------------
 
 def _table_exists(
@@ -427,6 +494,7 @@ def _table_exists(
         FROM sqlite_master
         WHERE type = 'table'
           AND name = ?
+        LIMIT 1
         """,
         (table_name,),
     ).fetchone()
@@ -456,24 +524,386 @@ def _column_exists(
 
 
 # ---------------------------------------------------------------------------
-# Migration
+# Storage helpers
+# ---------------------------------------------------------------------------
+
+def _ensure_storage_schema(
+    db: sqlite3.Connection,
+) -> None:
+    """
+    Create the authoritative Party and PC storage tables.
+    """
+
+    db.executescript(
+        PARTY_SCHEMA
+    )
+
+    db.executescript(
+        PC_SCHEMA
+    )
+
+
+def _pokemon_in_party(
+    db: sqlite3.Connection,
+    pokemon_id: int,
+) -> bool:
+    row = db.execute(
+        """
+        SELECT 1
+        FROM party
+        WHERE pokemon_id = ?
+        LIMIT 1
+        """,
+        (pokemon_id,),
+    ).fetchone()
+
+    return row is not None
+
+
+def _pokemon_in_pc(
+    db: sqlite3.Connection,
+    pokemon_id: int,
+) -> bool:
+    row = db.execute(
+        """
+        SELECT 1
+        FROM pc_storage
+        WHERE pokemon_id = ?
+        LIMIT 1
+        """,
+        (pokemon_id,),
+    ).fetchone()
+
+    return row is not None
+
+
+def _next_pc_position(
+    db: sqlite3.Connection,
+    player_id: int,
+) -> tuple[int, int]:
+    """
+    Find the first available PC slot.
+
+    There is no maximum number of pages.
+    Every page has 30 slots.
+    """
+
+    rows = db.execute(
+        """
+        SELECT page, slot
+        FROM pc_storage
+        WHERE player_id = ?
+        ORDER BY page, slot
+        """,
+        (player_id,),
+    ).fetchall()
+
+    occupied = {
+        (
+            int(row["page"]),
+            int(row["slot"]),
+        )
+        for row in rows
+    }
+
+    page = 1
+
+    while True:
+        for slot in range(1, 31):
+            if (page, slot) not in occupied:
+                return page, slot
+
+        page += 1
+
+
+def _put_in_pc(
+    db: sqlite3.Connection,
+    player_id: int,
+    pokemon_id: int,
+) -> None:
+    """
+    Place a Pokémon into PC if it is not already stored and is not
+    currently in Party.
+    """
+
+    if _pokemon_in_party(
+        db,
+        pokemon_id,
+    ):
+        return
+
+    if _pokemon_in_pc(
+        db,
+        pokemon_id,
+    ):
+        return
+
+    page, slot = _next_pc_position(
+        db,
+        player_id,
+    )
+
+    db.execute(
+        """
+        INSERT INTO pc_storage
+        (
+            player_id,
+            pokemon_id,
+            page,
+            slot
+        )
+        VALUES (?, ?, ?, ?)
+        """,
+        (
+            player_id,
+            pokemon_id,
+            page,
+            slot,
+        ),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Legacy Party -> Party/PC migration
+# ---------------------------------------------------------------------------
+
+def _migrate_pokemon_storage(
+    db: sqlite3.Connection,
+) -> None:
+    """
+    Convert the old pokemon.is_active party system into the new
+    database-backed Party + PC system.
+
+    Rules:
+
+        - Existing Party records are preserved.
+        - Legacy is_active=1 Pokémon become Party members when space
+          is available.
+        - Party is limited to six Pokémon.
+        - Every owned Pokémon not in Party goes into PC.
+        - Existing PC records are preserved.
+        - Pokémon are never duplicated.
+        - No Pokémon are deleted.
+        - is_active is removed only after migration succeeds.
+    """
+
+    if not _table_exists(
+        db,
+        "pokemon",
+    ):
+        return
+
+    _ensure_storage_schema(
+        db
+    )
+
+    has_is_active = _column_exists(
+        db,
+        "pokemon",
+        "is_active",
+    )
+
+    players = db.execute(
+        """
+        SELECT id
+        FROM players
+        ORDER BY id
+        """
+    ).fetchall()
+
+    # ---------------------------------------------------------------
+    # Step 1:
+    # Migrate old active Pokémon into Party.
+    # ---------------------------------------------------------------
+
+    if has_is_active:
+
+        for player in players:
+
+            player_id = int(
+                player["id"]
+            )
+
+            existing_party = db.execute(
+                """
+                SELECT pokemon_id, slot
+                FROM party
+                WHERE player_id = ?
+                ORDER BY slot
+                """,
+                (player_id,),
+            ).fetchall()
+
+            occupied_slots = {
+                int(row["slot"])
+                for row in existing_party
+            }
+
+            party_count = len(
+                existing_party
+            )
+
+            if party_count >= 6:
+                continue
+
+            active_pokemon = db.execute(
+                """
+                SELECT id
+                FROM pokemon
+                WHERE owner_id = ?
+                  AND is_active = 1
+                ORDER BY id
+                """,
+                (player_id,),
+            ).fetchall()
+
+            for pokemon in active_pokemon:
+
+                if party_count >= 6:
+                    break
+
+                pokemon_id = int(
+                    pokemon["id"]
+                )
+
+                if _pokemon_in_party(
+                    db,
+                    pokemon_id,
+                ):
+                    continue
+
+                if _pokemon_in_pc(
+                    db,
+                    pokemon_id,
+                ):
+                    continue
+
+                available_slot = None
+
+                for slot in range(1, 7):
+                    if slot not in occupied_slots:
+                        available_slot = slot
+                        break
+
+                if available_slot is None:
+                    break
+
+                db.execute(
+                    """
+                    INSERT INTO party
+                    (
+                        player_id,
+                        pokemon_id,
+                        slot
+                    )
+                    VALUES (?, ?, ?)
+                    """,
+                    (
+                        player_id,
+                        pokemon_id,
+                        available_slot,
+                    ),
+                )
+
+                occupied_slots.add(
+                    available_slot
+                )
+
+                party_count += 1
+
+    # ---------------------------------------------------------------
+    # Step 2:
+    # Every owned Pokémon that is not Party goes to PC.
+    # ---------------------------------------------------------------
+
+    for player in players:
+
+        player_id = int(
+            player["id"]
+        )
+
+        pokemon_rows = db.execute(
+            """
+            SELECT id
+            FROM pokemon
+            WHERE owner_id = ?
+            ORDER BY id
+            """,
+            (player_id,),
+        ).fetchall()
+
+        for pokemon in pokemon_rows:
+
+            pokemon_id = int(
+                pokemon["id"]
+            )
+
+            if _pokemon_in_party(
+                db,
+                pokemon_id,
+            ):
+                continue
+
+            if _pokemon_in_pc(
+                db,
+                pokemon_id,
+            ):
+                continue
+
+            _put_in_pc(
+                db,
+                player_id,
+                pokemon_id,
+            )
+
+    # ---------------------------------------------------------------
+    # Step 3:
+    # Remove the old is_active column.
+    # ---------------------------------------------------------------
+
+    if has_is_active:
+        _remove_is_active_column(
+            db
+        )
+
+
+def _remove_is_active_column(
+    db: sqlite3.Connection,
+) -> None:
+    """
+    Permanently remove pokemon.is_active.
+
+    The migration has already moved every Pokémon into Party or PC
+    before this function is called.
+    """
+
+    if not _column_exists(
+        db,
+        "pokemon",
+        "is_active",
+    ):
+        return
+
+    # SQLite 3.35+ supports DROP COLUMN.
+    db.execute(
+        """
+        ALTER TABLE pokemon
+        DROP COLUMN is_active
+        """
+    )
+
+
+# ---------------------------------------------------------------------------
+# Player role migration
 # ---------------------------------------------------------------------------
 
 def _migrate_players_role(
     db: sqlite3.Connection,
 ) -> None:
     """
-    Safely add role_id to an existing players table.
+    Add role_id to existing player accounts.
 
-    SQLite does not allow adding a REFERENCES column with
-    a non-NULL DEFAULT using ALTER TABLE.
-
-    Therefore we:
-        1. Add role_id as a nullable foreign-key column.
-        2. Assign every existing player the normal player role.
-        3. Leave the column nullable at the SQLite schema level.
-
-    Existing accounts are never given staff permissions.
+    Existing accounts become normal players.
     """
 
     if not _table_exists(
@@ -489,14 +919,6 @@ def _migrate_players_role(
     ):
         return
 
-    # SQLite-compatible migration.
-    #
-    # Do NOT use:
-    #
-    #     NOT NULL DEFAULT 1 REFERENCES roles(id)
-    #
-    # SQLite rejects that combination when using ALTER TABLE.
-
     db.execute(
         """
         ALTER TABLE players
@@ -505,7 +927,6 @@ def _migrate_players_role(
         """
     )
 
-    # Existing accounts become normal players.
     db.execute(
         """
         UPDATE players
@@ -513,44 +934,11 @@ def _migrate_players_role(
         WHERE role_id IS NULL
         """
     )
-    """
-    Add role_id to an existing players table.
-
-    Existing accounts automatically become normal players.
-    No existing account receives staff access.
-    """
-
-    if not _table_exists(
-        db,
-        "players",
-    ):
-        return
-
-    if _column_exists(
-        db,
-        "players",
-        "role_id",
-    ):
-        return
-
-    db.execute(
-        """
-        ALTER TABLE players
-        ADD COLUMN role_id INTEGER
-        NOT NULL DEFAULT 1
-        REFERENCES roles(id)
-        """
-    )
 
 
 def _create_role_index(
     db: sqlite3.Connection,
 ) -> None:
-    """
-    Create the players.role_id index only after role_id
-    has been migrated into the players table.
-    """
-
     db.execute(
         """
         CREATE INDEX IF NOT EXISTS idx_players_role_id
@@ -566,7 +954,9 @@ def _create_role_index(
 def _seed_roles(
     db: sqlite3.Connection,
 ) -> None:
+
     for role_id, name, description in ROLES:
+
         db.execute(
             """
             INSERT INTO roles
@@ -596,7 +986,9 @@ def _seed_roles(
 def _seed_permissions(
     db: sqlite3.Connection,
 ) -> None:
+
     for permission_name, description in PERMISSIONS:
+
         db.execute(
             """
             INSERT INTO permissions
@@ -604,11 +996,14 @@ def _seed_permissions(
                 permission_name,
                 description
             )
-            VALUES (?, ?)
+            VALUES (?, ?, ?)
             ON CONFLICT(permission_name)
             DO UPDATE SET
                 description = excluded.description
-            """,
+            """.replace(
+                "VALUES (?, ?, ?)",
+                "VALUES (?, ?)",
+            ),
             (
                 permission_name,
                 description,
@@ -623,6 +1018,7 @@ def _seed_permissions(
 def _seed_role_permissions(
     db: sqlite3.Connection,
 ) -> None:
+
     for role_name, permission_names in ROLE_PERMISSIONS.items():
 
         role = db.execute(
@@ -637,7 +1033,9 @@ def _seed_role_permissions(
         if role is None:
             continue
 
-        role_id = role["id"]
+        role_id = int(
+            role["id"]
+        )
 
         for permission_name in permission_names:
 
@@ -670,17 +1068,12 @@ def _seed_role_permissions(
 
 
 # ---------------------------------------------------------------------------
-# Repair existing players
+# Repair players
 # ---------------------------------------------------------------------------
 
 def _repair_existing_players(
     db: sqlite3.Connection,
 ) -> None:
-    """
-    Make sure existing accounts have a valid role.
-
-    NULL or invalid role assignments are reset to player.
-    """
 
     if not _column_exists(
         db,
@@ -710,7 +1103,7 @@ def _repair_existing_players(
 
 
 # ---------------------------------------------------------------------------
-# Default server settings
+# Default settings
 # ---------------------------------------------------------------------------
 
 def _seed_default_settings(
@@ -765,33 +1158,21 @@ def _seed_default_settings(
 
 
 # ---------------------------------------------------------------------------
-# Initialize / migrate database
+# Initialize database
 # ---------------------------------------------------------------------------
 
 def init_db() -> None:
     """
     Initialize the Krampus RPG database.
 
-    This function is safe to run against an existing database.
-
-    Existing:
-        - Players
-        - Pokémon
-        - Items
-        - Quests
-        - Progress
-        - Badges
-        - Transactions
-
-    are preserved.
-
-    The admin system is added automatically.
+    Existing Pokémon are migrated from the old is_active system into
+    the database-backed Party and PC systems.
     """
 
     with get_connection() as db:
 
         # ---------------------------------------------------------------
-        # 1. Create roles first.
+        # 1. Create role infrastructure.
         # ---------------------------------------------------------------
 
         db.executescript(
@@ -823,61 +1204,83 @@ def init_db() -> None:
         )
 
         # ---------------------------------------------------------------
-        # 2. Seed roles before players.role_id is added.
+        # 2. Seed roles.
         # ---------------------------------------------------------------
 
-        _seed_roles(db)
+        _seed_roles(
+            db
+        )
 
         # ---------------------------------------------------------------
-        # 3. Create the original game tables plus the new admin tables.
+        # 3. Create base game schema.
         # ---------------------------------------------------------------
 
-        db.executescript(SCHEMA)
+        db.executescript(
+            SCHEMA
+        )
 
         # ---------------------------------------------------------------
-        # 4. Migrate an existing players table.
+        # 4. Migrate player roles.
         # ---------------------------------------------------------------
 
-        _migrate_players_role(db)
+        _migrate_players_role(
+            db
+        )
+
+        _create_role_index(
+            db
+        )
 
         # ---------------------------------------------------------------
-        # 5. Now that players.role_id exists, create its index.
+        # 5. Seed permissions.
         # ---------------------------------------------------------------
 
-        _create_role_index(db)
+        _seed_permissions(
+            db
+        )
 
         # ---------------------------------------------------------------
-        # 6. Seed permissions.
+        # 6. Seed role permissions.
         # ---------------------------------------------------------------
 
-        _seed_permissions(db)
+        _seed_role_permissions(
+            db
+        )
 
         # ---------------------------------------------------------------
-        # 7. Seed role -> permission relationships.
+        # 7. Repair existing players.
         # ---------------------------------------------------------------
 
-        _seed_role_permissions(db)
+        _repair_existing_players(
+            db
+        )
 
         # ---------------------------------------------------------------
-        # 8. Make sure existing accounts remain normal players.
+        # 8. Create Party/PC and migrate old storage.
         # ---------------------------------------------------------------
 
-        _repair_existing_players(db)
+        _migrate_pokemon_storage(
+            db
+        )
 
         # ---------------------------------------------------------------
-        # 9. Seed default server settings.
+        # 9. Default settings.
         # ---------------------------------------------------------------
 
-        _seed_default_settings(db)
+        _seed_default_settings(
+            db
+        )
 
         db.commit()
 
 
 # ---------------------------------------------------------------------------
-# JSON data loading
+# JSON loading
 # ---------------------------------------------------------------------------
 
-def load_json(filename: str):
+def load_json(
+    filename: str,
+):
     path = DATA_DIR / filename
 
     if not path.exists():
@@ -891,7 +1294,7 @@ def load_json(filename: str):
 
 
 # ---------------------------------------------------------------------------
-# Game data seeding
+# Seed game data
 # ---------------------------------------------------------------------------
 
 def seed_database() -> None:
@@ -907,7 +1310,10 @@ def seed_database() -> None:
 
     with get_connection() as db:
 
-        if isinstance(quests, list):
+        if isinstance(
+            quests,
+            list,
+        ):
 
             for quest in quests:
 

@@ -86,7 +86,10 @@ def pc_index():
                 1,
             )
         )
-    except (TypeError, ValueError):
+    except (
+        TypeError,
+        ValueError,
+    ):
         page = 1
 
     page = max(
@@ -107,6 +110,8 @@ def pc_index():
         {
             "success": True,
             "pc": pc,
+            "page": page,
+            "slots_per_page": PC_SLOTS_PER_PAGE,
         }
     )
 
@@ -140,6 +145,8 @@ def pc_page_api(page: int):
         {
             "success": True,
             "pc": pc,
+            "page": page,
+            "slots_per_page": PC_SLOTS_PER_PAGE,
         }
     )
 
@@ -336,6 +343,7 @@ def pc_deposit():
             if slot is not None
             else None
         )
+
     except (
         TypeError,
         ValueError,
@@ -488,6 +496,12 @@ def pc_move():
             400,
         )
 
+    except Exception:
+        return _error_response(
+            "Unable to move that Pokémon.",
+            500,
+        )
+
     return jsonify(
         {
             "success": True,
@@ -543,6 +557,12 @@ def pc_swap():
         return _error_response(
             str(exc),
             400,
+        )
+
+    except Exception:
+        return _error_response(
+            "Unable to swap those Pokémon.",
+            500,
         )
 
     return jsonify(
@@ -608,6 +628,10 @@ def pc_party_add():
 
 @pc_bp.post("/api/pc/party/remove")
 def pc_party_remove():
+    """
+    Remove from Party = automatically deposit into PC.
+    """
+
     try:
         player_id = _require_player()
     except PermissionError as exc:
@@ -645,10 +669,17 @@ def pc_party_remove():
             400,
         )
 
+    except Exception:
+        return _error_response(
+            "Unable to move that Pokémon to the PC.",
+            500,
+        )
+
     return jsonify(
         {
             "success": True,
-            "party": result,
+            "party": get_party(player_id),
+            "location": result,
         }
     )
 
@@ -701,6 +732,7 @@ def pc_party_move():
     return jsonify(
         {
             "success": True,
-            "party": result,
+            "party": get_party(player_id),
+            "result": result,
         }
     )

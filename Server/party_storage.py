@@ -49,10 +49,9 @@ def ensure_party_schema(
     """
     Ensure the database-backed Party table exists.
 
-    When an existing connection is supplied, this function does not
-    commit so that callers can include schema creation in a larger
-    transaction.
+    The Party table is the only source of truth for party membership.
     """
+
     if db is not None:
         db.executescript(PARTY_SCHEMA)
         return
@@ -75,7 +74,10 @@ def _pokemon_belongs_to_player(
           AND owner_id = ?
         LIMIT 1
         """,
-        (pokemon_id, player_id),
+        (
+            pokemon_id,
+            player_id,
+        ),
     ).fetchone()
 
     return row is not None
@@ -120,7 +122,7 @@ def _next_party_slot(
     return None
 
 
-def _party_table_exists(
+def _pc_table_exists(
     db: sqlite3.Connection,
 ) -> bool:
     row = db.execute(
@@ -128,7 +130,7 @@ def _party_table_exists(
         SELECT 1
         FROM sqlite_master
         WHERE type = 'table'
-          AND name = 'party'
+          AND name = 'pc_storage'
         LIMIT 1
         """
     ).fetchone()
@@ -136,134 +138,42 @@ def _party_table_exists(
     return row is not None
 
 
-def _sync_legacy_active_flags(
+def _pokemon_in_pc(
     db: sqlite3.Connection,
     player_id: int,
-) -> None:
-    """
-    Migrate old is_active-based party membership into the Party table.
+    pokemon_id: int,
+) -> bool:
+    if not _pc_table_exists(db):
+        return False
 
-    This is intentionally conservative:
-    - Existing Party rows are never replaced.
-    - Existing is_active Pokémon are added only when Party membership
-      has not already been established.
-    - The Party table becomes authoritative.
-    """
-    if not _party_table_exists(db):
-        return
-
-    existing = {
-        int(row["pokemon_id"])
-        for row in db.execute(
-            """
-            SELECT pokemon_id
-            FROM party
-            WHERE player_id = ?
-            """,
-            (player_id,),
-        ).fetchall()
-    }
-
-    count = _party_count(db, player_id)
-
-    if count < MAX_PARTY_SIZE:
-        rows = db.execute(
-            """
-            SELECT id
-            FROM pokemon
-            WHERE owner_id = ?
-              AND is_active = 1
-            ORDER BY id
-            """,
-            (player_id,),
-        ).fetchall()
-
-        for row in rows:
-            pokemon_id = int(row["id"])
-
-            if pokemon_id in existing:
-                continue
-
-            if count >= MAX_PARTY_SIZE:
-                break
-
-            slot = _next_party_slot(db, player_id)
-
-            if slot is None:
-                break
-
-            db.execute(
-                """
-                INSERT OR IGNORE INTO party
-                (
-                    player_id,
-                    pokemon_id,
-                    slot
-                )
-                VALUES (?, ?, ?)
-                """,
-                (
-                    player_id,
-                    pokemon_id,
-                    slot,
-                ),
-            )
-
-            existing.add(pokemon_id)
-            count += 1
-
-    # Keep the legacy column synchronized for older code.
-    db.execute(
+    row = db.execute(
         """
-        UPDATE pokemon
-        SET is_active = 0
-        WHERE owner_id = ?
-        """,
-        (player_id,),
-    )
-
-    db.execute(
-        """
-        UPDATE pokemon
-        SET is_active = 1
-        WHERE owner_id = ?
-          AND id IN (
-              SELECT pokemon_id
-              FROM party
-              WHERE player_id = ?
-          )
+        SELECT 1
+        FROM pc_storage
+        WHERE player_id = ?
+          AND pokemon_id = ?
+        LIMIT 1
         """,
         (
             player_id,
-            player_id,
+            pokemon_id,
         ),
-    )
+    ).fetchone()
 
-
-def migrate_existing_party(
-    player_id: int,
-) -> None:
-    with get_connection() as db:
-        ensure_party_schema(db)
-
-        _sync_legacy_active_flags(
-            db,
-            player_id,
-        )
-
-        db.commit()
+    return row is not None
 
 
 def get_party(
     player_id: int,
 ) -> list[dict[str, Any]]:
+    """
+    Return the player's party.
+
+    Party membership comes exclusively from the party table.
+    """
+
     with get_connection() as db:
         ensure_party_schema(db)
-
-        _sync_legacy_active_flags(
-            db,
-            player_id,
-        )
 
         rows = db.execute(
             """
@@ -293,10 +203,14 @@ def get_party(
                 ON p.id = party.pokemon_id
 
             WHERE party.player_id = ?
+              AND p.owner_id = ?
 
             ORDER BY party.slot
             """,
-            (player_id,),
+            (
+                player_id,
+                player_id,
+            ),
         ).fetchall()
 
         return [dict(row) for row in rows]
@@ -338,10 +252,12 @@ def get_party_pokemon(
 
             WHERE party.player_id = ?
               AND party.pokemon_id = ?
+              AND p.owner_id = ?
             """,
             (
                 player_id,
                 pokemon_id,
+                player_id,
             ),
         ).fetchone()
 
@@ -377,13 +293,15 @@ def add_to_party(
     pokemon_id: int,
     slot: int | None = None,
 ) -> dict[str, Any]:
+    """
+    Move a Pokémon into the Party.
+
+    If the Pokémon is currently in the PC, it is removed from the PC
+    as part of the same transaction.
+    """
+
     with get_connection() as db:
         ensure_party_schema(db)
-
-        _sync_legacy_active_flags(
-            db,
-            player_id,
-        )
 
         if not _pokemon_belongs_to_player(
             db,
@@ -455,69 +373,42 @@ def add_to_party(
                 "No party slot is available."
             )
 
-        # PC is optional here because the Party module must also work
-        # independently before the PC table has been initialized.
-        pc_exists = db.execute(
-            """
-            SELECT 1
-            FROM sqlite_master
-            WHERE type = 'table'
-              AND name = 'pc_storage'
-            LIMIT 1
-            """
-        ).fetchone()
+        try:
+            if _pc_table_exists(db):
+                db.execute(
+                    """
+                    DELETE FROM pc_storage
+                    WHERE player_id = ?
+                      AND pokemon_id = ?
+                    """,
+                    (
+                        player_id,
+                        pokemon_id,
+                    ),
+                )
 
-        if pc_exists is not None:
-            pc_row = db.execute(
+            db.execute(
                 """
-                SELECT 1
-                FROM pc_storage
-                WHERE player_id = ?
-                  AND pokemon_id = ?
-                LIMIT 1
+                INSERT INTO party
+                (
+                    player_id,
+                    pokemon_id,
+                    slot
+                )
+                VALUES (?, ?, ?)
                 """,
                 (
                     player_id,
                     pokemon_id,
+                    slot,
                 ),
-            ).fetchone()
-
-            if pc_row is not None:
-                raise ValueError(
-                    "That Pokémon is currently stored in the PC."
-                )
-
-        db.execute(
-            """
-            INSERT INTO party
-            (
-                player_id,
-                pokemon_id,
-                slot
             )
-            VALUES (?, ?, ?)
-            """,
-            (
-                player_id,
-                pokemon_id,
-                slot,
-            ),
-        )
 
-        db.execute(
-            """
-            UPDATE pokemon
-            SET is_active = 1
-            WHERE id = ?
-              AND owner_id = ?
-            """,
-            (
-                pokemon_id,
-                player_id,
-            ),
-        )
+            db.commit()
 
-        db.commit()
+        except Exception:
+            db.rollback()
+            raise
 
         return {
             "pokemon_id": pokemon_id,
@@ -529,15 +420,35 @@ def remove_from_party(
     player_id: int,
     pokemon_id: int,
 ) -> dict[str, Any]:
+    """
+    Remove a Pokémon from the Party and AUTOMATICALLY place it into PC.
+
+    This function never deletes the Pokémon.
+
+    Party -> PC is one atomic database transaction.
+    """
+
+    from .pc_storage import first_empty_slot
+
     with get_connection() as db:
         ensure_party_schema(db)
 
-        row = db.execute(
+        if not _pokemon_belongs_to_player(
+            db,
+            player_id,
+            pokemon_id,
+        ):
+            raise ValueError(
+                "That Pokémon does not belong to this player."
+            )
+
+        party_row = db.execute(
             """
             SELECT id, slot
             FROM party
             WHERE player_id = ?
               AND pokemon_id = ?
+            LIMIT 1
             """,
             (
                 player_id,
@@ -545,43 +456,75 @@ def remove_from_party(
             ),
         ).fetchone()
 
-        if row is None:
+        if party_row is None:
             raise ValueError(
                 "That Pokémon is not in the player's party."
             )
 
-        old_slot = int(row["slot"])
+        old_slot = int(party_row["slot"])
 
-        db.execute(
-            """
-            DELETE FROM party
-            WHERE player_id = ?
-              AND pokemon_id = ?
-            """,
-            (
-                player_id,
-                pokemon_id,
-            ),
+        from .pc_storage import ensure_pc_schema
+
+        ensure_pc_schema(db)
+
+        if _pokemon_in_pc(
+            db,
+            player_id,
+            pokemon_id,
+        ):
+            raise ValueError(
+                "That Pokémon is already in the PC."
+            )
+
+        pc_page, pc_slot = first_empty_slot(
+            db,
+            player_id,
         )
 
-        db.execute(
-            """
-            UPDATE pokemon
-            SET is_active = 0
-            WHERE id = ?
-              AND owner_id = ?
-            """,
-            (
-                pokemon_id,
-                player_id,
-            ),
-        )
+        try:
+            db.execute(
+                """
+                DELETE FROM party
+                WHERE player_id = ?
+                  AND pokemon_id = ?
+                """,
+                (
+                    player_id,
+                    pokemon_id,
+                ),
+            )
 
-        db.commit()
+            db.execute(
+                """
+                INSERT INTO pc_storage
+                (
+                    player_id,
+                    pokemon_id,
+                    page,
+                    slot
+                )
+                VALUES (?, ?, ?, ?)
+                """,
+                (
+                    player_id,
+                    pokemon_id,
+                    pc_page,
+                    pc_slot,
+                ),
+            )
+
+            db.commit()
+
+        except Exception:
+            db.rollback()
+            raise
 
         return {
             "pokemon_id": pokemon_id,
             "old_slot": old_slot,
+            "page": pc_page,
+            "slot": pc_slot,
+            "destination": "pc",
         }
 
 
@@ -592,7 +535,10 @@ def move_party_pokemon(
 ) -> dict[str, Any]:
     destination_slot = int(destination_slot)
 
-    if destination_slot < 1 or destination_slot > MAX_PARTY_SIZE:
+    if (
+        destination_slot < 1
+        or destination_slot > MAX_PARTY_SIZE
+    ):
         raise ValueError(
             "Party slots must be between 1 and 6."
         )
@@ -606,6 +552,7 @@ def move_party_pokemon(
             FROM party
             WHERE player_id = ?
               AND pokemon_id = ?
+            LIMIT 1
             """,
             (
                 player_id,
@@ -632,6 +579,7 @@ def move_party_pokemon(
             FROM party
             WHERE player_id = ?
               AND slot = ?
+            LIMIT 1
             """,
             (
                 player_id,
@@ -639,89 +587,79 @@ def move_party_pokemon(
             ),
         ).fetchone()
 
-        # Use DELETE/INSERT instead of invalid temporary slot values.
-        # This avoids violating CHECK(slot >= 1).
-        db.execute(
-            """
-            DELETE FROM party
-            WHERE player_id = ?
-              AND pokemon_id = ?
-            """,
-            (
-                player_id,
-                pokemon_id,
-            ),
-        )
-
-        if destination is None:
-            db.execute(
-                """
-                INSERT INTO party
-                (
-                    player_id,
-                    pokemon_id,
-                    slot
+        try:
+            if destination is None:
+                db.execute(
+                    """
+                    UPDATE party
+                    SET slot = ?
+                    WHERE player_id = ?
+                      AND pokemon_id = ?
+                    """,
+                    (
+                        destination_slot,
+                        player_id,
+                        pokemon_id,
+                    ),
                 )
-                VALUES (?, ?, ?)
-                """,
-                (
-                    player_id,
-                    pokemon_id,
-                    destination_slot,
-                ),
-            )
-        else:
-            destination_pokemon_id = int(
-                destination["pokemon_id"]
-            )
 
-            db.execute(
-                """
-                DELETE FROM party
-                WHERE player_id = ?
-                  AND pokemon_id = ?
-                """,
-                (
-                    player_id,
-                    destination_pokemon_id,
-                ),
-            )
-
-            db.execute(
-                """
-                INSERT INTO party
-                (
-                    player_id,
-                    pokemon_id,
-                    slot
+            else:
+                destination_pokemon_id = int(
+                    destination["pokemon_id"]
                 )
-                VALUES (?, ?, ?)
-                """,
-                (
-                    player_id,
-                    destination_pokemon_id,
-                    source_slot,
-                ),
-            )
 
-            db.execute(
-                """
-                INSERT INTO party
-                (
-                    player_id,
-                    pokemon_id,
-                    slot
+                db.execute(
+                    """
+                    DELETE FROM party
+                    WHERE player_id = ?
+                      AND pokemon_id IN (?, ?)
+                    """,
+                    (
+                        player_id,
+                        pokemon_id,
+                        destination_pokemon_id,
+                    ),
                 )
-                VALUES (?, ?, ?)
-                """,
-                (
-                    player_id,
-                    pokemon_id,
-                    destination_slot,
-                ),
-            )
 
-        db.commit()
+                db.execute(
+                    """
+                    INSERT INTO party
+                    (
+                        player_id,
+                        pokemon_id,
+                        slot
+                    )
+                    VALUES (?, ?, ?)
+                    """,
+                    (
+                        player_id,
+                        destination_pokemon_id,
+                        source_slot,
+                    ),
+                )
+
+                db.execute(
+                    """
+                    INSERT INTO party
+                    (
+                        player_id,
+                        pokemon_id,
+                        slot
+                    )
+                    VALUES (?, ?, ?)
+                    """,
+                    (
+                        player_id,
+                        pokemon_id,
+                        destination_slot,
+                    ),
+                )
+
+            db.commit()
+
+        except Exception:
+            db.rollback()
+            raise
 
         return {
             "pokemon_id": pokemon_id,
@@ -749,66 +687,55 @@ def party_is_full(
 
 def clear_party(
     player_id: int,
+) -> int:
+    """
+    Move every Party Pokémon into the PC.
+
+    This is intentionally implemented through the same Party -> PC
+    storage rules rather than deleting Pokémon.
+    """
+
+    moved = 0
+
+    while True:
+        with get_connection() as db:
+            ensure_party_schema(db)
+
+            row = db.execute(
+                """
+                SELECT pokemon_id
+                FROM party
+                WHERE player_id = ?
+                ORDER BY slot
+                LIMIT 1
+                """,
+                (player_id,),
+            ).fetchone()
+
+        if row is None:
+            break
+
+        remove_from_party(
+            player_id,
+            int(row["pokemon_id"]),
+        )
+
+        moved += 1
+
+    return moved
+
+
+def migrate_existing_party(
+    player_id: int,
 ) -> None:
+    """
+    Compatibility entry point.
+
+    The old is_active field is intentionally NOT read.
+
+    Existing migration is handled by the database migration layer.
+    """
+
     with get_connection() as db:
         ensure_party_schema(db)
-
-        rows = db.execute(
-            """
-            SELECT pokemon_id
-            FROM party
-            WHERE player_id = ?
-            """,
-            (player_id,),
-        ).fetchall()
-
-        db.execute(
-            """
-            DELETE FROM party
-            WHERE player_id = ?
-            """,
-            (player_id,),
-        )
-
-        for row in rows:
-            db.execute(
-                """
-                UPDATE pokemon
-                SET is_active = 0
-                WHERE id = ?
-                  AND owner_id = ?
-                """,
-                (
-                    int(row["pokemon_id"]),
-                    player_id,
-                ),
-            )
-
         db.commit()
-
-
-def get_party_with_details(
-    player_id: int,
-) -> list[dict[str, Any]]:
-    from .services import get_pokemon
-
-    party = get_party(player_id)
-    result: list[dict[str, Any]] = []
-
-    for entry in party:
-        pokemon_id = int(entry["pokemon_id"])
-
-        detailed = get_pokemon(
-            player_id,
-            pokemon_id,
-        )
-
-        if detailed is None:
-            detailed = dict(entry)
-
-        detailed["party_id"] = entry["party_id"]
-        detailed["slot"] = entry["slot"]
-
-        result.append(detailed)
-
-    return result
