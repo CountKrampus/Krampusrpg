@@ -33,7 +33,8 @@ from .news import (
     ensure_news_table,
     get_published_news,
 )
-
+from .pc_storage import ensure_pc_schema
+from .pc_routes import pc_bp
 from .admin.routes import admin_bp
 
 
@@ -47,11 +48,27 @@ def create_app() -> Flask:
     app.config["SECRET_KEY"] = SECRET_KEY
     app.config["DATABASE"] = DATABASE_PATH
 
+    # ------------------------------------------------------------------
+    # Database initialization
+    # ------------------------------------------------------------------
+
     init_db()
     seed_database()
     ensure_news_table()
 
+    # PC storage is initialized after the base player/Pokémon tables.
+    ensure_pc_schema()
+
+    # ------------------------------------------------------------------
+    # Blueprint registration
+    # ------------------------------------------------------------------
+
     app.register_blueprint(admin_bp)
+    app.register_blueprint(pc_bp)
+
+    # ------------------------------------------------------------------
+    # Public pages
+    # ------------------------------------------------------------------
 
     @app.get("/")
     def index():
@@ -70,6 +87,10 @@ def create_app() -> Flask:
                 "game": "Krampus RPG",
             }
         )
+
+    # ------------------------------------------------------------------
+    # Registration
+    # ------------------------------------------------------------------
 
     @app.route("/register", methods=["GET", "POST"])
     def register():
@@ -145,6 +166,10 @@ def create_app() -> Flask:
 
         return redirect(url_for("dashboard"))
 
+    # ------------------------------------------------------------------
+    # Login
+    # ------------------------------------------------------------------
+
     @app.route("/login", methods=["GET", "POST"])
     def login():
         if request.method == "GET":
@@ -182,10 +207,18 @@ def create_app() -> Flask:
 
         return redirect(url_for("dashboard"))
 
+    # ------------------------------------------------------------------
+    # Logout
+    # ------------------------------------------------------------------
+
     @app.get("/logout")
     def logout():
         logout_user()
         return redirect(url_for("index"))
+
+    # ------------------------------------------------------------------
+    # Dashboard
+    # ------------------------------------------------------------------
 
     @app.get("/dashboard")
     def dashboard():
@@ -229,6 +262,10 @@ def create_app() -> Flask:
             party=party,
             news_posts=news_posts,
         )
+
+    # ------------------------------------------------------------------
+    # Profile
+    # ------------------------------------------------------------------
 
     @app.get("/profile")
     def profile():
@@ -296,6 +333,10 @@ def create_app() -> Flask:
             pokemon_count=pokemon_count,
             party_count=party_count,
         )
+
+    # ------------------------------------------------------------------
+    # Starter Pokémon
+    # ------------------------------------------------------------------
 
     @app.route("/starter", methods=["GET", "POST"])
     def starter():
@@ -369,6 +410,10 @@ def create_app() -> Flask:
 
         return redirect(url_for("dashboard"))
 
+    # ------------------------------------------------------------------
+    # Current player API
+    # ------------------------------------------------------------------
+
     @app.get("/api/me")
     def api_me():
         player_id = current_player_id()
@@ -423,6 +468,10 @@ def create_app() -> Flask:
             }
         )
 
+    # ------------------------------------------------------------------
+    # Pokémon API
+    # ------------------------------------------------------------------
+
     @app.get("/api/pokemon")
     def api_pokemon():
         player_id = current_player_id()
@@ -440,6 +489,10 @@ def create_app() -> Flask:
                 "party": get_party(player_id),
             }
         )
+
+    # ------------------------------------------------------------------
+    # Create Pokémon API
+    # ------------------------------------------------------------------
 
     @app.post("/api/pokemon/create")
     def api_create_pokemon():
@@ -508,6 +561,10 @@ def create_app() -> Flask:
             }
         ), 201
 
+    # ------------------------------------------------------------------
+    # Party API
+    # ------------------------------------------------------------------
+
     @app.post("/api/pokemon/<int:pokemon_id>/party")
     def api_party(pokemon_id: int):
         player_id = current_player_id()
@@ -547,6 +604,10 @@ def create_app() -> Flask:
                 "party": get_party(player_id),
             }
         )
+
+    # ------------------------------------------------------------------
+    # Final application object
+    # ------------------------------------------------------------------
 
     return app
 
