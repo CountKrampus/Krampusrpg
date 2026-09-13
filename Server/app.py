@@ -1,3 +1,28 @@
+"""
+Krampus RPG Application
+
+Main Flask application.
+
+Current Pokémon storage architecture:
+
+    pokemon
+       |
+       +---- party
+       |
+       +---- pc_storage
+
+The legacy pokemon.is_active party system is not used.
+
+Current Pokémon design intentionally does not use:
+
+    IVs
+    EVs
+    Nature
+    Permanent Status
+
+Party and PC are database-backed systems.
+"""
+
 from __future__ import annotations
 
 import sqlite3
@@ -19,8 +44,19 @@ from .auth import (
     logout_user,
     verify_password,
 )
-from .config import DATABASE_PATH, SECRET_KEY, WEB_DIR
-from .database import get_connection, init_db, seed_database
+
+from .config import (
+    DATABASE_PATH,
+    SECRET_KEY,
+    WEB_DIR,
+)
+
+from .database import (
+    get_connection,
+    init_db,
+    seed_database,
+)
+
 from .services import (
     add_to_party,
     create_pokemon,
@@ -29,58 +65,108 @@ from .services import (
     get_species,
     remove_from_party,
 )
+
 from .news import (
     ensure_news_table,
     get_published_news,
 )
-from .pc_storage import ensure_pc_schema
-from .pc_routes import pc_bp
-from .admin.routes import admin_bp
 
+from .pc_storage import (
+    ensure_pc_schema,
+)
+
+from .party_storage import (
+    ensure_party_schema,
+)
+
+from .pc_routes import (
+    pc_bp,
+)
+
+from .admin.routes import (
+    admin_bp,
+)
+
+
+# ============================================================
+# APPLICATION FACTORY
+# ============================================================
 
 def create_app() -> Flask:
+    """
+    Create and configure the Krampus RPG Flask application.
+    """
+
     app = Flask(
         __name__,
-        template_folder=str(WEB_DIR / "templates"),
-        static_folder=str(WEB_DIR / "static"),
+        template_folder=str(
+            WEB_DIR / "templates"
+        ),
+        static_folder=str(
+            WEB_DIR / "static"
+        ),
     )
 
     app.config["SECRET_KEY"] = SECRET_KEY
     app.config["DATABASE"] = DATABASE_PATH
 
-    # ------------------------------------------------------------------
-    # Database initialization
-    # ------------------------------------------------------------------
+    # ========================================================
+    # DATABASE INITIALIZATION
+    # ========================================================
 
     init_db()
     seed_database()
-    ensure_news_table()
 
-    # PC storage is initialized after the base player/Pokémon tables.
+    # The Party and PC systems are both database-backed.
+    ensure_party_schema()
     ensure_pc_schema()
 
-    # ------------------------------------------------------------------
-    # Blueprint registration
-    # ------------------------------------------------------------------
+    # News is also database-backed.
+    ensure_news_table()
 
-    app.register_blueprint(admin_bp)
-    app.register_blueprint(pc_bp)
+    # ========================================================
+    # BLUEPRINT REGISTRATION
+    # ========================================================
 
-    # ------------------------------------------------------------------
-    # Public pages
-    # ------------------------------------------------------------------
+    app.register_blueprint(
+        admin_bp
+    )
+
+    app.register_blueprint(
+        pc_bp
+    )
+
+    # ========================================================
+    # PUBLIC HOME PAGE
+    # ========================================================
 
     @app.get("/")
     def index():
+        """
+        Main landing page.
+        """
+
         player_id = current_player_id()
 
         if player_id is not None:
-            return redirect(url_for("dashboard"))
+            return redirect(
+                url_for("dashboard")
+            )
 
-        return render_template("index.html")
+        return render_template(
+            "index.html"
+        )
+
+    # ========================================================
+    # HEALTH CHECK
+    # ========================================================
 
     @app.get("/health")
     def health():
+        """
+        Basic server health check.
+        """
+
         return jsonify(
             {
                 "status": "ok",
@@ -88,41 +174,75 @@ def create_app() -> Flask:
             }
         )
 
-    # ------------------------------------------------------------------
-    # Registration
-    # ------------------------------------------------------------------
+    # ========================================================
+    # REGISTRATION
+    # ========================================================
 
-    @app.route("/register", methods=["GET", "POST"])
+    @app.route(
+        "/register",
+        methods=["GET", "POST"],
+    )
     def register():
-        if request.method == "GET":
-            return render_template("register.html")
+        """
+        Register a new player account.
+        """
 
-        username = request.form.get("username", "").strip()
-        password = request.form.get("password", "")
+        if request.method == "GET":
+            return render_template(
+                "register.html"
+            )
+
+        username = request.form.get(
+            "username",
+            "",
+        ).strip()
+
+        password = request.form.get(
+            "password",
+            "",
+        )
+
         display_name = request.form.get(
             "display_name",
             username,
         ).strip()
 
+        # ----------------------------------------------------
+        # Validation
+        # ----------------------------------------------------
+
         if not username or not password:
             return render_template(
                 "register.html",
-                error="Username and password are required.",
+                error=(
+                    "Username and password are required."
+                ),
             )
 
         if len(username) < 3:
             return render_template(
                 "register.html",
-                error="Username must contain at least 3 characters.",
+                error=(
+                    "Username must contain "
+                    "at least 3 characters."
+                ),
             )
 
         if len(password) < 6:
             return render_template(
                 "register.html",
-                error="Password must contain at least 6 characters.",
+                error=(
+                    "Password must contain "
+                    "at least 6 characters."
+                ),
             )
 
+        # ----------------------------------------------------
+        # Create player
+        # ----------------------------------------------------
+
         with get_connection() as db:
+
             try:
                 cursor = db.execute(
                     """
@@ -151,7 +271,9 @@ def create_app() -> Flask:
                     )
                     VALUES (?)
                     """,
-                    (player_id,),
+                    (
+                        player_id,
+                    ),
                 )
 
                 db.commit()
@@ -159,39 +281,66 @@ def create_app() -> Flask:
             except sqlite3.IntegrityError:
                 return render_template(
                     "register.html",
-                    error="That username is already in use.",
+                    error=(
+                        "That username is already in use."
+                    ),
                 )
 
-        login_user(player_id)
+        login_user(
+            player_id
+        )
 
-        return redirect(url_for("dashboard"))
+        return redirect(
+            url_for("dashboard")
+        )
 
-    # ------------------------------------------------------------------
-    # Login
-    # ------------------------------------------------------------------
+    # ========================================================
+    # LOGIN
+    # ========================================================
 
-    @app.route("/login", methods=["GET", "POST"])
+    @app.route(
+        "/login",
+        methods=["GET", "POST"],
+    )
     def login():
-        if request.method == "GET":
-            return render_template("login.html")
+        """
+        Authenticate an existing player.
+        """
 
-        username = request.form.get("username", "").strip()
-        password = request.form.get("password", "")
+        if request.method == "GET":
+            return render_template(
+                "login.html"
+            )
+
+        username = request.form.get(
+            "username",
+            "",
+        ).strip()
+
+        password = request.form.get(
+            "password",
+            "",
+        )
 
         with get_connection() as db:
+
             player = db.execute(
                 """
                 SELECT *
                 FROM players
                 WHERE username = ?
                 """,
-                (username,),
+                (
+                    username,
+                ),
             ).fetchone()
 
         if player is None:
             return render_template(
                 "login.html",
-                error="Invalid username or password.",
+                error=(
+                    "Invalid username or password."
+                ),
             )
 
         if not verify_password(
@@ -200,46 +349,71 @@ def create_app() -> Flask:
         ):
             return render_template(
                 "login.html",
-                error="Invalid username or password.",
+                error=(
+                    "Invalid username or password."
+                ),
             )
 
-        login_user(player["id"])
+        login_user(
+            player["id"]
+        )
 
-        return redirect(url_for("dashboard"))
+        return redirect(
+            url_for("dashboard")
+        )
 
-    # ------------------------------------------------------------------
-    # Logout
-    # ------------------------------------------------------------------
+    # ========================================================
+    # LOGOUT
+    # ========================================================
 
     @app.get("/logout")
     def logout():
-        logout_user()
-        return redirect(url_for("index"))
+        """
+        Log the current player out.
+        """
 
-    # ------------------------------------------------------------------
-    # Dashboard
-    # ------------------------------------------------------------------
+        logout_user()
+
+        return redirect(
+            url_for("index")
+        )
+
+    # ========================================================
+    # DASHBOARD
+    # ========================================================
 
     @app.get("/dashboard")
     def dashboard():
+        """
+        Player dashboard.
+        """
+
         player_id = current_player_id()
 
         if player_id is None:
-            return redirect(url_for("login"))
+            return redirect(
+                url_for("login")
+            )
 
         with get_connection() as db:
+
             player = db.execute(
                 """
                 SELECT *
                 FROM players
                 WHERE id = ?
                 """,
-                (player_id,),
+                (
+                    player_id,
+                ),
             ).fetchone()
 
             if player is None:
                 session.clear()
-                return redirect(url_for("login"))
+
+                return redirect(
+                    url_for("login")
+                )
 
             progress = db.execute(
                 """
@@ -247,34 +421,53 @@ def create_app() -> Flask:
                 FROM player_progress
                 WHERE player_id = ?
                 """,
-                (player_id,),
+                (
+                    player_id,
+                ),
             ).fetchone()
 
-        pokemon = get_player_pokemon(player_id)
-        party = get_party(player_id)
+        pokemon = get_player_pokemon(
+            player_id
+        )
+
+        party = get_party(
+            player_id
+        )
+
         news_posts = get_published_news()
 
         return render_template(
             "dashboard.html",
             player=dict(player),
-            progress=dict(progress) if progress else {},
+            progress=(
+                dict(progress)
+                if progress
+                else {}
+            ),
             pokemon=pokemon,
             party=party,
             news_posts=news_posts,
         )
 
-    # ------------------------------------------------------------------
-    # Profile
-    # ------------------------------------------------------------------
+    # ========================================================
+    # PROFILE
+    # ========================================================
 
     @app.get("/profile")
     def profile():
+        """
+        Player profile page.
+        """
+
         player_id = current_player_id()
 
         if player_id is None:
-            return redirect(url_for("login"))
+            return redirect(
+                url_for("login")
+            )
 
         with get_connection() as db:
+
             player = db.execute(
                 """
                 SELECT
@@ -286,12 +479,17 @@ def create_app() -> Flask:
                 FROM players
                 WHERE id = ?
                 """,
-                (player_id,),
+                (
+                    player_id,
+                ),
             ).fetchone()
 
             if player is None:
                 session.clear()
-                return redirect(url_for("login"))
+
+                return redirect(
+                    url_for("login")
+                )
 
             progress = db.execute(
                 """
@@ -299,7 +497,9 @@ def create_app() -> Flask:
                 FROM player_progress
                 WHERE player_id = ?
                 """,
-                (player_id,),
+                (
+                    player_id,
+                ),
             ).fetchone()
 
             pokemon_count = db.execute(
@@ -308,8 +508,17 @@ def create_app() -> Flask:
                 FROM pokemon
                 WHERE owner_id = ?
                 """,
-                (player_id,),
+                (
+                    player_id,
+                ),
             ).fetchone()["count"]
+
+            # IMPORTANT:
+            #
+            # Party membership comes from the party table.
+            #
+            # There is intentionally no pokemon.is_active
+            # reference here.
 
             party_count = db.execute(
                 """
@@ -317,36 +526,66 @@ def create_app() -> Flask:
                 FROM party
                 WHERE player_id = ?
                 """,
-                (player_id,),
+                (
+                    player_id,
+                ),
             ).fetchone()["count"]
 
-        pokemon = get_player_pokemon(player_id)
-        party = get_party(player_id)
+        pokemon = get_player_pokemon(
+            player_id
+        )
+
+        party = get_party(
+            player_id
+        )
 
         return render_template(
             "profile.html",
             player=dict(player),
-            progress=dict(progress) if progress else {},
+            progress=(
+                dict(progress)
+                if progress
+                else {}
+            ),
             pokemon=pokemon,
             party=party,
             pokemon_count=pokemon_count,
             party_count=party_count,
         )
 
-    # ------------------------------------------------------------------
-    # Starter Pokémon
-    # ------------------------------------------------------------------
+    # ========================================================
+    # STARTER POKÉMON
+    # ========================================================
 
-    @app.route("/starter", methods=["GET", "POST"])
+    @app.route(
+        "/starter",
+        methods=["GET", "POST"],
+    )
     def starter():
+        """
+        Starter Pokémon selection.
+
+        A starter is created through the current Pokémon service,
+        which is responsible for putting the Pokémon into Party
+        or PC storage.
+
+        The old is_active system is not used.
+        """
+
         player_id = current_player_id()
 
         if player_id is None:
-            return redirect(url_for("login"))
+            return redirect(
+                url_for("login")
+            )
+
+        # ----------------------------------------------------
+        # Selection page
+        # ----------------------------------------------------
 
         if request.method == "GET":
             return render_template(
-                "starter.html",
+                "starter.html"
             )
 
         species_id = request.form.get(
@@ -363,10 +602,20 @@ def create_app() -> Flask:
         if species_id not in allowed:
             return render_template(
                 "starter.html",
-                error="Invalid starter Pokémon.",
+                error=(
+                    "Invalid starter Pokémon."
+                ),
             )
 
+        # ----------------------------------------------------
+        # Prevent a second starter from being created.
+        #
+        # We check ownership rather than party membership because
+        # a player's starter may already be in the PC.
+        # ----------------------------------------------------
+
         with get_connection() as db:
+
             existing = db.execute(
                 """
                 SELECT id
@@ -374,47 +623,124 @@ def create_app() -> Flask:
                 WHERE owner_id = ?
                 LIMIT 1
                 """,
-                (player_id,),
+                (
+                    player_id,
+                ),
             ).fetchone()
 
-        if existing:
-            return redirect(url_for("dashboard"))
+        if existing is not None:
+            return redirect(
+                url_for("dashboard")
+            )
 
-        create_pokemon(
-            owner_id=player_id,
-            species_id=species_id,
-            level=5,
+        # ----------------------------------------------------
+        # Validate species.
+        # ----------------------------------------------------
+
+        species = get_species(
+            species_id
         )
 
-        with get_connection() as db:
-            db.execute(
-                """
-                INSERT INTO player_quests
-                (
-                    player_id,
-                    quest_id,
-                    status
-                )
-                VALUES (?, ?, 'active')
-                ON CONFLICT(player_id, quest_id)
-                DO NOTHING
-                """,
-                (
-                    player_id,
-                    "welcome_to_krampus",
+        if species is None:
+            return render_template(
+                "starter.html",
+                error=(
+                    "That starter species is "
+                    "not currently available."
                 ),
             )
 
-            db.commit()
+        # ----------------------------------------------------
+        # Create the starter.
+        #
+        # create_pokemon() handles the new Party/PC architecture.
+        # ----------------------------------------------------
 
-        return redirect(url_for("dashboard"))
+        try:
+            create_pokemon(
+                owner_id=player_id,
+                species_id=species_id,
+                level=5,
+                variant="normal",
+                shiny=False,
+            )
 
-    # ------------------------------------------------------------------
-    # Current player API
-    # ------------------------------------------------------------------
+        except ValueError as exc:
+            return render_template(
+                "starter.html",
+                error=str(exc),
+            )
+
+        # ----------------------------------------------------
+        # Start the welcome quest when available.
+        #
+        # The quest table schema can vary during development,
+        # so failure here must not destroy the newly-created
+        # starter.
+        # ----------------------------------------------------
+
+        try:
+            with get_connection() as db:
+
+                quest = db.execute(
+                    """
+                    SELECT id
+                    FROM quests
+                    WHERE quest_id = ?
+                    LIMIT 1
+                    """,
+                    (
+                        "welcome_to_krampus",
+                    ),
+                ).fetchone()
+
+                if quest is not None:
+
+                    db.execute(
+                        """
+                        INSERT INTO player_quests
+                        (
+                            player_id,
+                            quest_id,
+                            status
+                        )
+                        VALUES (?, ?, 'active')
+                        ON CONFLICT(
+                            player_id,
+                            quest_id
+                        )
+                        DO NOTHING
+                        """,
+                        (
+                            player_id,
+                            quest["id"],
+                        ),
+                    )
+
+                    db.commit()
+
+        except sqlite3.Error:
+            # The starter itself has already been created.
+            #
+            # Quest initialization should never cause the player
+            # to lose their starter.
+            pass
+
+        return redirect(
+            url_for("dashboard")
+        )
+
+    # ========================================================
+    # CURRENT PLAYER API
+    # ========================================================
 
     @app.get("/api/me")
     def api_me():
+        """
+        Return information about the currently authenticated
+        player.
+        """
+
         player_id = current_player_id()
 
         if player_id is None:
@@ -425,6 +751,7 @@ def create_app() -> Flask:
             )
 
         with get_connection() as db:
+
             player = db.execute(
                 """
                 SELECT
@@ -436,7 +763,9 @@ def create_app() -> Flask:
                 FROM players
                 WHERE id = ?
                 """,
-                (player_id,),
+                (
+                    player_id,
+                ),
             ).fetchone()
 
             if player is None:
@@ -454,88 +783,201 @@ def create_app() -> Flask:
                 FROM player_progress
                 WHERE player_id = ?
                 """,
-                (player_id,),
+                (
+                    player_id,
+                ),
             ).fetchone()
 
         return jsonify(
             {
                 "logged_in": True,
                 "player": dict(player),
-                "progress": dict(progress)
-                if progress
-                else None,
+                "progress": (
+                    dict(progress)
+                    if progress
+                    else None
+                ),
             }
         )
 
-    # ------------------------------------------------------------------
-    # Pokémon API
-    # ------------------------------------------------------------------
+    # ========================================================
+    # PLAYER POKÉMON API
+    # ========================================================
 
     @app.get("/api/pokemon")
     def api_pokemon():
+        """
+        Return all Pokémon owned by the current player plus
+        their current Party.
+
+        PC storage remains database-backed and is included through
+        get_player_pokemon().
+        """
+
         player_id = current_player_id()
 
         if player_id is None:
             return jsonify(
                 {
-                    "error": "Authentication required.",
+                    "error": (
+                        "Authentication required."
+                    ),
                 }
             ), 401
 
         return jsonify(
             {
-                "pokemon": get_player_pokemon(player_id),
-                "party": get_party(player_id),
+                "pokemon": get_player_pokemon(
+                    player_id
+                ),
+                "party": get_party(
+                    player_id
+                ),
             }
         )
 
-    # ------------------------------------------------------------------
-    # Create Pokémon API
-    # ------------------------------------------------------------------
+    # ========================================================
+    # CREATE POKÉMON API
+    # ========================================================
 
     @app.post("/api/pokemon/create")
     def api_create_pokemon():
+        """
+        Create a Pokémon for the current player.
+
+        This endpoint is primarily useful for development/admin
+        testing at this stage.
+        """
+
         player_id = current_player_id()
 
         if player_id is None:
             return jsonify(
                 {
-                    "error": "Authentication required.",
+                    "error": (
+                        "Authentication required."
+                    ),
                 }
             ), 401
 
-        data = request.get_json(silent=True) or {}
+        data = (
+            request.get_json(
+                silent=True
+            )
+            or {}
+        )
 
         species_id = str(
-            data.get("species_id", "")
+            data.get(
+                "species_id",
+                "",
+            )
         ).strip().lower()
 
         if not species_id:
             return jsonify(
                 {
-                    "error": "species_id is required.",
+                    "error": (
+                        "species_id is required."
+                    ),
                 }
             ), 400
 
-        if get_species(species_id) is None:
+        species = get_species(
+            species_id
+        )
+
+        if species is None:
             return jsonify(
                 {
-                    "error": "Unknown species.",
+                    "error": (
+                        "Unknown species."
+                    ),
                 }
             ), 400
 
+        # ----------------------------------------------------
+        # Level
+        # ----------------------------------------------------
+
         try:
-            level = int(data.get("level", 5))
-        except (TypeError, ValueError):
+            level = int(
+                data.get(
+                    "level",
+                    5,
+                )
+            )
+        except (
+            TypeError,
+            ValueError,
+        ):
             level = 5
 
+        level = max(
+            1,
+            min(
+                level,
+                100,
+            ),
+        )
+
+        # ----------------------------------------------------
+        # Variant
+        # ----------------------------------------------------
+
         variant = str(
-            data.get("variant", "normal")
+            data.get(
+                "variant",
+                "normal",
+            )
         ).strip().lower()
 
-        shiny = bool(data.get("shiny", False))
+        if not variant:
+            variant = "normal"
 
-        nickname = data.get("nickname")
+        # ----------------------------------------------------
+        # Shiny
+        # ----------------------------------------------------
+
+        shiny_value = data.get(
+            "shiny",
+            False,
+        )
+
+        if isinstance(
+            shiny_value,
+            str,
+        ):
+            shiny = shiny_value.lower() in {
+                "1",
+                "true",
+                "yes",
+                "on",
+            }
+        else:
+            shiny = bool(
+                shiny_value
+            )
+
+        # ----------------------------------------------------
+        # Nickname
+        # ----------------------------------------------------
+
+        nickname = data.get(
+            "nickname"
+        )
+
+        if nickname is not None:
+            nickname = str(
+                nickname
+            ).strip()
+
+            if not nickname:
+                nickname = None
+
+        # ----------------------------------------------------
+        # Create Pokémon.
+        # ----------------------------------------------------
 
         try:
             pokemon = create_pokemon(
@@ -546,6 +988,7 @@ def create_app() -> Flask:
                 shiny=shiny,
                 nickname=nickname,
             )
+
         except ValueError as exc:
             return jsonify(
                 {
@@ -560,30 +1003,67 @@ def create_app() -> Flask:
             }
         ), 201
 
-    # ------------------------------------------------------------------
-    # Party API
-    # ------------------------------------------------------------------
+    # ========================================================
+    # PARTY API
+    # ========================================================
 
-    @app.post("/api/pokemon/<int:pokemon_id>/party")
-    def api_party(pokemon_id: int):
+    @app.post(
+        "/api/pokemon/<int:pokemon_id>/party"
+    )
+    def api_party(
+        pokemon_id: int,
+    ):
+        """
+        Add or remove a Pokémon from Party.
+
+        Removing a Pokémon from Party MUST move it to PC storage.
+
+        That behavior is implemented by party_storage and services;
+        this route never deletes a Pokémon.
+        """
+
         player_id = current_player_id()
 
         if player_id is None:
             return jsonify(
                 {
-                    "error": "Authentication required.",
+                    "error": (
+                        "Authentication required."
+                    ),
                 }
             ), 401
 
-        data = request.get_json(silent=True) or {}
-        action = data.get("action", "add")
+        data = (
+            request.get_json(
+                silent=True
+            )
+            or {}
+        )
+
+        action = str(
+            data.get(
+                "action",
+                "add",
+            )
+        ).strip().lower()
+
+        # ----------------------------------------------------
+        # REMOVE
+        # ----------------------------------------------------
 
         if action == "remove":
+
             success = remove_from_party(
                 player_id,
                 pokemon_id,
             )
+
+        # ----------------------------------------------------
+        # ADD
+        # ----------------------------------------------------
+
         else:
+
             success = add_to_party(
                 player_id,
                 pokemon_id,
@@ -593,26 +1073,38 @@ def create_app() -> Flask:
             return jsonify(
                 {
                     "success": False,
-                    "error": "Party operation failed.",
+                    "error": (
+                        "Party operation failed."
+                    ),
                 }
             ), 400
 
         return jsonify(
             {
                 "success": True,
-                "party": get_party(player_id),
+                "party": get_party(
+                    player_id
+                ),
             }
         )
 
-    # ------------------------------------------------------------------
-    # Final application object
-    # ------------------------------------------------------------------
+    # ========================================================
+    # APPLICATION
+    # ========================================================
 
     return app
 
 
+# ============================================================
+# APPLICATION INSTANCE
+# ============================================================
+
 app = create_app()
 
+
+# ============================================================
+# DIRECT EXECUTION
+# ============================================================
 
 if __name__ == "__main__":
     app.run(

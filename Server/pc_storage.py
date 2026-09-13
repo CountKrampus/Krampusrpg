@@ -77,10 +77,7 @@ def _pokemon_belongs_to_player(
           AND owner_id = ?
         LIMIT 1
         """,
-        (
-            pokemon_id,
-            player_id,
-        ),
+        (pokemon_id, player_id),
     ).fetchone()
 
     return row is not None
@@ -99,10 +96,7 @@ def _pokemon_in_party(
           AND pokemon_id = ?
         LIMIT 1
         """,
-        (
-            player_id,
-            pokemon_id,
-        ),
+        (player_id, pokemon_id),
     ).fetchone()
 
     return row is not None
@@ -121,10 +115,7 @@ def _pokemon_in_pc(
           AND pokemon_id = ?
         LIMIT 1
         """,
-        (
-            player_id,
-            pokemon_id,
-        ),
+        (player_id, pokemon_id),
     ).fetchone()
 
     return row is not None
@@ -164,7 +155,7 @@ def first_empty_slot(
     Find the first available PC slot.
 
     PC pages are unlimited.
-    Each page contains exactly 30 possible slots.
+    Each page contains 30 slots.
     """
 
     if preferred_page is not None:
@@ -238,7 +229,7 @@ def deposit_pokemon(
     """
     Move a Pokémon from Party to PC.
 
-    This is the authoritative Party -> PC operation.
+    The Pokémon is never deleted.
     """
 
     ensure_pc_schema(db)
@@ -278,10 +269,7 @@ def deposit_pokemon(
           AND pokemon_id = ?
         LIMIT 1
         """,
-        (
-            player_id,
-            pokemon_id,
-        ),
+        (player_id, pokemon_id),
     ).fetchone()
 
     if party_row is None:
@@ -343,10 +331,7 @@ def deposit_pokemon(
             WHERE player_id = ?
               AND pokemon_id = ?
             """,
-            (
-                player_id,
-                pokemon_id,
-            ),
+            (player_id, pokemon_id),
         )
 
         db.execute(
@@ -402,10 +387,7 @@ def withdraw_pokemon(
           AND pokemon_id = ?
         LIMIT 1
         """,
-        (
-            player_id,
-            pokemon_id,
-        ),
+        (player_id, pokemon_id),
     ).fetchone()
 
     if row is None:
@@ -466,10 +448,7 @@ def withdraw_pokemon(
             WHERE player_id = ?
               AND pokemon_id = ?
             """,
-            (
-                player_id,
-                pokemon_id,
-            ),
+            (player_id, pokemon_id),
         )
 
         db.execute(
@@ -538,10 +517,7 @@ def move_pokemon(
           AND pokemon_id = ?
         LIMIT 1
         """,
-        (
-            player_id,
-            pokemon_id,
-        ),
+        (player_id, pokemon_id),
     ).fetchone()
 
     if source is None:
@@ -583,23 +559,28 @@ def move_pokemon(
             "The destination PC slot is occupied."
         )
 
-    db.execute(
-        """
-        UPDATE pc_storage
-        SET page = ?,
-            slot = ?
-        WHERE player_id = ?
-          AND pokemon_id = ?
-        """,
-        (
-            destination_page,
-            destination_slot,
-            player_id,
-            pokemon_id,
-        ),
-    )
+    try:
+        db.execute(
+            """
+            UPDATE pc_storage
+            SET page = ?,
+                slot = ?
+            WHERE player_id = ?
+              AND pokemon_id = ?
+            """,
+            (
+                destination_page,
+                destination_slot,
+                player_id,
+                pokemon_id,
+            ),
+        )
 
-    db.commit()
+        db.commit()
+
+    except Exception:
+        db.rollback()
+        raise
 
     return {
         "pokemon_id": pokemon_id,
@@ -756,10 +737,8 @@ def get_page(
             p.gender,
             p.shiny,
             p.variant,
-            p.nature,
             p.current_hp,
-            p.max_hp,
-            p.status
+            p.max_hp
 
         FROM pc_storage pc
 
@@ -792,7 +771,7 @@ def search_pc(
     """
     Search the ENTIRE PC.
 
-    Name, variant and type filters can be combined.
+    Name, variant, and type filters can be combined.
     """
 
     ensure_pc_schema(db)
@@ -877,10 +856,9 @@ def search_pc(
             p.gender,
             p.shiny,
             p.variant,
-            p.nature,
+
             p.current_hp,
             p.max_hp,
-            p.status,
 
             s.name AS species_name,
 
@@ -908,7 +886,7 @@ def search_pc(
         parameters,
     ).fetchall()
 
-    result = []
+    result: list[dict[str, Any]] = []
 
     for row in rows:
         item = dict(row)

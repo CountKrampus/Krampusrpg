@@ -7,7 +7,12 @@ The admin system is organized around permissions rather than
 a simple "is_admin" flag.
 
 News management is restricted to Webmaster accounts.
+
+Pokémon administration uses the current Party + PC storage
+architecture and does not use the legacy pokemon.is_active field.
 """
+
+from __future__ import annotations
 
 from functools import wraps
 
@@ -22,6 +27,7 @@ from flask import (
 )
 
 from ..database import get_connection
+
 from ..news import (
     ensure_news_table,
     create_news_post,
@@ -103,7 +109,9 @@ def webmaster_required(func):
     Restrict a route to Webmaster accounts only.
 
     This is intentionally separate from normal permission checks.
-    News management is explicitly Webmaster-only.
+
+    Webmaster-only functionality currently includes the news
+    management system.
     """
 
     @wraps(func)
@@ -116,10 +124,18 @@ def webmaster_required(func):
         if player_id is None:
             abort(403)
 
+        try:
+            player_id = int(player_id)
+        except (
+            TypeError,
+            ValueError,
+        ):
+            abort(403)
+
         with get_connection() as db:
             role_name = get_player_role(
                 db,
-                int(player_id),
+                player_id,
             )
 
         if role_name != ROLE_WEBMASTER:
@@ -136,12 +152,14 @@ def webmaster_required(func):
 @admin_bp.app_template_global(
     "current_user_is_webmaster"
 )
-def current_user_is_webmaster():
+def current_user_is_webmaster() -> bool:
     """
     Return True when the current logged-in account is Webmaster.
 
-    Used only to control visibility of Webmaster-only admin
-    navigation. Routes remain protected server-side.
+    This is used by admin templates to control visibility of
+    Webmaster-only navigation.
+
+    Actual route protection remains server-side.
     """
 
     player_id = session.get(
@@ -231,6 +249,9 @@ def players_edit():
 def pokemon():
     """
     View Pokémon administration.
+
+    The service layer determines Party/PC location from the
+    database-backed storage tables.
     """
 
     pokemon_list = get_pokemon()
@@ -246,6 +267,9 @@ def pokemon():
 def pokemon_edit():
     """
     Edit Pokémon.
+
+    The current implementation displays the Pokémon management
+    page using the database-backed Pokémon list.
     """
 
     pokemon_list = get_pokemon()
@@ -487,6 +511,8 @@ def news():
     return render_template(
         "admin/news.html",
         posts=posts,
+        editing=None,
+        create_mode=False,
     )
 
 
@@ -522,7 +548,8 @@ def news_create():
 
     published = (
         request.form.get(
-            "published"
+            "published",
+            "",
         )
         == "1"
     )
@@ -531,11 +558,22 @@ def news_create():
         "player_id"
     )
 
+    if player_id is None:
+        abort(403)
+
+    try:
+        player_id = int(player_id)
+    except (
+        TypeError,
+        ValueError,
+    ):
+        abort(403)
+
     try:
         create_news_post(
             title=title,
             content=content,
-            author_id=int(player_id),
+            author_id=player_id,
             published=published,
         )
 
@@ -553,7 +591,9 @@ def news_create():
         )
 
     return redirect(
-        url_for("admin.news")
+        url_for(
+            "admin.news"
+        )
     )
 
 
@@ -562,7 +602,9 @@ def news_create():
     methods=["GET", "POST"],
 )
 @webmaster_required
-def news_edit(post_id: int):
+def news_edit(
+    post_id: int,
+):
     """
     Edit an existing news article.
     """
@@ -596,7 +638,8 @@ def news_edit(post_id: int):
 
     published = (
         request.form.get(
-            "published"
+            "published",
+            "",
         )
         == "1"
     )
@@ -611,6 +654,7 @@ def news_edit(post_id: int):
 
     except ValueError as exc:
         editing = dict(post)
+
         editing["title"] = title
         editing["content"] = content
         editing["published"] = (
@@ -629,7 +673,9 @@ def news_edit(post_id: int):
         abort(404)
 
     return redirect(
-        url_for("admin.news")
+        url_for(
+            "admin.news"
+        )
     )
 
 
@@ -637,7 +683,9 @@ def news_edit(post_id: int):
     "/news/delete/<int:post_id>"
 )
 @webmaster_required
-def news_delete(post_id: int):
+def news_delete(
+    post_id: int,
+):
     """
     Delete a news article.
     """
@@ -649,5 +697,7 @@ def news_delete(post_id: int):
     )
 
     return redirect(
-        url_for("admin.news")
+        url_for(
+            "admin.news"
+        )
     )

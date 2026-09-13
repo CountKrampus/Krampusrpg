@@ -46,24 +46,7 @@ def _as_list(
     data: Any,
     keys: tuple[str, ...] = (),
 ) -> list[dict[str, Any]]:
-    """
-    Convert common JSON formats into a list.
-
-    Supports:
-
-        [
-            {...},
-            {...}
-        ]
-
-    and:
-
-        {
-            "pokemon": [...]
-        }
-
-    and similar structures.
-    """
+    """Convert common JSON structures into a list."""
     if isinstance(data, list):
         return data
 
@@ -93,6 +76,41 @@ def _table_exists(db, table_name: str) -> bool:
     ).fetchone()
 
     return row is not None
+
+
+def _column_exists(
+    db,
+    table_name: str,
+    column_name: str,
+) -> bool:
+    if not _table_exists(db, table_name):
+        return False
+
+    rows = db.execute(
+        f"PRAGMA table_info({table_name})"
+    ).fetchall()
+
+    return any(
+        str(row["name"]) == column_name
+        for row in rows
+    )
+
+
+def _table_columns(
+    db,
+    table_name: str,
+) -> set[str]:
+    if not _table_exists(db, table_name):
+        return set()
+
+    rows = db.execute(
+        f"PRAGMA table_info({table_name})"
+    ).fetchall()
+
+    return {
+        str(row["name"])
+        for row in rows
+    }
 
 
 # ============================================================
@@ -138,49 +156,82 @@ def create_player(
     password_hash: str,
     display_name: str | None = None,
 ) -> int:
-    """
-    Create a player account and its initial progress.
-
-    Returns:
-        New player ID
-    """
+    """Create a player account and initial progress."""
     if display_name is None:
         display_name = username
 
     with get_connection() as db:
+        columns = _table_columns(db, "players")
+
+        fields = [
+            "username",
+            "password_hash",
+            "display_name",
+        ]
+
+        values: list[Any] = [
+            username,
+            password_hash,
+            display_name,
+        ]
+
+        if "role_id" in columns:
+            fields.append("role_id")
+
+            role = db.execute(
+                """
+                SELECT id
+                FROM roles
+                WHERE name = 'player'
+                LIMIT 1
+                """
+            ).fetchone()
+
+            values.append(
+                int(role["id"])
+                if role
+                else 1
+            )
+
+        placeholders = ", ".join(
+            "?"
+            for _ in fields
+        )
+
         cursor = db.execute(
-            """
+            f"""
             INSERT INTO players
-            (
-                username,
-                password_hash,
-                display_name
-            )
-            VALUES (?, ?, ?)
+            ({", ".join(fields)})
+            VALUES ({placeholders})
             """,
-            (
-                username,
-                password_hash,
-                display_name,
-            ),
+            tuple(values),
         )
 
-        player_id = cursor.lastrowid
+        player_id = int(cursor.lastrowid)
 
-        db.execute(
-            """
-            INSERT INTO player_progress
-            (
-                player_id
-            )
-            VALUES (?)
-            """,
-            (player_id,),
-        )
+        if _table_exists(db, "player_progress"):
+            existing_progress = db.execute(
+                """
+                SELECT player_id
+                FROM player_progress
+                WHERE player_id = ?
+                """,
+                (player_id,),
+            ).fetchone()
+
+            if not existing_progress:
+                db.execute(
+                    """
+                    INSERT INTO player_progress
+                    (player_id)
+                    VALUES (?)
+                    """,
+                    (player_id,),
+                )
 
         db.commit()
 
-        return int(player_id)
+        return player_id
 
 
 # ============================================================
@@ -204,22 +255,31 @@ def get_all_species() -> list[dict[str, Any]]:
 def get_species(
     species_id: int | str,
 ) -> dict[str, Any] | None:
-    """Find a Pokémon species by ID."""
+    """Find a Pokémon species by ID, slug, or name."""
     wanted = str(species_id)
 
     for species in get_all_species():
         current_id = species.get("id")
 
-        if current_id is not None and str(current_id) == wanted:
+        if (
+            current_id is not None
+            and str(current_id) == wanted
+        ):
             return species
 
-        if str(species.get("species_id", "")) == wanted:
+        if str(
+            species.get("species_id", "")
+        ) == wanted:
             return species
 
-        if str(species.get("slug", "")).lower() == wanted.lower():
+        if str(
+            species.get("slug", "")
+        ).lower() == wanted.lower():
             return species
 
-        if str(species.get("name", "")).lower() == wanted.lower():
+        if str(
+            species.get("name", "")
+        ).lower() == wanted.lower():
             return species
 
     return None
@@ -245,22 +305,31 @@ def get_all_moves() -> list[dict[str, Any]]:
 def get_move(
     move_id: int | str,
 ) -> dict[str, Any] | None:
-    """Find a move by ID."""
+    """Find a move by ID, slug, or name."""
     wanted = str(move_id)
 
     for move in get_all_moves():
         current_id = move.get("id")
 
-        if current_id is not None and str(current_id) == wanted:
+        if (
+            current_id is not None
+            and str(current_id) == wanted
+        ):
             return move
 
-        if str(move.get("move_id", "")) == wanted:
+        if str(
+            move.get("move_id", "")
+        ) == wanted:
             return move
 
-        if str(move.get("slug", "")).lower() == wanted.lower():
+        if str(
+            move.get("slug", "")
+        ).lower() == wanted.lower():
             return move
 
-        if str(move.get("name", "")).lower() == wanted.lower():
+        if str(
+            move.get("name", "")
+        ).lower() == wanted.lower():
             return move
 
     return None
@@ -286,14 +355,18 @@ def get_all_abilities() -> list[dict[str, Any]]:
 def get_ability(
     ability_id: int | str,
 ) -> dict[str, Any] | None:
-    """Find an ability by ID."""
+    """Find an ability by ID or name."""
     wanted = str(ability_id)
 
     for ability in get_all_abilities():
-        if str(ability.get("id")) == wanted:
+        if str(
+            ability.get("id", "")
+        ) == wanted:
             return ability
 
-        if str(ability.get("name", "")).lower() == wanted.lower():
+        if str(
+            ability.get("name", "")
+        ).lower() == wanted.lower():
             return ability
 
     return None
@@ -304,7 +377,7 @@ def get_ability(
 # ============================================================
 
 def get_all_variants() -> list[dict[str, Any]]:
-    """Return all Pokémon variants."""
+    """Return all custom Krampus Pokémon variants."""
     data = load_data("variants.json")
 
     return _as_list(
@@ -319,19 +392,25 @@ def get_all_variants() -> list[dict[str, Any]]:
 def get_variant(
     variant_id: str | None,
 ) -> dict[str, Any] | None:
-    """Find a variant."""
+    """Find a custom Krampus variant."""
     if not variant_id:
         return None
 
     wanted = str(variant_id).lower()
 
     for variant in get_all_variants():
-        for key in ("id", "slug", "name"):
+        for key in (
+            "id",
+            "slug",
+            "name",
+        ):
             value = variant.get(key)
 
-            if value is not None:
-                if str(value).lower() == wanted:
-                    return variant
+            if (
+                value is not None
+                and str(value).lower() == wanted
+            ):
+                return variant
 
     return None
 
@@ -345,56 +424,10 @@ def generate_unique_id() -> str:
     return secrets.token_hex(12)
 
 
-def generate_ivs() -> dict[str, int]:
-    """Generate six random IVs."""
-    return {
-        "hp": random.randint(0, 31),
-        "attack": random.randint(0, 31),
-        "defense": random.randint(0, 31),
-        "sp_attack": random.randint(0, 31),
-        "sp_defense": random.randint(0, 31),
-        "speed": random.randint(0, 31),
-    }
-
-
-def generate_nature() -> str:
-    """Generate a random Pokémon nature."""
-    natures = [
-        "Hardy",
-        "Lonely",
-        "Brave",
-        "Adamant",
-        "Naughty",
-        "Bold",
-        "Docile",
-        "Relaxed",
-        "Impish",
-        "Lax",
-        "Timid",
-        "Hasty",
-        "Serious",
-        "Jolly",
-        "Naive",
-        "Bashful",
-        "Mild",
-        "Quiet",
-        "Quirky",
-        "Rash",
-        "Calm",
-        "Gentle",
-        "Sassy",
-        "Careful",
-    ]
-
-    return random.choice(natures)
-
-
 def generate_gender(
     species: dict[str, Any],
 ) -> str:
-    """
-    Generate gender using common JSON gender formats.
-    """
+    """Generate a Pokémon's gender."""
     gender = species.get("gender")
 
     if isinstance(gender, str):
@@ -428,72 +461,175 @@ def generate_gender(
                     if random.random() * total < male
                     else "female"
                 )
-        except (TypeError, ValueError):
+        except (
+            TypeError,
+            ValueError,
+        ):
             pass
 
-    return "male" if random.random() < 0.5 else "female"
+    return (
+        "male"
+        if random.random() < 0.5
+        else "female"
+    )
 
 
 # ============================================================
-# STATS
+# BASE STATS
 # ============================================================
 
-def get_base_hp(
+STAT_NAMES = (
+    "hp",
+    "attack",
+    "defense",
+    "sp_attack",
+    "sp_defense",
+    "speed",
+)
+
+
+def get_species_base_stats(
     species: dict[str, Any],
+) -> dict[str, int]:
+    """
+    Read the species base stats.
+
+    No IVs, EVs, or Nature modifiers are used.
+    """
+    result = {
+        stat: 50
+        for stat in STAT_NAMES
+    }
+
+    possible = species.get("base_stats")
+
+    if not isinstance(possible, dict):
+        possible = species.get("stats")
+
+    if isinstance(possible, dict):
+        aliases = {
+            "hp": ("hp", "HP"),
+            "attack": (
+                "attack",
+                "Attack",
+                "atk",
+            ),
+            "defense": (
+                "defense",
+                "Defense",
+                "def",
+            ),
+            "sp_attack": (
+                "sp_attack",
+                "special_attack",
+                "Special Attack",
+                "sp_atk",
+            ),
+            "sp_defense": (
+                "sp_defense",
+                "special_defense",
+                "Special Defense",
+                "sp_def",
+            ),
+            "speed": (
+                "speed",
+                "Speed",
+            ),
+        }
+
+        for stat, keys in aliases.items():
+            for key in keys:
+                if key not in possible:
+                    continue
+
+                try:
+                    result[stat] = max(
+                        1,
+                        int(possible[key]),
+                    )
+                except (
+                    TypeError,
+                    ValueError,
+                ):
+                    pass
+
+                break
+
+    return result
+
+
+def calculate_stat(
+    base_stat: int,
+    level: int,
 ) -> int:
-    """Extract base HP from a species record."""
-    value = species.get("base_hp")
+    """
+    Calculate a player Pokémon stat.
 
-    if value is not None:
-        try:
-            return int(value)
-        except (TypeError, ValueError):
-            pass
+    This deliberately does not use IVs, EVs,
+    Nature, or permanent modifiers.
+    """
+    base_stat = max(
+        1,
+        int(base_stat),
+    )
 
-    stats = species.get("base_stats")
+    level = max(
+        1,
+        int(level),
+    )
 
-    if isinstance(stats, dict):
-        value = stats.get("hp")
-
-        if value is not None:
-            try:
-                return int(value)
-            except (TypeError, ValueError):
-                pass
-
-    stats = species.get("stats")
-
-    if isinstance(stats, dict):
-        value = stats.get("hp")
-
-        if value is not None:
-            try:
-                return int(value)
-            except (TypeError, ValueError):
-                pass
-
-    return 45
+    return max(
+        1,
+        ((2 * base_stat * level) // 100)
+        + 5,
+    )
 
 
 def calculate_hp(
     species: dict[str, Any],
     level: int,
-    iv: int = 0,
-    ev: int = 0,
 ) -> int:
-    """Calculate basic Pokémon HP."""
-    level = max(1, int(level))
-    base_hp = get_base_hp(species)
+    """Calculate Pokémon HP without IV/EV/Nature."""
+    level = max(
+        1,
+        int(level),
+    )
 
-    iv = max(0, min(31, int(iv)))
-    ev = max(0, min(252, int(ev)))
+    base_hp = get_species_base_stats(
+        species
+    )["hp"]
 
     return max(
         1,
-        ((2 * base_hp + iv + (ev // 4)) * level // 100)
+        ((2 * base_hp * level) // 100)
         + level
         + 10,
     )
+
+
+def calculate_pokemon_stats(
+    species: dict[str, Any],
+    level: int,
+) -> dict[str, int]:
+    """Calculate all permanent Pokémon stats."""
+    base = get_species_base_stats(
+        species
+    )
+
+    stats = {
+        stat: calculate_stat(
+            base[stat],
+            level,
+        )
+        for stat in STAT_NAMES
+    }
+
+    stats["hp"] = calculate_hp(
+        species,
+        level,
+    )
+
+    return stats
 
 
 # ============================================================
@@ -503,11 +639,7 @@ def calculate_hp(
 def get_species_starting_moves(
     species: dict[str, Any],
 ) -> list[str]:
-    """
-    Get starting moves from the species JSON.
-
-    Supports several possible data formats.
-    """
+    """Get starting moves from species data."""
     result: list[str] = []
 
     possible_keys = (
@@ -524,19 +656,32 @@ def get_species_starting_moves(
 
         for entry in value:
             if isinstance(entry, dict):
-                move_id = entry.get("move_id")
+                move_id = entry.get(
+                    "move_id"
+                )
 
                 if move_id is None:
-                    move_id = entry.get("id")
+                    move_id = entry.get(
+                        "id"
+                    )
 
                 if move_id is None:
-                    move_id = entry.get("move")
+                    move_id = entry.get(
+                        "move"
+                    )
 
                 if move_id is not None:
-                    result.append(str(move_id))
+                    result.append(
+                        str(move_id)
+                    )
 
-            elif isinstance(entry, (str, int)):
-                result.append(str(entry))
+            elif isinstance(
+                entry,
+                (str, int),
+            ):
+                result.append(
+                    str(entry)
+                )
 
         if result:
             break
@@ -549,46 +694,92 @@ def add_starting_moves(
     pokemon_id: int,
     species: dict[str, Any],
 ) -> None:
-    """
-    Add up to four starting moves.
-
-    This function uses Python JSON data instead of SQLite readfile().
-    """
-    move_ids = get_species_starting_moves(species)
+    """Add up to four starting moves."""
+    move_ids = get_species_starting_moves(
+        species
+    )
 
     if not move_ids:
         return
 
-    for slot, move_id in enumerate(move_ids, start=1):
+    if not _table_exists(
+        db,
+        "pokemon_moves",
+    ):
+        return
+
+    columns = _table_columns(
+        db,
+        "pokemon_moves",
+    )
+
+    required = {
+        "pokemon_id",
+        "move_id",
+        "slot",
+    }
+
+    if not required.issubset(columns):
+        return
+
+    has_pp = "current_pp" in columns
+
+    for slot, move_id in enumerate(
+        move_ids,
+        start=1,
+    ):
         move = get_move(move_id)
 
         if move is None:
             continue
 
-        db.execute(
-            """
-            INSERT OR IGNORE INTO pokemon_moves
-            (
-                pokemon_id,
-                move_id,
-                slot,
-                current_pp
-            )
-            VALUES (?, ?, ?, ?)
-            """,
-            (
-                pokemon_id,
-                str(move_id),
-                slot,
-                int(
+        if has_pp:
+            pp = int(
+                move.get(
+                    "pp",
                     move.get(
-                        "pp",
-                        move.get("max_pp", 0),
-                    )
-                    or 0
+                        "max_pp",
+                        0,
+                    ),
+                )
+                or 0
+            )
+
+            db.execute(
+                """
+                INSERT OR IGNORE INTO pokemon_moves
+                (
+                    pokemon_id,
+                    move_id,
+                    slot,
+                    current_pp
+                )
+                VALUES (?, ?, ?, ?)
+                """,
+                (
+                    pokemon_id,
+                    str(move_id),
+                    slot,
+                    pp,
                 ),
-            ),
-        )
+            )
+        else:
+            db.execute(
+                """
+                INSERT OR IGNORE INTO pokemon_moves
+                (
+                    pokemon_id,
+                    move_id,
+                    slot
+                )
+                VALUES (?, ?, ?)
+                """,
+                (
+                    pokemon_id,
+                    str(move_id),
+                    slot,
+                ),
+            )
 
 
 # ============================================================
@@ -605,112 +796,218 @@ def create_pokemon(
     nickname: str | None = None,
 ) -> dict[str, Any] | None:
     """
-    Create a Pokémon belonging to a player.
+    Create a Pokémon.
 
-    Party/PC location is handled separately by the storage system.
-    This function creates the Pokémon record only.
+    IMPORTANT:
+
+    - Nature is ignored.
+    - IVs are not generated.
+    - EVs are not generated.
+    - Status is not managed.
+    - Party membership is NOT stored here.
+    - PC membership is NOT stored here.
+
+    Party/PC placement is handled by the storage layer.
     """
-    species = get_species(species_id)
+    del nature
+
+    species = get_species(
+        species_id
+    )
 
     if species is None:
         raise ValueError(
-            f"Pokémon species '{species_id}' was not found "
-            f"in Data/pokemon.json."
+            f"Pokémon species '{species_id}' "
+            f"was not found in "
+            f"Data/pokemon.json."
         )
 
-    level = max(1, int(level))
+    level = max(
+        1,
+        int(level),
+    )
 
-    if not nature:
-        nature = generate_nature()
+    gender = generate_gender(
+        species
+    )
 
-    gender = generate_gender(species)
-    ivs = generate_ivs()
-
-    max_hp = calculate_hp(
+    stats = calculate_pokemon_stats(
         species,
         level,
-        iv=ivs["hp"],
-        ev=0,
     )
 
     unique_id = generate_unique_id()
 
     with get_connection() as db:
+        columns = _table_columns(
+            db,
+            "pokemon",
+        )
+
+        fields: list[str] = []
+        values: list[Any] = []
+
+        def add_field(
+            name: str,
+            value: Any,
+        ) -> None:
+            if name in columns:
+                fields.append(name)
+                values.append(value)
+
+        add_field(
+            "unique_id",
+            unique_id,
+        )
+        add_field(
+            "owner_id",
+            owner_id,
+        )
+        add_field(
+            "species_id",
+            str(species_id),
+        )
+        add_field(
+            "nickname",
+            nickname,
+        )
+        add_field(
+            "level",
+            level,
+        )
+        add_field(
+            "experience",
+            0,
+        )
+        add_field(
+            "gender",
+            gender,
+        )
+        add_field(
+            "shiny",
+            int(bool(shiny)),
+        )
+        add_field(
+            "variant",
+            variant or "normal",
+        )
+
+        if "current_hp" in columns:
+            add_field(
+                "current_hp",
+                stats["hp"],
+            )
+
+        if "max_hp" in columns:
+            add_field(
+                "max_hp",
+                stats["hp"],
+            )
+
+        placeholders = ", ".join(
+            "?"
+            for _ in fields
+        )
+
         cursor = db.execute(
-            """
+            f"""
             INSERT INTO pokemon
-            (
-                unique_id,
-                owner_id,
-                species_id,
-                nickname,
-                level,
-                experience,
-                gender,
-                shiny,
-                variant,
-                nature,
-                current_hp,
-                max_hp,
-                status
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ({", ".join(fields)})
+            VALUES ({placeholders})
             """,
-            (
-                unique_id,
-                owner_id,
-                str(species_id),
-                nickname,
-                level,
-                0,
-                gender,
-                int(bool(shiny)),
-                variant or "normal",
-                nature,
-                max_hp,
-                max_hp,
-                "healthy",
-            ),
+            tuple(values),
         )
 
-        pokemon_id = int(cursor.lastrowid)
-
-        db.execute(
-            """
-            INSERT INTO pokemon_stats
-            (
-                pokemon_id,
-                hp_iv,
-                attack_iv,
-                defense_iv,
-                sp_attack_iv,
-                sp_defense_iv,
-                speed_iv,
-                hp_ev,
-                attack_ev,
-                defense_ev,
-                sp_attack_ev,
-                sp_defense_ev,
-                speed_ev
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                pokemon_id,
-                ivs["hp"],
-                ivs["attack"],
-                ivs["defense"],
-                ivs["sp_attack"],
-                ivs["sp_defense"],
-                ivs["speed"],
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-            ),
+        pokemon_id = int(
+            cursor.lastrowid
         )
+
+        # ----------------------------------------------------
+        # Save calculated stats.
+        #
+        # New schema:
+        #   normal stat columns
+        #
+        # Legacy schema:
+        #   IV/EV columns
+        #
+        # We intentionally do NOT write IV/EV data.
+        # ----------------------------------------------------
+
+        if _table_exists(
+            db,
+            "pokemon_stats",
+        ):
+            stat_columns = _table_columns(
+                db,
+                "pokemon_stats",
+            )
+
+            if "pokemon_id" in stat_columns:
+                stat_fields = [
+                    "pokemon_id"
+                ]
+
+                stat_values: list[Any] = [
+                    pokemon_id
+                ]
+
+                stat_mapping = {
+                    "hp": stats["hp"],
+                    "attack": stats["attack"],
+                    "defense": stats["defense"],
+                    "sp_attack": stats[
+                        "sp_attack"
+                    ],
+                    "sp_defense": stats[
+                        "sp_defense"
+                    ],
+                    "speed": stats[
+                        "speed"
+                    ],
+                }
+
+                for stat, value in (
+                    stat_mapping.items()
+                ):
+                    if stat in stat_columns:
+                        stat_fields.append(
+                            stat
+                        )
+                        stat_values.append(
+                            value
+                        )
+
+                # If the current database still has
+                # the old IV/EV-only schema, don't create
+                # fake IV/EV values. The migration is
+                # responsible for replacing that schema.
+                if len(stat_fields) > 1:
+                    placeholders = ", ".join(
+                        "?"
+                        for _ in stat_fields
+                    )
+
+                    db.execute(
+                        f"""
+                        INSERT INTO pokemon_stats
+                        ({", ".join(stat_fields)})
+                        VALUES ({placeholders})
+                        """,
+                        tuple(
+                            stat_values
+                        ),
+                    )
+                else:
+                    db.execute(
+                        """
+                        INSERT OR IGNORE INTO
+                        pokemon_stats
+                        (pokemon_id)
+                        VALUES (?)
+                        """,
+                        (pokemon_id,),
+                    )
 
         add_starting_moves(
             db,
@@ -734,11 +1031,7 @@ def get_pokemon(
     owner_id: int,
     pokemon_id: int,
 ) -> dict[str, Any] | None:
-    """
-    Get one Pokémon owned by a player.
-
-    Move information is merged from Data/moves.json in Python.
-    """
+    """Get one Pokémon owned by a player."""
     with get_connection() as db:
         row = db.execute(
             """
@@ -758,83 +1051,189 @@ def get_pokemon(
 
         pokemon = dict(row)
 
+        # ----------------------------------------------------
+        # Never expose the removed party mechanic.
+        # ----------------------------------------------------
+
+        pokemon.pop(
+            "is_active",
+            None,
+        )
+
+        # Legacy columns are ignored by the game logic.
+        pokemon.pop(
+            "nature",
+            None,
+        )
+        pokemon.pop(
+            "status",
+            None,
+        )
+
         species = get_species(
-            pokemon.get("species_id")
+            pokemon.get(
+                "species_id"
+            )
         )
 
         if species:
             pokemon["species"] = species
-            pokemon["species_name"] = species.get(
-                "name",
-                "Unknown",
+            pokemon["species_name"] = (
+                species.get(
+                    "name",
+                    "Unknown",
+                )
             )
 
-        stats_row = db.execute(
-            """
-            SELECT *
-            FROM pokemon_stats
-            WHERE pokemon_id = ?
-            """,
-            (pokemon_id,),
-        ).fetchone()
+            pokemon["base_stats"] = (
+                get_species_base_stats(
+                    species
+                )
+            )
 
-        if stats_row:
-            pokemon["stats"] = dict(stats_row)
-        else:
-            pokemon["stats"] = {}
+        # ----------------------------------------------------
+        # Stats
+        # ----------------------------------------------------
+
+        pokemon["stats"] = {}
+
+        if _table_exists(
+            db,
+            "pokemon_stats",
+        ):
+            stats_row = db.execute(
+                """
+                SELECT *
+                FROM pokemon_stats
+                WHERE pokemon_id = ?
+                """,
+                (pokemon_id,),
+            ).fetchone()
+
+            if stats_row:
+                raw_stats = dict(
+                    stats_row
+                )
+
+                for stat in STAT_NAMES:
+                    if stat in raw_stats:
+                        pokemon[
+                            "stats"
+                        ][stat] = raw_stats[
+                            stat
+                        ]
+
+        # If no calculated stats are stored,
+        # calculate them from species + level.
+        if species:
+            calculated = (
+                calculate_pokemon_stats(
+                    species,
+                    int(
+                        pokemon.get(
+                            "level",
+                            1,
+                        )
+                    ),
+                )
+            )
+
+            for stat in STAT_NAMES:
+                pokemon[
+                    "stats"
+                ].setdefault(
+                    stat,
+                    calculated[stat],
+                )
 
         variant = get_variant(
-            pokemon.get("variant")
+            pokemon.get(
+                "variant"
+            )
         )
 
         if variant:
-            pokemon["variant_data"] = variant
+            pokemon[
+                "variant_data"
+            ] = variant
+
+        # ----------------------------------------------------
+        # Moves
+        # ----------------------------------------------------
 
         pokemon["moves"] = []
 
-        move_rows = db.execute(
-            """
-            SELECT *
-            FROM pokemon_moves
-            WHERE pokemon_id = ?
-            ORDER BY slot
-            """,
-            (pokemon_id,),
-        ).fetchall()
+        if _table_exists(
+            db,
+            "pokemon_moves",
+        ):
+            move_rows = db.execute(
+                """
+                SELECT *
+                FROM pokemon_moves
+                WHERE pokemon_id = ?
+                ORDER BY slot
+                """,
+                (pokemon_id,),
+            ).fetchall()
 
-        for move_row in move_rows:
-            move_data = dict(move_row)
-
-            move = get_move(
-                move_data.get("move_id")
-            )
-
-            if move:
-                move_data["name"] = move.get(
-                    "name",
-                    move_data.get("move_id"),
+            for move_row in move_rows:
+                move_data = dict(
+                    move_row
                 )
 
-                move_data["type"] = move.get(
-                    "type",
+                move = get_move(
+                    move_data.get(
+                        "move_id"
+                    )
                 )
 
-                move_data["power"] = move.get(
-                    "power",
+                if move:
+                    move_data["name"] = (
+                        move.get(
+                            "name",
+                            move_data.get(
+                                "move_id"
+                            ),
+                        )
+                    )
+
+                    move_data["type"] = (
+                        move.get(
+                            "type"
+                        )
+                    )
+
+                    move_data["power"] = (
+                        move.get(
+                            "power"
+                        )
+                    )
+
+                    move_data["accuracy"] = (
+                        move.get(
+                            "accuracy"
+                        )
+                    )
+
+                    move_data["pp"] = (
+                        move.get(
+                            "pp",
+                            move.get(
+                                "max_pp"
+                            ),
+                        )
+                    )
+
+                    move_data[
+                        "move_data"
+                    ] = move
+
+                pokemon[
+                    "moves"
+                ].append(
+                    move_data
                 )
-
-                move_data["accuracy"] = move.get(
-                    "accuracy",
-                )
-
-                move_data["pp"] = move.get(
-                    "pp",
-                    move.get("max_pp"),
-                )
-
-                move_data["move_data"] = move
-
-            pokemon["moves"].append(move_data)
 
         return pokemon
 
@@ -858,25 +1257,26 @@ def get_player_pokemon(
             (owner_id,),
         ).fetchall()
 
-        result: list[dict[str, Any]] = []
+    result: list[
+        dict[str, Any]
+    ] = []
 
-        for row in rows:
-            pokemon = dict(row)
+    for row in rows:
+        pokemon_id = int(
+            row["id"]
+        )
 
-            species = get_species(
-                pokemon.get("species_id")
+        pokemon = get_pokemon(
+            owner_id,
+            pokemon_id,
+        )
+
+        if pokemon:
+            result.append(
+                pokemon
             )
 
-            if species:
-                pokemon["species"] = species
-                pokemon["species_name"] = species.get(
-                    "name",
-                    "Unknown",
-                )
-
-            result.append(pokemon)
-
-        return result
+    return result
 
 
 # ============================================================
@@ -886,28 +1286,24 @@ def get_player_pokemon(
 def get_party(
     owner_id: int,
 ) -> list[dict[str, Any]]:
-    """
-    Return the player's database-backed party.
+    """Return the player's database-backed party."""
+    from .party_storage import (
+        get_party as get_storage_party,
+    )
 
-    The party table is authoritative.
-
-    No Pokémon state is inferred from pokemon.is_active.
-    """
-    from .party_storage import get_party as get_storage_party
-
-    return get_storage_party(owner_id)
+    return get_storage_party(
+        owner_id
+    )
 
 
 def add_to_party(
     owner_id: int,
     pokemon_id: int,
 ) -> bool:
-    """
-    Add a Pokémon to the database-backed party.
-
-    Party membership and ordering are handled by party_storage.
-    """
-    from .party_storage import add_to_party as add_storage_party
+    """Add a Pokémon to the database-backed party."""
+    from .party_storage import (
+        add_to_party as add_storage_party,
+    )
 
     return bool(
         add_storage_party(
@@ -922,14 +1318,14 @@ def remove_from_party(
     pokemon_id: int,
 ) -> bool:
     """
-    Remove a Pokémon from the party.
+    Remove a Pokémon from Party.
 
-    Removing from the party ALWAYS moves the Pokémon into the PC.
-
-    The database-backed storage layer handles the transaction.
+    The storage layer ALWAYS moves it into PC.
+    It must never simply disappear from ownership.
     """
     from .party_storage import (
-        remove_from_party as remove_storage_party,
+        remove_from_party as
+        remove_storage_party,
     )
 
     result = remove_storage_party(
@@ -939,7 +1335,10 @@ def remove_from_party(
 
     if isinstance(result, dict):
         return bool(
-            result.get("success", True)
+            result.get(
+                "success",
+                True,
+            )
         )
 
     return bool(result)
@@ -954,8 +1353,9 @@ def give_starter(
     species_id: int | str,
 ) -> dict[str, Any] | None:
     """
-    Give a player a level-5 starter and place it directly
-    into the database-backed party.
+    Create a level-5 starter and place it into Party.
+
+    If Party is full, the storage system places it into PC.
     """
     pokemon = create_pokemon(
         owner_id=owner_id,
@@ -968,26 +1368,41 @@ def give_starter(
     if pokemon is None:
         return None
 
-    pokemon_id = pokemon.get("id")
+    pokemon_id = pokemon.get(
+        "id"
+    )
 
-    if pokemon_id is not None:
-        added = add_to_party(
-            owner_id,
-            int(pokemon_id),
-        )
+    if pokemon_id is None:
+        return pokemon
 
-        if not added:
-            return get_pokemon(
-                owner_id,
-                int(pokemon_id),
+    pokemon_id = int(
+        pokemon_id
+    )
+
+    added = add_to_party(
+        owner_id,
+        pokemon_id,
+    )
+
+    if not added:
+        # Party may be full.
+        # Do not leave the Pokémon unassigned.
+        try:
+            from .pc_storage import (
+                deposit_pokemon,
             )
 
-        pokemon = get_pokemon(
-            owner_id,
-            int(pokemon_id),
-        )
+            deposit_pokemon(
+                owner_id,
+                pokemon_id,
+            )
+        except Exception:
+            pass
 
-    return pokemon
+    return get_pokemon(
+        owner_id,
+        pokemon_id,
+    )
 
 
 def ensure_player_starter(
@@ -995,7 +1410,7 @@ def ensure_player_starter(
     species_id: int | str,
 ) -> dict[str, Any] | None:
     """
-    Give the player a starter only if they do not already own one.
+    Give a player a starter only if they own no Pokémon.
     """
     with get_connection() as db:
         existing = db.execute(
@@ -1039,7 +1454,11 @@ def get_player_progress(
             (player_id,),
         ).fetchone()
 
-        return dict(row) if row else None
+        return (
+            dict(row)
+            if row
+            else None
+        )
 
 
 def update_player_progress(
@@ -1092,7 +1511,9 @@ def update_player_progress(
 
 def get_all_areas() -> list[dict[str, Any]]:
     """Return all areas."""
-    data = load_data("areas.json")
+    data = load_data(
+        "areas.json"
+    )
 
     return _as_list(
         data,
@@ -1108,16 +1529,24 @@ def get_area(
     area_id: int | str,
 ) -> dict[str, Any] | None:
     """Find an area by ID, slug, or name."""
-    wanted = str(area_id)
+    wanted = str(
+        area_id
+    )
 
     for area in get_all_areas():
-        if str(area.get("id")) == wanted:
+        if str(
+            area.get("id")
+        ) == wanted:
             return area
 
-        if str(area.get("slug", "")).lower() == wanted.lower():
+        if str(
+            area.get("slug", "")
+        ).lower() == wanted.lower():
             return area
 
-        if str(area.get("name", "")).lower() == wanted.lower():
+        if str(
+            area.get("name", "")
+        ).lower() == wanted.lower():
             return area
 
     return None
@@ -1127,14 +1556,21 @@ def get_area_encounters(
     area_id: int | str,
 ) -> list[dict[str, Any]]:
     """Return encounter entries for an area."""
-    area = get_area(area_id)
+    area = get_area(
+        area_id
+    )
 
     if not area:
         return []
 
-    encounters = area.get("encounters")
+    encounters = area.get(
+        "encounters"
+    )
 
-    if isinstance(encounters, list):
+    if isinstance(
+        encounters,
+        list,
+    ):
         return encounters
 
     return []
@@ -1144,13 +1580,18 @@ def generate_encounter(
     area_id: int | str,
 ) -> dict[str, Any] | None:
     """Choose a random weighted encounter."""
-    encounters = get_area_encounters(area_id)
+    encounters = get_area_encounters(
+        area_id
+    )
 
     if not encounters:
         return None
 
     weighted: list[
-        tuple[dict[str, Any], float]
+        tuple[
+            dict[str, Any],
+            float,
+        ]
     ] = []
 
     for encounter in encounters:
@@ -1164,7 +1605,10 @@ def generate_encounter(
                     ),
                 )
             )
-        except (TypeError, ValueError):
+        except (
+            TypeError,
+            ValueError,
+        ):
             weight = 1.0
 
         if weight > 0:
@@ -1205,7 +1649,9 @@ def generate_encounter(
 
 def get_all_items() -> list[dict[str, Any]]:
     """Return all items."""
-    data = load_data("items.json")
+    data = load_data(
+        "items.json"
+    )
 
     return _as_list(
         data,
@@ -1220,16 +1666,24 @@ def get_item(
     item_id: int | str,
 ) -> dict[str, Any] | None:
     """Find an item."""
-    wanted = str(item_id)
+    wanted = str(
+        item_id
+    )
 
     for item in get_all_items():
-        if str(item.get("id")) == wanted:
+        if str(
+            item.get("id")
+        ) == wanted:
             return item
 
-        if str(item.get("slug", "")).lower() == wanted.lower():
+        if str(
+            item.get("slug", "")
+        ).lower() == wanted.lower():
             return item
 
-        if str(item.get("name", "")).lower() == wanted.lower():
+        if str(
+            item.get("name", "")
+        ).lower() == wanted.lower():
             return item
 
     return None
@@ -1241,7 +1695,9 @@ def get_item(
 
 def get_all_quests() -> list[dict[str, Any]]:
     """Return quests from JSON."""
-    data = load_data("quests.json")
+    data = load_data(
+        "quests.json"
+    )
 
     return _as_list(
         data,
@@ -1256,20 +1712,26 @@ def get_quest(
     quest_id: int | str,
 ) -> dict[str, Any] | None:
     """Find a quest."""
-    wanted = str(quest_id)
+    wanted = str(
+        quest_id
+    )
 
     for quest in get_all_quests():
-        if str(quest.get("id")) == wanted:
+        if str(
+            quest.get("id")
+        ) == wanted:
             return quest
 
-        if str(quest.get("slug", "")).lower() == wanted.lower():
+        if str(
+            quest.get("slug", "")
+        ).lower() == wanted.lower():
             return quest
 
     return None
 
 
 # ============================================================
-# ITEMS / INVENTORY
+# INVENTORY
 # ============================================================
 
 def get_player_items(
@@ -1287,7 +1749,10 @@ def get_player_items(
             (player_id,),
         ).fetchall()
 
-        return [dict(row) for row in rows]
+        return [
+            dict(row)
+            for row in rows
+        ]
 
 
 def add_item(
@@ -1311,7 +1776,9 @@ def add_item(
             VALUES (?, ?, ?)
             ON CONFLICT(player_id, item_id)
             DO UPDATE SET
-                quantity = quantity + excluded.quantity
+                quantity =
+                    quantity
+                    + excluded.quantity
             """,
             (
                 player_id,
@@ -1349,12 +1816,16 @@ def remove_item(
         if row is None:
             return False
 
-        current = int(row["quantity"])
+        current = int(
+            row["quantity"]
+        )
 
         if current < quantity:
             return False
 
-        new_quantity = current - quantity
+        new_quantity = (
+            current - quantity
+        )
 
         if new_quantity <= 0:
             db.execute(
@@ -1396,12 +1867,19 @@ def get_player_money(
     player_id: int,
 ) -> int:
     """Get player's current money."""
-    progress = get_player_progress(player_id)
+    progress = get_player_progress(
+        player_id
+    )
 
     if not progress:
         return 0
 
-    return int(progress.get("money", 0))
+    return int(
+        progress.get(
+            "money",
+            0,
+        )
+    )
 
 
 def add_money(
@@ -1424,7 +1902,9 @@ def add_money(
         if row is None:
             return 0
 
-        current = int(row["money"])
+        current = int(
+            row["money"]
+        )
 
         new_amount = max(
             0,
@@ -1443,24 +1923,28 @@ def add_money(
             ),
         )
 
-        db.execute(
-            """
-            INSERT INTO transaction_log
-            (
-                player_id,
-                transaction_type,
-                amount,
-                details
+        if _table_exists(
+            db,
+            "transaction_log",
+        ):
+            db.execute(
+                """
+                INSERT INTO transaction_log
+                (
+                    player_id,
+                    transaction_type,
+                    amount,
+                    details
+                )
+                VALUES (?, ?, ?, ?)
+                """,
+                (
+                    player_id,
+                    transaction_type,
+                    int(amount),
+                    details,
+                ),
             )
-            VALUES (?, ?, ?, ?)
-            """,
-            (
-                player_id,
-                transaction_type,
-                int(amount),
-                details,
-            ),
-        )
 
         db.commit()
 

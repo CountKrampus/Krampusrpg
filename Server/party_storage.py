@@ -49,7 +49,7 @@ def ensure_party_schema(
     """
     Ensure the database-backed Party table exists.
 
-    The Party table is the only source of truth for party membership.
+    The party table is the only source of truth for party membership.
     """
 
     if db is not None:
@@ -74,10 +74,7 @@ def _pokemon_belongs_to_player(
           AND owner_id = ?
         LIMIT 1
         """,
-        (
-            pokemon_id,
-            player_id,
-        ),
+        (pokemon_id, player_id),
     ).fetchone()
 
     return row is not None
@@ -154,10 +151,7 @@ def _pokemon_in_pc(
           AND pokemon_id = ?
         LIMIT 1
         """,
-        (
-            player_id,
-            pokemon_id,
-        ),
+        (player_id, pokemon_id),
     ).fetchone()
 
     return row is not None
@@ -192,10 +186,8 @@ def get_party(
                 p.gender,
                 p.shiny,
                 p.variant,
-                p.nature,
                 p.current_hp,
-                p.max_hp,
-                p.status
+                p.max_hp
 
             FROM party
 
@@ -207,10 +199,7 @@ def get_party(
 
             ORDER BY party.slot
             """,
-            (
-                player_id,
-                player_id,
-            ),
+            (player_id, player_id),
         ).fetchall()
 
         return [dict(row) for row in rows]
@@ -240,10 +229,8 @@ def get_party_pokemon(
                 p.gender,
                 p.shiny,
                 p.variant,
-                p.nature,
                 p.current_hp,
-                p.max_hp,
-                p.status
+                p.max_hp
 
             FROM party
 
@@ -254,11 +241,7 @@ def get_party_pokemon(
               AND party.pokemon_id = ?
               AND p.owner_id = ?
             """,
-            (
-                player_id,
-                pokemon_id,
-                player_id,
-            ),
+            (player_id, pokemon_id, player_id),
         ).fetchone()
 
         return dict(row) if row else None
@@ -279,10 +262,7 @@ def is_in_party(
               AND pokemon_id = ?
             LIMIT 1
             """,
-            (
-                player_id,
-                pokemon_id,
-            ),
+            (player_id, pokemon_id),
         ).fetchone()
 
         return row is not None
@@ -296,7 +276,7 @@ def add_to_party(
     """
     Move a Pokémon into the Party.
 
-    If the Pokémon is currently in the PC, it is removed from the PC
+    If the Pokémon is currently in the PC, the PC record is removed
     as part of the same transaction.
     """
 
@@ -319,10 +299,7 @@ def add_to_party(
             WHERE player_id = ?
               AND pokemon_id = ?
             """,
-            (
-                player_id,
-                pokemon_id,
-            ),
+            (player_id, pokemon_id),
         ).fetchone()
 
         if existing is not None:
@@ -357,10 +334,7 @@ def add_to_party(
                   AND slot = ?
                 LIMIT 1
                 """,
-                (
-                    player_id,
-                    slot,
-                ),
+                (player_id, slot),
             ).fetchone()
 
             if occupied is not None:
@@ -381,10 +355,7 @@ def add_to_party(
                     WHERE player_id = ?
                       AND pokemon_id = ?
                     """,
-                    (
-                        player_id,
-                        pokemon_id,
-                    ),
+                    (player_id, pokemon_id),
                 )
 
             db.execute(
@@ -397,11 +368,7 @@ def add_to_party(
                 )
                 VALUES (?, ?, ?)
                 """,
-                (
-                    player_id,
-                    pokemon_id,
-                    slot,
-                ),
+                (player_id, pokemon_id, slot),
             )
 
             db.commit()
@@ -421,14 +388,17 @@ def remove_from_party(
     pokemon_id: int,
 ) -> dict[str, Any]:
     """
-    Remove a Pokémon from the Party and AUTOMATICALLY place it into PC.
+    Remove a Pokémon from the Party and automatically put it in PC.
 
-    This function never deletes the Pokémon.
+    The Pokémon is NEVER deleted.
 
-    Party -> PC is one atomic database transaction.
+    Party -> PC is one atomic transaction.
     """
 
-    from .pc_storage import first_empty_slot
+    from .pc_storage import (
+        ensure_pc_schema,
+        first_empty_slot,
+    )
 
     with get_connection() as db:
         ensure_party_schema(db)
@@ -450,10 +420,7 @@ def remove_from_party(
               AND pokemon_id = ?
             LIMIT 1
             """,
-            (
-                player_id,
-                pokemon_id,
-            ),
+            (player_id, pokemon_id),
         ).fetchone()
 
         if party_row is None:
@@ -462,8 +429,6 @@ def remove_from_party(
             )
 
         old_slot = int(party_row["slot"])
-
-        from .pc_storage import ensure_pc_schema
 
         ensure_pc_schema(db)
 
@@ -488,10 +453,7 @@ def remove_from_party(
                 WHERE player_id = ?
                   AND pokemon_id = ?
                 """,
-                (
-                    player_id,
-                    pokemon_id,
-                ),
+                (player_id, pokemon_id),
             )
 
             db.execute(
@@ -554,10 +516,7 @@ def move_party_pokemon(
               AND pokemon_id = ?
             LIMIT 1
             """,
-            (
-                player_id,
-                pokemon_id,
-            ),
+            (player_id, pokemon_id),
         ).fetchone()
 
         if source is None:
@@ -581,10 +540,7 @@ def move_party_pokemon(
               AND slot = ?
             LIMIT 1
             """,
-            (
-                player_id,
-                destination_slot,
-            ),
+            (player_id, destination_slot),
         ).fetchone()
 
         try:
@@ -689,10 +645,9 @@ def clear_party(
     player_id: int,
 ) -> int:
     """
-    Move every Party Pokémon into the PC.
+    Move every Pokémon in the Party into the PC.
 
-    This is intentionally implemented through the same Party -> PC
-    storage rules rather than deleting Pokémon.
+    Pokémon are never deleted.
     """
 
     moved = 0
@@ -731,9 +686,9 @@ def migrate_existing_party(
     """
     Compatibility entry point.
 
-    The old is_active field is intentionally NOT read.
+    The legacy is_active field is intentionally not used.
 
-    Existing migration is handled by the database migration layer.
+    Existing storage migration belongs to database.py.
     """
 
     with get_connection() as db:
