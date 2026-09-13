@@ -117,11 +117,11 @@ def create_app() -> Flask:
     init_db()
     seed_database()
 
-    # The Party and PC systems are both database-backed.
+    # Party and PC are both database-backed.
     ensure_party_schema()
     ensure_pc_schema()
 
-    # News is also database-backed.
+    # News is database-backed.
     ensure_news_table()
 
     # ========================================================
@@ -513,10 +513,7 @@ def create_app() -> Flask:
                 ),
             ).fetchone()["count"]
 
-            # IMPORTANT:
-            #
             # Party membership comes from the party table.
-            #
             # There is intentionally no pokemon.is_active
             # reference here.
 
@@ -579,10 +576,6 @@ def create_app() -> Flask:
                 url_for("login")
             )
 
-        # ----------------------------------------------------
-        # Selection page
-        # ----------------------------------------------------
-
         if request.method == "GET":
             return render_template(
                 "starter.html"
@@ -608,10 +601,10 @@ def create_app() -> Flask:
             )
 
         # ----------------------------------------------------
-        # Prevent a second starter from being created.
+        # Prevent a second starter.
         #
-        # We check ownership rather than party membership because
-        # a player's starter may already be in the PC.
+        # Ownership is checked rather than Party membership
+        # because the player's starter may already be in the PC.
         # ----------------------------------------------------
 
         with get_connection() as db:
@@ -651,9 +644,7 @@ def create_app() -> Flask:
             )
 
         # ----------------------------------------------------
-        # Create the starter.
-        #
-        # create_pokemon() handles the new Party/PC architecture.
+        # Create starter.
         # ----------------------------------------------------
 
         try:
@@ -672,11 +663,12 @@ def create_app() -> Flask:
             )
 
         # ----------------------------------------------------
-        # Start the welcome quest when available.
+        # Start welcome quest.
         #
-        # The quest table schema can vary during development,
-        # so failure here must not destroy the newly-created
-        # starter.
+        # IMPORTANT:
+        # The current database schema uses quests.id as the
+        # quest identifier. There is no quest_id column on
+        # the quests table.
         # ----------------------------------------------------
 
         try:
@@ -686,7 +678,7 @@ def create_app() -> Flask:
                     """
                     SELECT id
                     FROM quests
-                    WHERE quest_id = ?
+                    WHERE id = ?
                     LIMIT 1
                     """,
                     (
@@ -720,10 +712,8 @@ def create_app() -> Flask:
                     db.commit()
 
         except sqlite3.Error:
-            # The starter itself has already been created.
-            #
-            # Quest initialization should never cause the player
-            # to lose their starter.
+            # Quest setup must never cause the starter
+            # to be lost.
             pass
 
         return redirect(
@@ -810,8 +800,8 @@ def create_app() -> Flask:
         Return all Pokémon owned by the current player plus
         their current Party.
 
-        PC storage remains database-backed and is included through
-        get_player_pokemon().
+        PC storage remains database-backed and is included
+        through get_player_pokemon().
         """
 
         player_id = current_player_id()
@@ -1018,8 +1008,8 @@ def create_app() -> Flask:
 
         Removing a Pokémon from Party MUST move it to PC storage.
 
-        That behavior is implemented by party_storage and services;
-        this route never deletes a Pokémon.
+        That behavior is implemented by party_storage/services.
+        This route never deletes a Pokémon.
         """
 
         player_id = current_player_id()
@@ -1047,29 +1037,39 @@ def create_app() -> Flask:
             )
         ).strip().lower()
 
-        # ----------------------------------------------------
-        # REMOVE
-        # ----------------------------------------------------
+        try:
 
-        if action == "remove":
+            # ------------------------------------------------
+            # REMOVE
+            # ------------------------------------------------
 
-            success = remove_from_party(
-                player_id,
-                pokemon_id,
-            )
+            if action == "remove":
 
-        # ----------------------------------------------------
-        # ADD
-        # ----------------------------------------------------
+                result = remove_from_party(
+                    player_id,
+                    pokemon_id,
+                )
 
-        else:
+            # ------------------------------------------------
+            # ADD
+            # ------------------------------------------------
 
-            success = add_to_party(
-                player_id,
-                pokemon_id,
-            )
+            else:
 
-        if not success:
+                result = add_to_party(
+                    player_id,
+                    pokemon_id,
+                )
+
+        except ValueError as exc:
+            return jsonify(
+                {
+                    "success": False,
+                    "error": str(exc),
+                }
+            ), 400
+
+        except Exception:
             return jsonify(
                 {
                     "success": False,
@@ -1077,11 +1077,12 @@ def create_app() -> Flask:
                         "Party operation failed."
                     ),
                 }
-            ), 400
+            ), 500
 
         return jsonify(
             {
                 "success": True,
+                "result": result,
                 "party": get_party(
                     player_id
                 ),

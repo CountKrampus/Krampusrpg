@@ -3,309 +3,443 @@ from __future__ import annotations
 import sqlite3
 from typing import Any
 
-from .database import get_connection
-from .party_storage import (
-    MAX_PARTY_SIZE,
-    ensure_party_schema,
+from .database import (
+    PC_SLOTS_PER_PAGE,
+    get_connection,
+    ensure_pc_schema,
 )
 
 
-PC_SLOTS_PER_PAGE = 30
+# =============================================================================
+# CONSTANTS
+# =============================================================================
+
+SLOTS_PER_PAGE = PC_SLOTS_PER_PAGE
 
 
-PC_SCHEMA = """
-CREATE TABLE IF NOT EXISTS pc_storage (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+# =============================================================================
+# INTERNAL HELPERS
+# =============================================================================
 
-    player_id INTEGER NOT NULL,
-    pokemon_id INTEGER NOT NULL UNIQUE,
+def _row_to_dict(row: sqlite3.Row | None) -> dict[str, Any] | None:
+    if row is None:
+        return None
 
-    page INTEGER NOT NULL DEFAULT 1,
-    slot INTEGER NOT NULL,
-
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    FOREIGN KEY (player_id)
-        REFERENCES players(id)
-        ON DELETE CASCADE,
-
-    FOREIGN KEY (pokemon_id)
-        REFERENCES pokemon(id)
-        ON DELETE CASCADE,
-
-    CHECK (page >= 1),
-    CHECK (slot >= 1 AND slot <= 30),
-
-    UNIQUE(player_id, page, slot)
-);
-
-CREATE INDEX IF NOT EXISTS idx_pc_storage_player
-ON pc_storage(player_id);
-
-CREATE INDEX IF NOT EXISTS idx_pc_storage_page
-ON pc_storage(player_id, page);
-
-CREATE INDEX IF NOT EXISTS idx_pc_storage_pokemon
-ON pc_storage(pokemon_id);
-"""
+    return dict(row)
 
 
-def ensure_pc_schema(
-    db: sqlite3.Connection | None = None,
-) -> None:
-    if db is not None:
-        ensure_party_schema(db)
-        db.executescript(PC_SCHEMA)
-        return
-
-    with get_connection() as connection:
-        ensure_party_schema(connection)
-        connection.executescript(PC_SCHEMA)
-        connection.commit()
-
-
-def _pokemon_belongs_to_player(
+def _pokemon_exists(
     db: sqlite3.Connection,
-    player_id: int,
     pokemon_id: int,
-) -> bool:
-    row = db.execute(
+) -> sqlite3.Row | None:
+    return db.execute(
         """
-        SELECT 1
+        SELECT
+            id,
+            owner_id,
+            unique_id,
+            species_id,
+            nickname,
+            level,
+            experience,
+            gender,
+            shiny,
+            variant,
+            current_hp,
+            max_hp,
+            created_at
         FROM pokemon
         WHERE id = ?
-          AND owner_id = ?
         LIMIT 1
         """,
-        (pokemon_id, player_id),
+        (pokemon_id,),
     ).fetchone()
-
-    return row is not None
 
 
 def _pokemon_in_party(
     db: sqlite3.Connection,
-    player_id: int,
     pokemon_id: int,
-) -> bool:
-    row = db.execute(
+) -> sqlite3.Row | None:
+    return db.execute(
         """
-        SELECT 1
+        SELECT
+            id,
+            player_id,
+            pokemon_id,
+            slot
         FROM party
-        WHERE player_id = ?
-          AND pokemon_id = ?
+        WHERE pokemon_id = ?
         LIMIT 1
         """,
-        (player_id, pokemon_id),
+        (pokemon_id,),
     ).fetchone()
-
-    return row is not None
 
 
 def _pokemon_in_pc(
     db: sqlite3.Connection,
-    player_id: int,
     pokemon_id: int,
-) -> bool:
-    row = db.execute(
+    player_id: int | None = None,
+) -> sqlite3.Row | None:
+
+    if player_id is None:
+        return db.execute(
+            """
+            SELECT
+                id,
+                player_id,
+                pokemon_id,
+                page,
+                slot
+            FROM pc_storage
+            WHERE pokemon_id = ?
+            LIMIT 1
+            """,
+            (pokemon_id,),
+        ).fetchone()
+
+    return db.execute(
         """
-        SELECT 1
+        SELECT
+            id,
+            player_id,
+            pokemon_id,
+            page,
+            slot
         FROM pc_storage
-        WHERE player_id = ?
-          AND pokemon_id = ?
+        WHERE pokemon_id = ?
+          AND player_id = ?
         LIMIT 1
         """,
-        (player_id, pokemon_id),
+        (
+            pokemon_id,
+            player_id,
+        ),
     ).fetchone()
 
-    return row is not None
 
-
-def get_highest_page(
+def _next_empty_slot(
     db: sqlite3.Connection,
     player_id: int,
-) -> int:
-    row = db.execute(
+    page: int,
+) -> int | None:
+
+    rows = db.execute(
         """
-        SELECT MAX(page) AS highest_page
+        SELECT slot
         FROM pc_storage
         WHERE player_id = ?
+          AND page = ?
+        ORDER BY slot
         """,
-        (player_id,),
-    ).fetchone()
+        (
+            player_id,
+            page,
+        ),
+    ).fetchall()
 
-    if (
-        row is None
-        or row["highest_page"] is None
-    ):
-        return 1
+    occupied = {
+        int(row["slot"])
+        for row in rows
+    }
 
-    return max(
+    for slot in range(
         1,
-        int(row["highest_page"]),
-    )
+        SLOTS_PER_PAGE + 1,
+    ):
+        if slot not in occupied:
+            return slot
+
+    return None
 
 
-def first_empty_slot(
+def _first_empty_position(
     db: sqlite3.Connection,
     player_id: int,
-    preferred_page: int | None = None,
 ) -> tuple[int, int]:
-    """
-    Find the first available PC slot.
 
-    PC pages are unlimited.
-    Each page contains 30 slots.
-    """
+    rows = db.execute(
+        """
+        SELECT
+            page,
+            slot
+        FROM pc_storage
+        WHERE player_id = ?
+        ORDER BY page, slot
+        """,
+        (player_id,),
+    ).fetchall()
 
-    if preferred_page is not None:
-        preferred_page = max(
-            1,
-            int(preferred_page),
+    occupied = {
+        (
+            int(row["page"]),
+            int(row["slot"]),
         )
+        for row in rows
+    }
 
-        occupied = {
-            int(row["slot"])
-            for row in db.execute(
-                """
-                SELECT slot
-                FROM pc_storage
-                WHERE player_id = ?
-                  AND page = ?
-                """,
-                (
-                    player_id,
-                    preferred_page,
-                ),
-            ).fetchall()
-        }
-
-        for slot in range(
-            1,
-            PC_SLOTS_PER_PAGE + 1,
-        ):
-            if slot not in occupied:
-                return preferred_page, slot
-
-    page = get_highest_page(
-        db,
-        player_id,
-    )
+    page = 1
 
     while True:
-        occupied = {
-            int(row["slot"])
-            for row in db.execute(
-                """
-                SELECT slot
-                FROM pc_storage
-                WHERE player_id = ?
-                  AND page = ?
-                """,
-                (
-                    player_id,
-                    page,
-                ),
-            ).fetchall()
-        }
 
         for slot in range(
             1,
-            PC_SLOTS_PER_PAGE + 1,
+            SLOTS_PER_PAGE + 1,
         ):
-            if slot not in occupied:
+            if (
+                page,
+                slot,
+            ) not in occupied:
                 return page, slot
 
         page += 1
 
 
+def _player_owns_pokemon(
+    pokemon: sqlite3.Row | None,
+    player_id: int,
+) -> bool:
+
+    if pokemon is None:
+        return False
+
+    return int(
+        pokemon["owner_id"]
+    ) == int(player_id)
+
+
+def _normalize_page(
+    page: int | str | None,
+) -> int:
+
+    try:
+        value = int(page or 1)
+    except (
+        TypeError,
+        ValueError,
+    ):
+        value = 1
+
+    return max(
+        1,
+        value,
+    )
+
+
+def _normalize_slot(
+    slot: int | str | None,
+) -> int | None:
+
+    try:
+        value = int(slot)
+    except (
+        TypeError,
+        ValueError,
+    ):
+        return None
+
+    if not 1 <= value <= SLOTS_PER_PAGE:
+        return None
+
+    return value
+
+
+# =============================================================================
+# SCHEMA
+# =============================================================================
+
+def initialize_pc() -> None:
+    """
+    Ensure the database-backed PC table exists.
+    """
+
+    ensure_pc_schema()
+
+
+def ensure_schema() -> None:
+    initialize_pc()
+
+
+# =============================================================================
+# FIRST EMPTY SLOT
+# =============================================================================
+
+def first_empty_slot(
+    player_id: int,
+    page: int | None = None,
+) -> tuple[int, int]:
+
+    with get_connection() as db:
+
+        ensure_pc_schema(db)
+
+        if page is not None:
+
+            page = _normalize_page(
+                page
+            )
+
+            slot = _next_empty_slot(
+                db,
+                player_id,
+                page,
+            )
+
+            if slot is not None:
+                return page, slot
+
+            return (
+                page + 1,
+                1,
+            )
+
+        return _first_empty_position(
+            db,
+            player_id,
+        )
+
+
+# =============================================================================
+# DEPOSIT
+# =============================================================================
+
 def deposit_pokemon(
-    db: sqlite3.Connection,
     player_id: int,
     pokemon_id: int,
     page: int | None = None,
     slot: int | None = None,
 ) -> dict[str, Any]:
-    """
-    Move a Pokémon from Party to PC.
 
-    The Pokémon is never deleted.
-    """
+    with get_connection() as db:
 
-    ensure_pc_schema(db)
+        ensure_pc_schema(db)
 
-    if not _pokemon_belongs_to_player(
-        db,
-        player_id,
-        pokemon_id,
-    ):
-        raise ValueError(
-            "That Pokémon does not belong to this player."
-        )
-
-    if not _pokemon_in_party(
-        db,
-        player_id,
-        pokemon_id,
-    ):
-        raise ValueError(
-            "That Pokémon is not in the player's party."
-        )
-
-    if _pokemon_in_pc(
-        db,
-        player_id,
-        pokemon_id,
-    ):
-        raise ValueError(
-            "That Pokémon is already in the PC."
-        )
-
-    party_row = db.execute(
-        """
-        SELECT slot
-        FROM party
-        WHERE player_id = ?
-          AND pokemon_id = ?
-        LIMIT 1
-        """,
-        (player_id, pokemon_id),
-    ).fetchone()
-
-    if party_row is None:
-        raise ValueError(
-            "That Pokémon is not in the player's party."
-        )
-
-    old_party_slot = int(
-        party_row["slot"]
-    )
-
-    if page is None or slot is None:
-        page, slot = first_empty_slot(
+        pokemon = _pokemon_exists(
             db,
-            player_id,
-            preferred_page=page,
-        )
-    else:
-        page = max(
-            1,
-            int(page),
+            pokemon_id,
         )
 
-        slot = int(slot)
-
-        if (
-            slot < 1
-            or slot > PC_SLOTS_PER_PAGE
-        ):
+        if pokemon is None:
             raise ValueError(
-                "PC slots must be between 1 and 30."
+                "Pokémon does not exist."
             )
+
+        if not _player_owns_pokemon(
+            pokemon,
+            player_id,
+        ):
+            raise PermissionError(
+                "You do not own this Pokémon."
+            )
+
+        existing_pc = _pokemon_in_pc(
+            db,
+            pokemon_id,
+        )
+
+        if existing_pc is not None:
+
+            if int(
+                existing_pc["player_id"]
+            ) != int(player_id):
+
+                raise PermissionError(
+                    "This Pokémon belongs to another player."
+                )
+
+            return get_pokemon_location(
+                pokemon_id
+            )
+
+        existing_party = _pokemon_in_party(
+            db,
+            pokemon_id,
+        )
+
+        if existing_party is not None:
+
+            raise ValueError(
+                "A Pokémon cannot be deposited while it is in the Party. "
+                "Remove it from the Party first."
+            )
+
+        if page is None and slot is None:
+
+            page, slot = _first_empty_position(
+                db,
+                player_id,
+            )
+
+        elif page is None:
+
+            slot = _normalize_slot(
+                slot
+            )
+
+            if slot is None:
+                raise ValueError(
+                    "PC slot must be between 1 and 30."
+                )
+
+            # Find the first page containing that slot.
+            page = 1
+
+            while True:
+
+                existing = db.execute(
+                    """
+                    SELECT 1
+                    FROM pc_storage
+                    WHERE player_id = ?
+                      AND page = ?
+                      AND slot = ?
+                    LIMIT 1
+                    """,
+                    (
+                        player_id,
+                        page,
+                        slot,
+                    ),
+                ).fetchone()
+
+                if existing is None:
+                    break
+
+                page += 1
+
+        elif slot is None:
+
+            page = _normalize_page(
+                page
+            )
+
+            slot = _next_empty_slot(
+                db,
+                player_id,
+                page,
+            )
+
+            if slot is None:
+                page += 1
+                slot = 1
+
+        else:
+
+            page = _normalize_page(
+                page
+            )
+
+            slot = _normalize_slot(
+                slot
+            )
+
+            if slot is None:
+                raise ValueError(
+                    "PC slot must be between 1 and 30."
+                )
 
         occupied = db.execute(
             """
-            SELECT 1
+            SELECT pokemon_id
             FROM pc_storage
             WHERE player_id = ?
               AND page = ?
@@ -320,19 +454,10 @@ def deposit_pokemon(
         ).fetchone()
 
         if occupied is not None:
+
             raise ValueError(
                 "That PC slot is already occupied."
             )
-
-    try:
-        db.execute(
-            """
-            DELETE FROM party
-            WHERE player_id = ?
-              AND pokemon_id = ?
-            """,
-            (player_id, pokemon_id),
-        )
 
         db.execute(
             """
@@ -355,712 +480,1348 @@ def deposit_pokemon(
 
         db.commit()
 
-    except Exception:
-        db.rollback()
-        raise
+        return get_pokemon_location(
+            pokemon_id
+        )
 
-    return {
-        "pokemon_id": pokemon_id,
-        "page": page,
-        "slot": slot,
-        "old_party_slot": old_party_slot,
-        "destination": "pc",
-    }
 
+# =============================================================================
+# WITHDRAW
+# =============================================================================
 
 def withdraw_pokemon(
-    db: sqlite3.Connection,
     player_id: int,
     pokemon_id: int,
 ) -> dict[str, Any]:
-    """
-    Move a Pokémon from PC to Party.
-    """
 
-    ensure_pc_schema(db)
+    with get_connection() as db:
 
-    row = db.execute(
-        """
-        SELECT page, slot
-        FROM pc_storage
-        WHERE player_id = ?
-          AND pokemon_id = ?
-        LIMIT 1
-        """,
-        (player_id, pokemon_id),
-    ).fetchone()
+        ensure_pc_schema(db)
 
-    if row is None:
-        raise ValueError(
-            "That Pokémon is not in this player's PC."
+        pokemon = _pokemon_exists(
+            db,
+            pokemon_id,
         )
 
-    party_count = db.execute(
-        """
-        SELECT COUNT(*) AS total
-        FROM party
-        WHERE player_id = ?
-        """,
-        (player_id,),
-    ).fetchone()
-
-    if int(party_count["total"]) >= MAX_PARTY_SIZE:
-        raise ValueError(
-            "The player's party is already full."
-        )
-
-    occupied = {
-        int(entry["slot"])
-        for entry in db.execute(
-            """
-            SELECT slot
-            FROM party
-            WHERE player_id = ?
-            """,
-            (player_id,),
-        ).fetchall()
-    }
-
-    party_slot = next(
-        (
-            candidate
-            for candidate in range(
-                1,
-                MAX_PARTY_SIZE + 1,
+        if pokemon is None:
+            raise ValueError(
+                "Pokémon does not exist."
             )
-            if candidate not in occupied
-        ),
-        None,
-    )
 
-    if party_slot is None:
-        raise ValueError(
-            "No party slot is available."
+        if not _player_owns_pokemon(
+            pokemon,
+            player_id,
+        ):
+            raise PermissionError(
+                "You do not own this Pokémon."
+            )
+
+        pc_record = _pokemon_in_pc(
+            db,
+            pokemon_id,
+            player_id,
         )
 
-    old_page = int(row["page"])
-    old_slot = int(row["slot"])
+        if pc_record is None:
+            raise ValueError(
+                "That Pokémon is not in the PC."
+            )
 
-    try:
+        party_record = _pokemon_in_party(
+            db,
+            pokemon_id,
+        )
+
+        if party_record is not None:
+            raise ValueError(
+                "That Pokémon is already in the Party."
+            )
+
         db.execute(
             """
             DELETE FROM pc_storage
-            WHERE player_id = ?
-              AND pokemon_id = ?
-            """,
-            (player_id, pokemon_id),
-        )
-
-        db.execute(
-            """
-            INSERT INTO party
-            (
-                player_id,
-                pokemon_id,
-                slot
-            )
-            VALUES (?, ?, ?)
+            WHERE pokemon_id = ?
+              AND player_id = ?
             """,
             (
-                player_id,
                 pokemon_id,
-                party_slot,
+                player_id,
             ),
         )
 
         db.commit()
 
-    except Exception:
-        db.rollback()
-        raise
-
-    return {
-        "pokemon_id": pokemon_id,
-        "old_page": old_page,
-        "old_slot": old_slot,
-        "party_slot": party_slot,
-        "destination": "party",
-    }
-
-
-def move_pokemon(
-    db: sqlite3.Connection,
-    player_id: int,
-    pokemon_id: int,
-    destination_page: int,
-    destination_slot: int,
-) -> dict[str, Any]:
-    ensure_pc_schema(db)
-
-    destination_page = max(
-        1,
-        int(destination_page),
-    )
-
-    destination_slot = int(
-        destination_slot
-    )
-
-    if (
-        destination_slot < 1
-        or destination_slot > PC_SLOTS_PER_PAGE
-    ):
-        raise ValueError(
-            "PC slots must be between 1 and 30."
-        )
-
-    source = db.execute(
-        """
-        SELECT page, slot
-        FROM pc_storage
-        WHERE player_id = ?
-          AND pokemon_id = ?
-        LIMIT 1
-        """,
-        (player_id, pokemon_id),
-    ).fetchone()
-
-    if source is None:
-        raise ValueError(
-            "That Pokémon is not in the player's PC."
-        )
-
-    source_page = int(source["page"])
-    source_slot = int(source["slot"])
-
-    if (
-        source_page == destination_page
-        and source_slot == destination_slot
-    ):
         return {
+            "success": True,
             "pokemon_id": pokemon_id,
-            "page": source_page,
-            "slot": source_slot,
+            "location": "withdrawn",
         }
 
-    occupied = db.execute(
-        """
-        SELECT pokemon_id
-        FROM pc_storage
-        WHERE player_id = ?
-          AND page = ?
-          AND slot = ?
-        LIMIT 1
-        """,
-        (
-            player_id,
-            destination_page,
-            destination_slot,
-        ),
-    ).fetchone()
 
-    if occupied is not None:
+# =============================================================================
+# MOVE
+# =============================================================================
+
+def move_pokemon(
+    player_id: int,
+    pokemon_id: int,
+    target_page: int,
+    target_slot: int,
+) -> dict[str, Any]:
+
+    target_page = _normalize_page(
+        target_page
+    )
+
+    target_slot = _normalize_slot(
+        target_slot
+    )
+
+    if target_slot is None:
         raise ValueError(
-            "The destination PC slot is occupied."
+            "PC slot must be between 1 and 30."
         )
 
-    try:
+    with get_connection() as db:
+
+        ensure_pc_schema(db)
+
+        record = _pokemon_in_pc(
+            db,
+            pokemon_id,
+            player_id,
+        )
+
+        if record is None:
+            raise ValueError(
+                "That Pokémon is not in the PC."
+            )
+
+        occupied = db.execute(
+            """
+            SELECT
+                id,
+                pokemon_id
+            FROM pc_storage
+            WHERE player_id = ?
+              AND page = ?
+              AND slot = ?
+            LIMIT 1
+            """,
+            (
+                player_id,
+                target_page,
+                target_slot,
+            ),
+        ).fetchone()
+
+        if occupied is not None:
+
+            raise ValueError(
+                "That PC slot is already occupied."
+            )
+
         db.execute(
             """
             UPDATE pc_storage
-            SET page = ?,
+            SET
+                page = ?,
                 slot = ?
-            WHERE player_id = ?
-              AND pokemon_id = ?
+            WHERE id = ?
+              AND player_id = ?
             """,
             (
-                destination_page,
-                destination_slot,
+                target_page,
+                target_slot,
+                int(record["id"]),
                 player_id,
-                pokemon_id,
             ),
         )
 
         db.commit()
 
-    except Exception:
-        db.rollback()
-        raise
+        return get_pokemon_location(
+            pokemon_id
+        )
 
-    return {
-        "pokemon_id": pokemon_id,
-        "page": destination_page,
-        "slot": destination_slot,
-    }
 
+# =============================================================================
+# SWAP
+# =============================================================================
 
 def swap_pokemon(
-    db: sqlite3.Connection,
     player_id: int,
-    pokemon_a: int,
-    pokemon_b: int,
+    pokemon_id: int,
+    target_page: int,
+    target_slot: int,
 ) -> dict[str, Any]:
-    ensure_pc_schema(db)
 
-    pokemon_a = int(pokemon_a)
-    pokemon_b = int(pokemon_b)
+    target_page = _normalize_page(
+        target_page
+    )
 
-    if pokemon_a == pokemon_b:
+    target_slot = _normalize_slot(
+        target_slot
+    )
+
+    if target_slot is None:
         raise ValueError(
-            "Cannot swap a Pokémon with itself."
+            "PC slot must be between 1 and 30."
         )
 
-    rows = db.execute(
-        """
-        SELECT pokemon_id, page, slot
-        FROM pc_storage
-        WHERE player_id = ?
-          AND pokemon_id IN (?, ?)
-        """,
-        (
+    with get_connection() as db:
+
+        ensure_pc_schema(db)
+
+        source = _pokemon_in_pc(
+            db,
+            pokemon_id,
             player_id,
-            pokemon_a,
-            pokemon_b,
-        ),
-    ).fetchall()
-
-    if len(rows) != 2:
-        raise ValueError(
-            "Both Pokémon must be in the player's PC."
         )
 
-    locations = {
-        int(row["pokemon_id"]): (
-            int(row["page"]),
-            int(row["slot"]),
-        )
-        for row in rows
-    }
+        if source is None:
+            raise ValueError(
+                "That Pokémon is not in the PC."
+            )
 
-    page_a, slot_a = locations[pokemon_a]
-    page_b, slot_b = locations[pokemon_b]
-
-    try:
-        db.execute(
+        target = db.execute(
             """
-            DELETE FROM pc_storage
+            SELECT
+                id,
+                pokemon_id
+            FROM pc_storage
             WHERE player_id = ?
-              AND pokemon_id IN (?, ?)
+              AND page = ?
+              AND slot = ?
+            LIMIT 1
             """,
             (
                 player_id,
-                pokemon_a,
-                pokemon_b,
+                target_page,
+                target_slot,
+            ),
+        ).fetchone()
+
+        # ---------------------------------------------------------------------
+        # Empty destination: normal move.
+        # ---------------------------------------------------------------------
+
+        if target is None:
+
+            db.execute(
+                """
+                UPDATE pc_storage
+                SET
+                    page = ?,
+                    slot = ?
+                WHERE id = ?
+                  AND player_id = ?
+                """,
+                (
+                    target_page,
+                    target_slot,
+                    int(source["id"]),
+                    player_id,
+                ),
+            )
+
+            db.commit()
+
+            return {
+                "success": True,
+                "action": "move",
+                "pokemon_id": pokemon_id,
+                "location": get_pokemon_location(
+                    pokemon_id
+                ),
+            }
+
+        # ---------------------------------------------------------------------
+        # Same record.
+        # ---------------------------------------------------------------------
+
+        if int(
+            target["id"]
+        ) == int(
+            source["id"]
+        ):
+
+            return {
+                "success": True,
+                "action": "none",
+                "pokemon_id": pokemon_id,
+                "location": get_pokemon_location(
+                    pokemon_id
+                ),
+            }
+
+        # ---------------------------------------------------------------------
+        # Swap records.
+        #
+        # SQLite UNIQUE(player_id,page,slot) means a direct UPDATE can violate
+        # the constraint. Temporarily move the source to an unused position.
+        # ---------------------------------------------------------------------
+
+        temporary_page, temporary_slot = (
+            _first_empty_position(
+                db,
+                player_id,
+            )
+        )
+
+        # If the first empty position happens to be the target, find another.
+        if (
+            temporary_page == target_page
+            and temporary_slot == target_slot
+        ):
+
+            temporary_page += 1
+            temporary_slot = 1
+
+            while db.execute(
+                """
+                SELECT 1
+                FROM pc_storage
+                WHERE player_id = ?
+                  AND page = ?
+                  AND slot = ?
+                LIMIT 1
+                """,
+                (
+                    player_id,
+                    temporary_page,
+                    temporary_slot,
+                ),
+            ).fetchone() is not None:
+
+                temporary_page += 1
+
+        db.execute(
+            """
+            UPDATE pc_storage
+            SET
+                page = ?,
+                slot = ?
+            WHERE id = ?
+              AND player_id = ?
+            """,
+            (
+                temporary_page,
+                temporary_slot,
+                int(source["id"]),
+                player_id,
             ),
         )
 
         db.execute(
             """
-            INSERT INTO pc_storage
-            (
-                player_id,
-                pokemon_id,
-                page,
-                slot
-            )
-            VALUES (?, ?, ?, ?)
+            UPDATE pc_storage
+            SET
+                page = ?,
+                slot = ?
+            WHERE id = ?
+              AND player_id = ?
             """,
             (
+                int(source["page"]),
+                int(source["slot"]),
+                int(target["id"]),
                 player_id,
-                pokemon_a,
-                page_b,
-                slot_b,
             ),
         )
 
         db.execute(
             """
-            INSERT INTO pc_storage
-            (
-                player_id,
-                pokemon_id,
-                page,
-                slot
-            )
-            VALUES (?, ?, ?, ?)
+            UPDATE pc_storage
+            SET
+                page = ?,
+                slot = ?
+            WHERE id = ?
+              AND player_id = ?
             """,
             (
+                target_page,
+                target_slot,
+                int(source["id"]),
                 player_id,
-                pokemon_b,
-                page_a,
-                slot_a,
             ),
         )
 
         db.commit()
 
-    except Exception:
-        db.rollback()
-        raise
+        return {
+            "success": True,
+            "action": "swap",
+            "pokemon_id": pokemon_id,
+            "swapped_with": int(
+                target["pokemon_id"]
+            ),
+            "location": get_pokemon_location(
+                pokemon_id
+            ),
+        }
 
-    return {
-        "pokemon_id_a": pokemon_a,
-        "pokemon_id_b": pokemon_b,
-        "pokemon_a": {
-            "page": page_b,
-            "slot": slot_b,
-        },
-        "pokemon_b": {
-            "page": page_a,
-            "slot": slot_a,
-        },
-    }
 
+# =============================================================================
+# PAGE
+# =============================================================================
 
 def get_page(
-    db: sqlite3.Connection,
     player_id: int,
-    page: int,
-) -> list[dict[str, Any]]:
-    ensure_pc_schema(db)
+    page: int = 1,
+) -> dict[str, Any]:
 
-    page = max(
-        1,
-        int(page),
+    page = _normalize_page(
+        page
     )
 
-    rows = db.execute(
-        """
-        SELECT
-            pc.id AS pc_id,
-            pc.player_id,
-            pc.pokemon_id,
-            pc.page,
-            pc.slot,
-            pc.created_at,
+    with get_connection() as db:
 
-            p.unique_id,
-            p.species_id,
-            p.nickname,
-            p.level,
-            p.experience,
-            p.gender,
-            p.shiny,
-            p.variant,
-            p.current_hp,
-            p.max_hp
+        ensure_pc_schema(db)
 
-        FROM pc_storage pc
-
-        INNER JOIN pokemon p
-            ON p.id = pc.pokemon_id
-
-        WHERE pc.player_id = ?
-          AND p.owner_id = ?
-          AND pc.page = ?
-
-        ORDER BY pc.slot
-        """,
-        (
-            player_id,
-            player_id,
-            page,
-        ),
-    ).fetchall()
-
-    return [dict(row) for row in rows]
-
-
-def search_pc(
-    db: sqlite3.Connection,
-    player_id: int,
-    name: str | None = None,
-    variant: str | None = None,
-    pokemon_type: str | None = None,
-) -> list[dict[str, Any]]:
-    """
-    Search the ENTIRE PC.
-
-    Name, variant, and type filters can be combined.
-    """
-
-    ensure_pc_schema(db)
-
-    conditions = [
-        "pc.player_id = ?",
-        "p.owner_id = ?",
-    ]
-
-    parameters: list[Any] = [
-        player_id,
-        player_id,
-    ]
-
-    if name:
-        conditions.append(
+        rows = db.execute(
             """
-            (
-                LOWER(COALESCE(p.nickname, '')) LIKE ?
-                OR LOWER(COALESCE(s.name, '')) LIKE ?
-                OR LOWER(COALESCE(p.species_id, '')) LIKE ?
-            )
-            """
-        )
+            SELECT
+                pc.id AS storage_id,
 
-        search_value = f"%{name.lower()}%"
+                pc.player_id,
 
-        parameters.extend(
-            [
-                search_value,
-                search_value,
-                search_value,
-            ]
-        )
+                pc.pokemon_id,
 
-    if variant:
-        conditions.append(
-            "LOWER(COALESCE(p.variant, '')) = ?"
-        )
+                pc.page,
 
-        parameters.append(
-            variant.lower()
-        )
+                pc.slot,
 
-    if pokemon_type:
-        conditions.append(
-            """
-            EXISTS (
-                SELECT 1
-                FROM pokemon_species_types filter_st
-                INNER JOIN pokemon_types filter_t
-                    ON filter_t.id = filter_st.type_id
-                WHERE filter_st.species_id = p.species_id
-                  AND LOWER(filter_t.name) = ?
-            )
-            """
-        )
+                p.unique_id,
 
-        parameters.append(
-            pokemon_type.lower()
-        )
+                p.species_id,
 
-    where_clause = " AND ".join(
-        conditions
-    )
+                p.nickname,
 
-    rows = db.execute(
-        f"""
-        SELECT
-            pc.id AS pc_id,
-            pc.player_id,
-            pc.pokemon_id,
-            pc.page,
-            pc.slot,
-            pc.created_at,
+                p.level,
 
-            p.unique_id,
-            p.species_id,
-            p.nickname,
-            p.level,
-            p.experience,
-            p.gender,
-            p.shiny,
-            p.variant,
+                p.experience,
 
-            p.current_hp,
-            p.max_hp,
+                p.gender,
 
-            s.name AS species_name,
+                p.shiny,
 
-            (
-                SELECT GROUP_CONCAT(t.name, ', ')
-                FROM pokemon_species_types st
-                INNER JOIN pokemon_types t
-                    ON t.id = st.type_id
-                WHERE st.species_id = p.species_id
-            ) AS types
+                p.variant,
 
-        FROM pc_storage pc
+                p.current_hp,
 
-        INNER JOIN pokemon p
-            ON p.id = pc.pokemon_id
+                p.max_hp,
 
-        LEFT JOIN pokemon_species s
-            ON CAST(s.id AS TEXT)
-             = CAST(p.species_id AS TEXT)
+                p.created_at
 
-        WHERE {where_clause}
+            FROM pc_storage pc
 
-        ORDER BY pc.page, pc.slot
-        """,
-        parameters,
-    ).fetchall()
+            INNER JOIN pokemon p
+                ON p.id = pc.pokemon_id
 
-    result: list[dict[str, Any]] = []
+            WHERE pc.player_id = ?
+              AND pc.page = ?
 
-    for row in rows:
-        item = dict(row)
-
-        item["type_1"] = None
-        item["type_2"] = None
-
-        type_rows = db.execute(
-            """
-            SELECT t.name
-            FROM pokemon_species_types st
-            INNER JOIN pokemon_types t
-                ON t.id = st.type_id
-            WHERE st.species_id = ?
-            ORDER BY st.slot
-            LIMIT 2
+            ORDER BY pc.slot
             """,
-            (item["species_id"],),
+            (
+                player_id,
+                page,
+            ),
         ).fetchall()
 
-        if len(type_rows) >= 1:
-            item["type_1"] = type_rows[0]["name"]
+        slots = [
+            None
+            for _ in range(
+                SLOTS_PER_PAGE
+            )
+        ]
 
-        if len(type_rows) >= 2:
-            item["type_2"] = type_rows[1]["name"]
+        for row in rows:
 
-        result.append(item)
+            data = dict(
+                row
+            )
 
-    return result
+            slot = int(
+                data["slot"]
+            )
 
+            if 1 <= slot <= SLOTS_PER_PAGE:
 
-def get_pc_count(
-    db: sqlite3.Connection,
-    player_id: int,
-) -> int:
-    ensure_pc_schema(db)
+                slots[
+                    slot - 1
+                ] = data
 
-    row = db.execute(
-        """
-        SELECT COUNT(*) AS total
-        FROM pc_storage
-        WHERE player_id = ?
-        """,
-        (player_id,),
-    ).fetchone()
+        count_row = db.execute(
+            """
+            SELECT COUNT(*) AS count
+            FROM pc_storage
+            WHERE player_id = ?
+            """,
+            (player_id,),
+        ).fetchone()
 
-    return int(
-        row["total"] or 0
-    )
+        total_count = int(
+            count_row["count"]
+        )
 
+        max_page_row = db.execute(
+            """
+            SELECT MAX(page) AS max_page
+            FROM pc_storage
+            WHERE player_id = ?
+            """,
+            (player_id,),
+        ).fetchone()
 
-def get_pc_search_filters(
-    db: sqlite3.Connection,
-    player_id: int,
-) -> dict[str, list[str]]:
-    ensure_pc_schema(db)
+        max_page = int(
+            max_page_row["max_page"]
+            or 1
+        )
 
-    variants = db.execute(
-        """
-        SELECT DISTINCT
-            p.variant
-        FROM pc_storage pc
-        INNER JOIN pokemon p
-            ON p.id = pc.pokemon_id
-        WHERE pc.player_id = ?
-          AND p.owner_id = ?
-          AND COALESCE(p.variant, '') != ''
-        ORDER BY p.variant
-        """,
-        (
-            player_id,
-            player_id,
-        ),
-    ).fetchall()
-
-    types = db.execute(
-        """
-        SELECT DISTINCT
-            LOWER(t.name) AS type_name
-        FROM pc_storage pc
-        INNER JOIN pokemon p
-            ON p.id = pc.pokemon_id
-        INNER JOIN pokemon_species_types st
-            ON st.species_id = p.species_id
-        INNER JOIN pokemon_types t
-            ON t.id = st.type_id
-        WHERE pc.player_id = ?
-          AND p.owner_id = ?
-          AND COALESCE(t.name, '') != ''
-        ORDER BY type_name
-        """,
-        (
-            player_id,
-            player_id,
-        ),
-    ).fetchall()
-
-    return {
-        "variants": [
-            str(row["variant"])
-            for row in variants
-        ],
-        "types": [
-            str(row["type_name"])
-            for row in types
-        ],
-    }
+        return {
+            "page": page,
+            "max_page": max_page,
+            "total_count": total_count,
+            "slots_per_page": SLOTS_PER_PAGE,
+            "pokemon": [
+                slot
+                for slot in slots
+            ],
+            "slots": slots,
+        }
 
 
-def get_pokemon_location(
-    db: sqlite3.Connection,
+# =============================================================================
+# GET POKÉMON
+# =============================================================================
+
+def get_pc_pokemon(
     player_id: int,
     pokemon_id: int,
 ) -> dict[str, Any] | None:
-    ensure_pc_schema(db)
 
-    pc = db.execute(
-        """
-        SELECT page, slot
-        FROM pc_storage
-        WHERE player_id = ?
-          AND pokemon_id = ?
-        LIMIT 1
-        """,
-        (
-            player_id,
-            pokemon_id,
-        ),
-    ).fetchone()
+    with get_connection() as db:
 
-    if pc is not None:
-        return {
-            "location": "pc",
-            "page": int(pc["page"]),
-            "slot": int(pc["slot"]),
+        ensure_pc_schema(db)
+
+        row = db.execute(
+            """
+            SELECT
+                pc.id AS storage_id,
+
+                pc.player_id,
+
+                pc.pokemon_id,
+
+                pc.page,
+
+                pc.slot,
+
+                p.unique_id,
+
+                p.species_id,
+
+                p.nickname,
+
+                p.level,
+
+                p.experience,
+
+                p.gender,
+
+                p.shiny,
+
+                p.variant,
+
+                p.current_hp,
+
+                p.max_hp,
+
+                p.created_at
+
+            FROM pc_storage pc
+
+            INNER JOIN pokemon p
+                ON p.id = pc.pokemon_id
+
+            WHERE pc.player_id = ?
+              AND pc.pokemon_id = ?
+
+            LIMIT 1
+            """,
+            (
+                player_id,
+                pokemon_id,
+            ),
+        ).fetchone()
+
+        return _row_to_dict(
+            row
+        )
+
+
+def get_pokemon(
+    player_id: int,
+    pokemon_id: int,
+) -> dict[str, Any] | None:
+    return get_pc_pokemon(
+        player_id,
+        pokemon_id,
+    )
+
+
+# =============================================================================
+# SEARCH
+# =============================================================================
+
+def search_pc(
+    player_id: int,
+    search: str | None = None,
+    variant: str | None = None,
+    pokemon_type: str | None = None,
+    type_name: str | None = None,
+    shiny: bool | None = None,
+) -> list[dict[str, Any]]:
+
+    if pokemon_type is None:
+        pokemon_type = type_name
+
+    search = (
+        str(search).strip()
+        if search is not None
+        else ""
+    )
+
+    variant = (
+        str(variant).strip()
+        if variant is not None
+        else ""
+    )
+
+    pokemon_type = (
+        str(pokemon_type).strip()
+        if pokemon_type is not None
+        else ""
+    )
+
+    query = """
+        SELECT DISTINCT
+
+            pc.id AS storage_id,
+
+            pc.player_id,
+
+            pc.pokemon_id,
+
+            pc.page,
+
+            pc.slot,
+
+            p.unique_id,
+
+            p.species_id,
+
+            p.nickname,
+
+            p.level,
+
+            p.experience,
+
+            p.gender,
+
+            p.shiny,
+
+            p.variant,
+
+            p.current_hp,
+
+            p.max_hp,
+
+            p.created_at
+
+        FROM pc_storage pc
+
+        INNER JOIN pokemon p
+            ON p.id = pc.pokemon_id
+    """
+
+    parameters: list[Any] = [
+        player_id
+    ]
+
+    # -------------------------------------------------------------------------
+    # Type filtering is intentionally handled without requiring a specific
+    # catalog schema. If the optional species/type tables exist, use them.
+    # Otherwise the basic name/variant/shiny search still works.
+    # -------------------------------------------------------------------------
+
+    type_join = ""
+
+    with get_connection() as db:
+
+        ensure_pc_schema(db)
+
+        tables = {
+            row["name"]
+            for row in db.execute(
+                """
+                SELECT name
+                FROM sqlite_master
+                WHERE type = 'table'
+                """
+            ).fetchall()
         }
 
-    party = db.execute(
-        """
-        SELECT slot
-        FROM party
-        WHERE player_id = ?
-          AND pokemon_id = ?
-        LIMIT 1
-        """,
-        (
-            player_id,
-            pokemon_id,
-        ),
-    ).fetchone()
+        has_species_types = (
+            "pokemon_species_types"
+            in tables
+        )
 
-    if party is not None:
-        return {
-            "location": "party",
-            "slot": int(party["slot"]),
+        has_pokemon_types = (
+            "pokemon_types"
+            in tables
+        )
+
+        if (
+            pokemon_type
+            and has_species_types
+            and has_pokemon_types
+        ):
+
+            type_join = """
+                INNER JOIN pokemon_species_types pst
+                    ON pst.species_id = p.species_id
+
+                INNER JOIN pokemon_types pt
+                    ON pt.id = pst.type_id
+            """
+
+        query += type_join
+
+        query += """
+            WHERE pc.player_id = ?
+        """
+
+        if search:
+
+            query += """
+                AND (
+                    LOWER(COALESCE(p.nickname, '')) LIKE LOWER(?)
+                    OR LOWER(COALESCE(p.species_id, '')) LIKE LOWER(?)
+                    OR LOWER(COALESCE(p.unique_id, '')) LIKE LOWER(?)
+                )
+            """
+
+            wildcard = (
+                "%"
+                + search
+                + "%"
+            )
+
+            parameters.extend(
+                [
+                    wildcard,
+                    wildcard,
+                    wildcard,
+                ]
+            )
+
+        if variant:
+
+            query += """
+                AND LOWER(
+                    COALESCE(
+                        p.variant,
+                        ''
+                    )
+                ) = LOWER(?)
+            """
+
+            parameters.append(
+                variant
+            )
+
+        if pokemon_type and (
+            has_species_types
+            and has_pokemon_types
+        ):
+
+            query += """
+                AND LOWER(
+                    COALESCE(
+                        pt.name,
+                        ''
+                    )
+                ) = LOWER(?)
+            """
+
+            parameters.append(
+                pokemon_type
+            )
+
+        if shiny is not None:
+
+            query += """
+                AND p.shiny = ?
+            """
+
+            parameters.append(
+                1
+                if shiny
+                else 0
+            )
+
+        query += """
+            ORDER BY
+                pc.page,
+                pc.slot,
+                p.id
+        """
+
+        rows = db.execute(
+            query,
+            parameters,
+        ).fetchall()
+
+        return [
+            dict(row)
+            for row in rows
+        ]
+
+
+# =============================================================================
+# SEARCH ALIASES
+# =============================================================================
+
+def search_pokemon(
+    player_id: int,
+    search: str | None = None,
+    variant: str | None = None,
+    pokemon_type: str | None = None,
+    shiny: bool | None = None,
+) -> list[dict[str, Any]]:
+
+    return search_pc(
+        player_id=player_id,
+        search=search,
+        variant=variant,
+        pokemon_type=pokemon_type,
+        shiny=shiny,
+    )
+
+
+# =============================================================================
+# PC COUNT
+# =============================================================================
+
+def get_pc_count(
+    player_id: int,
+) -> int:
+
+    with get_connection() as db:
+
+        ensure_pc_schema(db)
+
+        row = db.execute(
+            """
+            SELECT COUNT(*) AS count
+            FROM pc_storage
+            WHERE player_id = ?
+            """,
+            (player_id,),
+        ).fetchone()
+
+        return int(
+            row["count"]
+        )
+
+
+# =============================================================================
+# PAGE COUNT
+# =============================================================================
+
+def get_pc_page_count(
+    player_id: int,
+) -> int:
+
+    with get_connection() as db:
+
+        ensure_pc_schema(db)
+
+        row = db.execute(
+            """
+            SELECT MAX(page) AS max_page
+            FROM pc_storage
+            WHERE player_id = ?
+            """,
+            (player_id,),
+        ).fetchone()
+
+        return max(
+            1,
+            int(
+                row["max_page"]
+                or 1
+            ),
+        )
+
+
+def get_page_count(
+    player_id: int,
+) -> int:
+    return get_pc_page_count(
+        player_id
+    )
+
+
+# =============================================================================
+# FILTER DATA
+# =============================================================================
+
+def get_pc_search_filters(
+    player_id: int,
+) -> dict[str, list[str]]:
+
+    with get_connection() as db:
+
+        ensure_pc_schema(db)
+
+        variants = db.execute(
+            """
+            SELECT DISTINCT
+                variant
+            FROM pokemon p
+            INNER JOIN pc_storage pc
+                ON pc.pokemon_id = p.id
+            WHERE pc.player_id = ?
+              AND COALESCE(
+                    TRIM(p.variant),
+                    ''
+                  ) != ''
+            ORDER BY variant
+            """,
+            (player_id,),
+        ).fetchall()
+
+        types: list[str] = []
+
+        tables = {
+            row["name"]
+            for row in db.execute(
+                """
+                SELECT name
+                FROM sqlite_master
+                WHERE type = 'table'
+                """
+            ).fetchall()
         }
 
-    owned = db.execute(
-        """
-        SELECT 1
-        FROM pokemon
-        WHERE id = ?
-          AND owner_id = ?
-        LIMIT 1
-        """,
-        (
-            pokemon_id,
-            player_id,
-        ),
-    ).fetchone()
+        if (
+            "pokemon_species_types"
+            in tables
+            and "pokemon_types"
+            in tables
+        ):
 
-    if owned is not None:
+            type_rows = db.execute(
+                """
+                SELECT DISTINCT
+                    pt.name
+                FROM pokemon_types pt
+
+                INNER JOIN pokemon_species_types pst
+                    ON pst.type_id = pt.id
+
+                INNER JOIN pokemon p
+                    ON p.species_id = pst.species_id
+
+                INNER JOIN pc_storage pc
+                    ON pc.pokemon_id = p.id
+
+                WHERE pc.player_id = ?
+
+                ORDER BY pt.name
+                """,
+                (player_id,),
+            ).fetchall()
+
+            types = [
+                str(row["name"])
+                for row in type_rows
+                if row["name"]
+            ]
+
         return {
-            "location": "unassigned",
+            "variants": [
+                str(row["variant"])
+                for row in variants
+                if row["variant"]
+            ],
+            "types": types,
         }
 
-    return None
+
+def get_search_filters(
+    player_id: int,
+) -> dict[str, list[str]]:
+    return get_pc_search_filters(
+        player_id
+    )
+
+
+# =============================================================================
+# LOCATION
+# =============================================================================
+
+def get_pokemon_location(
+    pokemon_id: int,
+) -> dict[str, Any]:
+
+    with get_connection() as db:
+
+        ensure_pc_schema(db)
+
+        party = db.execute(
+            """
+            SELECT
+                player_id,
+                slot
+            FROM party
+            WHERE pokemon_id = ?
+            LIMIT 1
+            """,
+            (pokemon_id,),
+        ).fetchone()
+
+        if party is not None:
+
+            return {
+                "pokemon_id": pokemon_id,
+                "location": "party",
+                "player_id": int(
+                    party["player_id"]
+                ),
+                "slot": int(
+                    party["slot"]
+                ),
+            }
+
+        pc = db.execute(
+            """
+            SELECT
+                player_id,
+                page,
+                slot
+            FROM pc_storage
+            WHERE pokemon_id = ?
+            LIMIT 1
+            """,
+            (pokemon_id,),
+        ).fetchone()
+
+        if pc is not None:
+
+            return {
+                "pokemon_id": pokemon_id,
+                "location": "pc",
+                "player_id": int(
+                    pc["player_id"]
+                ),
+                "page": int(
+                    pc["page"]
+                ),
+                "slot": int(
+                    pc["slot"]
+                ),
+            }
+
+        pokemon = _pokemon_exists(
+            db,
+            pokemon_id,
+        )
+
+        if pokemon is not None:
+
+            return {
+                "pokemon_id": pokemon_id,
+                "location": "unassigned",
+                "player_id": int(
+                    pokemon["owner_id"]
+                ),
+            }
+
+        return {
+            "pokemon_id": pokemon_id,
+            "location": "not_found",
+        }
+
+
+# =============================================================================
+# PLAYER-SCOPED LOCATION
+# =============================================================================
+
+def get_player_pokemon_location(
+    player_id: int,
+    pokemon_id: int,
+) -> dict[str, Any]:
+
+    with get_connection() as db:
+
+        pokemon = _pokemon_exists(
+            db,
+            pokemon_id,
+        )
+
+        if pokemon is None:
+
+            return {
+                "pokemon_id": pokemon_id,
+                "location": "not_found",
+            }
+
+        if not _player_owns_pokemon(
+            pokemon,
+            player_id,
+        ):
+
+            return {
+                "pokemon_id": pokemon_id,
+                "location": "not_owned",
+            }
+
+        return get_pokemon_location(
+            pokemon_id
+        )
+
+
+# =============================================================================
+# PC INVENTORY
+# =============================================================================
+
+def get_all_pc_pokemon(
+    player_id: int,
+) -> list[dict[str, Any]]:
+
+    with get_connection() as db:
+
+        ensure_pc_schema(db)
+
+        rows = db.execute(
+            """
+            SELECT
+
+                pc.id AS storage_id,
+
+                pc.player_id,
+
+                pc.pokemon_id,
+
+                pc.page,
+
+                pc.slot,
+
+                p.unique_id,
+
+                p.species_id,
+
+                p.nickname,
+
+                p.level,
+
+                p.experience,
+
+                p.gender,
+
+                p.shiny,
+
+                p.variant,
+
+                p.current_hp,
+
+                p.max_hp,
+
+                p.created_at
+
+            FROM pc_storage pc
+
+            INNER JOIN pokemon p
+                ON p.id = pc.pokemon_id
+
+            WHERE pc.player_id = ?
+
+            ORDER BY
+                pc.page,
+                pc.slot
+            """,
+            (player_id,),
+        ).fetchall()
+
+        return [
+            dict(row)
+            for row in rows
+        ]
+
+
+# =============================================================================
+# LEGACY COMPATIBILITY
+# =============================================================================
+
+def add_to_pc(
+    player_id: int,
+    pokemon_id: int,
+    page: int | None = None,
+    slot: int | None = None,
+):
+    return deposit_pokemon(
+        player_id,
+        pokemon_id,
+        page,
+        slot,
+    )
+
+
+def remove_from_pc(
+    player_id: int,
+    pokemon_id: int,
+):
+    return withdraw_pokemon(
+        player_id,
+        pokemon_id,
+    )
+
+
+def move_pc_pokemon(
+    player_id: int,
+    pokemon_id: int,
+    target_page: int,
+    target_slot: int,
+):
+    return move_pokemon(
+        player_id,
+        pokemon_id,
+        target_page,
+        target_slot,
+    )
+
+
+# =============================================================================
+# STORAGE REPAIR
+# =============================================================================
+
+def repair_pc_storage(
+    player_id: int | None = None,
+) -> dict[str, int]:
+
+    repaired = 0
+    conflicts_removed = 0
+
+    with get_connection() as db:
+
+        ensure_pc_schema(db)
+
+        if player_id is None:
+
+            pokemon_rows = db.execute(
+                """
+                SELECT
+                    id,
+                    owner_id
+                FROM pokemon
+                ORDER BY id
+                """
+            ).fetchall()
+
+        else:
+
+            pokemon_rows = db.execute(
+                """
+                SELECT
+                    id,
+                    owner_id
+                FROM pokemon
+                WHERE owner_id = ?
+                ORDER BY id
+                """,
+                (player_id,),
+            ).fetchall()
+
+        # ---------------------------------------------------------------------
+        # Party always wins if a Pokémon exists in both Party and PC.
+        # ---------------------------------------------------------------------
+
+        deleted = db.execute(
+            """
+            DELETE FROM pc_storage
+            WHERE pokemon_id IN (
+                SELECT pokemon_id
+                FROM party
+            )
+            """
+        )
+
+        conflicts_removed += deleted.rowcount
+
+        # ---------------------------------------------------------------------
+        # Put unassigned owned Pokémon into PC.
+        # ---------------------------------------------------------------------
+
+        for pokemon in pokemon_rows:
+
+            pokemon_id = int(
+                pokemon["id"]
+            )
+
+            owner_id = int(
+                pokemon["owner_id"]
+            )
+
+            in_party = _pokemon_in_party(
+                db,
+                pokemon_id,
+            )
+
+            in_pc = _pokemon_in_pc(
+                db,
+                pokemon_id,
+            )
+
+            if (
+                in_party is not None
+                or in_pc is not None
+            ):
+                continue
+
+            page, slot = _first_empty_position(
+                db,
+                owner_id,
+            )
+
+            db.execute(
+                """
+                INSERT INTO pc_storage
+                (
+                    player_id,
+                    pokemon_id,
+                    page,
+                    slot
+                )
+                VALUES (?, ?, ?, ?)
+                """,
+                (
+                    owner_id,
+                    pokemon_id,
+                    page,
+                    slot,
+                ),
+            )
+
+            repaired += 1
+
+        db.commit()
+
+    return {
+        "repaired": repaired,
+        "conflicts_removed": conflicts_removed,
+    }
