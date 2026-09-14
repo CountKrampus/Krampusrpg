@@ -150,10 +150,8 @@ def get_existing_pokemon(
             gender,
             shiny,
             variant,
-            nature,
             current_hp,
-            max_hp,
-            status
+            max_hp
         FROM pokemon
         WHERE owner_id = ?
         ORDER BY id

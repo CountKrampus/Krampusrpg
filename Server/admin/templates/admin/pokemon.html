@@ -36,7 +36,7 @@
                     <th>Variant</th>
                     <th>Shiny</th>
                     <th>HP</th>
-                    <th>Active</th>
+                    <th>Location</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -89,13 +89,17 @@
                     </td>
 
                     <td>
-                        {% if mon.is_active %}
+                        {% if mon.in_party %}
                             <span class="admin-status-badge status-success">
-                                Active
+                                Party (Slot {{ mon.party_slot }})
+                            </span>
+                        {% elif mon.in_pc %}
+                            <span class="admin-status-badge status-info">
+                                PC (Box {{ mon.pc_page }}, Slot {{ mon.pc_slot }})
                             </span>
                         {% else %}
                             <span class="admin-status-badge">
-                                No
+                                Unstored
                             </span>
                         {% endif %}
                     </td>

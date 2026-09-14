@@ -12,6 +12,14 @@ from .config import DATABASE_PATH, DATA_DIR, INSTANCE_DIR
 
 MAX_PARTY_SIZE = 6
 PC_SLOTS_PER_PAGE = 30
+STAT_NAMES = (
+    "hp",
+    "attack",
+    "defense",
+    "sp_attack",
+    "sp_defense",
+    "speed",
+)
 
 
 # =============================================================================
@@ -1128,105 +1136,351 @@ def _migrate_pokemon_storage(
 
 
 # =============================================================================
-# LEGACY POKÉMON FIELD CLEANUP
+# REBUILD LEGACY POKÉMON TABLES SAFELY INTO NEW SCHEMA
 # =============================================================================
 
-def _remove_legacy_pokemon_columns(
-    db: sqlite3.Connection,
-) -> None:
+def _compute_stats_for_migration(
+    species_id: str,
+    level: int,
+    species_map: dict[str, dict] | None = None,
+) -> dict[str, int]:
+    """Compute baseline stats for a Pokémon when rebuilding tables."""
+    level = max(1, min(100, int(level)))
+    base_stats = {
+        "hp": 50,
+        "attack": 50,
+        "defense": 50,
+        "sp_attack": 50,
+        "sp_defense": 50,
+        "speed": 50,
+    }
+
+    if species_map:
+        s = species_map.get(str(species_id).lower(), {})
+        possible = s.get("base_stats") or s.get("stats")
+        if isinstance(possible, dict):
+            for k in base_stats:
+                if k in possible:
+                    try:
+                        base_stats[k] = max(1, int(possible[k]))
+                    except (TypeError, ValueError):
+                        pass
+
+    hp = max(1, ((2 * base_stats["hp"] * level) // 100) + level + 10)
+    return {
+        "hp": hp,
+        "attack": max(1, ((2 * base_stats["attack"] * level) // 100) + 5),
+        "defense": max(1, ((2 * base_stats["defense"] * level) // 100) + 5),
+        "sp_attack": max(1, ((2 * base_stats["sp_attack"] * level) // 100) + 5),
+        "sp_defense": max(1, ((2 * base_stats["sp_defense"] * level) // 100) + 5),
+        "speed": max(1, ((2 * base_stats["speed"] * level) // 100) + 5),
+    }
+
+
+def rebuild_legacy_pokemon_tables(
+    db: sqlite3.Connection | None = None,
+) -> dict[str, Any]:
     """
-    Remove old fields that are not part of the Krampus RPG design.
+    Safely rebuild legacy Pokémon tables (pokemon, pokemon_stats, pokemon_moves)
+    into the new strict schema.
 
-    The application no longer uses:
-
-        nature
-        status
-        is_active
+    - Strips legacy columns (is_active, nature, status, hp_iv, attack_iv, etc.)
+    - Clamps and sanitizes values to satisfy CHECK constraints (e.g. level between 1 and 100)
+    - Computes and populates actual stat values (hp, attack, defense, sp_attack, sp_defense, speed)
+    - Preserves all Pokémon IDs, relationships, moves, and storage positions
+    - Checks foreign key integrity
     """
+    owns_connection = db is None
 
-    for column_name in (
-        "nature",
-        "status",
-        "is_active",
-    ):
+    if owns_connection:
+        db = get_connection()
 
-        if not column_exists(
-            db,
-            "pokemon",
-            column_name,
-        ):
-            continue
+    try:
+        if not table_exists(db, "pokemon"):
+            return {
+                "rebuilt_pokemon": False,
+                "rebuilt_stats": False,
+                "rebuilt_moves": False,
+            }
 
-        try:
+        # 1. Inspect pokemon table
+        pokemon_cols = [
+            r["name"]
+            for r in db.execute("PRAGMA table_info(pokemon)").fetchall()
+        ]
+        has_legacy_cols = any(
+            c in pokemon_cols
+            for c in ("is_active", "nature", "status")
+        )
+        row_sql = db.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='pokemon'"
+        ).fetchone()
+        pokemon_sql = row_sql[0] if row_sql else ""
+        missing_checks = (
+            "CHECK (level >= 1)" not in pokemon_sql
+            or "CHECK (level <= 100)" not in pokemon_sql
+        )
+        needs_pokemon_rebuild = has_legacy_cols or missing_checks
+
+        # 2. Inspect pokemon_stats table
+        has_stats_table = table_exists(db, "pokemon_stats")
+        stats_cols = (
+            [r["name"] for r in db.execute("PRAGMA table_info(pokemon_stats)").fetchall()]
+            if has_stats_table
+            else []
+        )
+        has_all_stats = all(s in stats_cols for s in STAT_NAMES)
+        has_legacy_iv_ev = any(
+            c.endswith("_iv") or c.endswith("_ev")
+            for c in stats_cols
+        )
+        needs_stats_rebuild = (not has_stats_table) or (not has_all_stats) or has_legacy_iv_ev
+
+        # 3. Inspect pokemon_moves table
+        has_moves_table = table_exists(db, "pokemon_moves")
+        moves_row = (
+            db.execute(
+                "SELECT sql FROM sqlite_master WHERE type='table' AND name='pokemon_moves'"
+            ).fetchone()
+            if has_moves_table
+            else None
+        )
+        moves_sql = moves_row[0] if moves_row else ""
+        needs_moves_rebuild = (not has_moves_table) or ("CHECK (slot >= 1)" not in moves_sql)
+
+        if not (needs_pokemon_rebuild or needs_stats_rebuild or needs_moves_rebuild):
+            return {
+                "rebuilt_pokemon": False,
+                "rebuilt_stats": False,
+                "rebuilt_moves": False,
+            }
+
+        # If legacy is_active exists, migrate storage before table rebuild
+        if "is_active" in pokemon_cols:
+            _migrate_pokemon_storage(db)
+
+        # Load species map for stats calculation
+        species_raw = load_json("pokemon.json")
+        species_map = {}
+        if isinstance(species_raw, list):
+            for s in species_raw:
+                if isinstance(s, dict) and "id" in s:
+                    species_map[str(s["id"]).lower()] = s
+
+        # Turn foreign keys off during table rebuild
+        db.execute("PRAGMA foreign_keys = OFF")
+
+        rebuilt_pokemon = False
+        rebuilt_stats = False
+        rebuilt_moves = False
+
+        # --- Rebuild pokemon ---
+        if needs_pokemon_rebuild:
+            pokemon_rows = db.execute("SELECT * FROM pokemon ORDER BY id").fetchall()
 
             db.execute(
-                f"""
-                ALTER TABLE pokemon
-                DROP COLUMN {column_name}
+                """
+                CREATE TABLE _new_pokemon (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    unique_id TEXT NOT NULL UNIQUE,
+                    owner_id INTEGER NOT NULL,
+                    species_id TEXT NOT NULL,
+                    nickname TEXT,
+                    level INTEGER NOT NULL DEFAULT 5,
+                    experience INTEGER NOT NULL DEFAULT 0,
+                    gender TEXT NOT NULL DEFAULT 'unknown',
+                    shiny INTEGER NOT NULL DEFAULT 0,
+                    variant TEXT NOT NULL DEFAULT 'normal',
+                    current_hp INTEGER NOT NULL DEFAULT 1,
+                    max_hp INTEGER NOT NULL DEFAULT 1,
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (owner_id)
+                        REFERENCES players(id)
+                        ON DELETE CASCADE,
+                    CHECK (level >= 1),
+                    CHECK (level <= 100),
+                    CHECK (experience >= 0),
+                    CHECK (shiny IN (0, 1)),
+                    CHECK (current_hp >= 0),
+                    CHECK (max_hp >= 1)
+                )
                 """
             )
 
-        except sqlite3.OperationalError:
-            # Never rebuild the Pokémon table automatically here.
-            # Existing player data is more important than removing a
-            # physically unused legacy column.
-            pass
+            for p in pokemon_rows:
+                r = dict(p)
+                lvl = max(1, min(100, int(r.get("level") or 5)))
+                exp = max(0, int(r.get("experience") or 0))
+                shiny = 1 if r.get("shiny") else 0
+                gender = str(r.get("gender") or "unknown").lower()
+                if gender not in ("male", "female", "genderless", "unknown"):
+                    gender = "unknown"
+                variant = str(r.get("variant") or "normal")
+                max_hp = max(1, int(r.get("max_hp") or 1))
+                cur_hp = max(0, min(max_hp, int(r.get("current_hp") if r.get("current_hp") is not None else max_hp)))
+                created_at = str(r.get("created_at") or "CURRENT_TIMESTAMP")
+
+                db.execute(
+                    """
+                    INSERT INTO _new_pokemon (
+                        id, unique_id, owner_id, species_id, nickname,
+                        level, experience, gender, shiny, variant,
+                        current_hp, max_hp, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        int(r["id"]),
+                        str(r["unique_id"]),
+                        int(r["owner_id"]),
+                        str(r["species_id"]),
+                        r.get("nickname"),
+                        lvl, exp, gender, shiny, variant,
+                        cur_hp, max_hp, created_at,
+                    ),
+                )
+
+            db.execute("DROP TABLE pokemon")
+            db.execute("ALTER TABLE _new_pokemon RENAME TO pokemon")
+            db.execute("CREATE INDEX IF NOT EXISTS idx_pokemon_owner ON pokemon(owner_id)")
+            db.execute("CREATE INDEX IF NOT EXISTS idx_pokemon_species ON pokemon(species_id)")
+            db.execute("CREATE INDEX IF NOT EXISTS idx_pokemon_unique_id ON pokemon(unique_id)")
+            db.execute("CREATE INDEX IF NOT EXISTS idx_pokemon_variant ON pokemon(variant)")
+            rebuilt_pokemon = True
+
+        # --- Rebuild pokemon_stats ---
+        if needs_stats_rebuild:
+            old_stats = {}
+            if has_stats_table:
+                try:
+                    for r in db.execute("SELECT * FROM pokemon_stats").fetchall():
+                        d = dict(r)
+                        old_stats[int(d["pokemon_id"])] = d
+                except Exception:
+                    pass
+
+            db.execute(
+                """
+                CREATE TABLE _new_pokemon_stats (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    pokemon_id INTEGER NOT NULL UNIQUE,
+                    hp INTEGER NOT NULL DEFAULT 1,
+                    attack INTEGER NOT NULL DEFAULT 1,
+                    defense INTEGER NOT NULL DEFAULT 1,
+                    sp_attack INTEGER NOT NULL DEFAULT 1,
+                    sp_defense INTEGER NOT NULL DEFAULT 1,
+                    speed INTEGER NOT NULL DEFAULT 1,
+                    FOREIGN KEY (pokemon_id)
+                        REFERENCES pokemon(id)
+                        ON DELETE CASCADE
+                )
+                """
+            )
+
+            for p in db.execute("SELECT id, species_id, level FROM pokemon").fetchall():
+                pid = int(p["id"])
+                computed = _compute_stats_for_migration(p["species_id"], p["level"], species_map)
+                prev = old_stats.get(pid, {})
+                hp = int(prev.get("hp") or computed["hp"])
+                atk = int(prev.get("attack") or computed["attack"])
+                defe = int(prev.get("defense") or computed["defense"])
+                spa = int(prev.get("sp_attack") or computed["sp_attack"])
+                spd = int(prev.get("sp_defense") or computed["sp_defense"])
+                spe = int(prev.get("speed") or computed["speed"])
+
+                db.execute(
+                    """
+                    INSERT INTO _new_pokemon_stats (
+                        pokemon_id, hp, attack, defense, sp_attack, sp_defense, speed
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (pid, hp, atk, defe, spa, spd, spe),
+                )
+
+            db.execute("DROP TABLE IF EXISTS pokemon_stats")
+            db.execute("ALTER TABLE _new_pokemon_stats RENAME TO pokemon_stats")
+            rebuilt_stats = True
+
+        # --- Rebuild pokemon_moves ---
+        if needs_moves_rebuild:
+            old_moves = []
+            if has_moves_table:
+                try:
+                    old_moves = db.execute("SELECT * FROM pokemon_moves").fetchall()
+                except Exception:
+                    pass
+
+            db.execute(
+                """
+                CREATE TABLE _new_pokemon_moves (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    pokemon_id INTEGER NOT NULL,
+                    move_id TEXT NOT NULL,
+                    slot INTEGER NOT NULL,
+                    current_pp INTEGER NOT NULL DEFAULT 0,
+                    FOREIGN KEY (pokemon_id)
+                        REFERENCES pokemon(id)
+                        ON DELETE CASCADE,
+                    UNIQUE (pokemon_id, slot),
+                    CHECK (slot >= 1),
+                    CHECK (slot <= 4),
+                    CHECK (current_pp >= 0)
+                )
+                """
+            )
+
+            for m in old_moves:
+                d = dict(m)
+                slot = max(1, min(4, int(d.get("slot") or 1)))
+                pp = max(0, int(d.get("current_pp") or 0))
+                db.execute(
+                    """
+                    INSERT OR IGNORE INTO _new_pokemon_moves (
+                        pokemon_id, move_id, slot, current_pp
+                    ) VALUES (?, ?, ?, ?)
+                    """,
+                    (int(d["pokemon_id"]), str(d["move_id"]), slot, pp),
+                )
+
+            db.execute("DROP TABLE IF EXISTS pokemon_moves")
+            db.execute("ALTER TABLE _new_pokemon_moves RENAME TO pokemon_moves")
+            db.execute("CREATE INDEX IF NOT EXISTS idx_pokemon_moves_pokemon ON pokemon_moves(pokemon_id)")
+            rebuilt_moves = True
+
+        # Verify foreign keys
+        violations = db.execute("PRAGMA foreign_key_check").fetchall()
+        if violations:
+            raise RuntimeError(f"Foreign key violations after rebuild: {violations}")
+
+        if owns_connection:
+            db.commit()
+
+        db.execute("PRAGMA foreign_keys = ON")
+
+        # Storage cleanup / repair
+        repair_pokemon_storage(db)
+
+        return {
+            "rebuilt_pokemon": rebuilt_pokemon,
+            "rebuilt_stats": rebuilt_stats,
+            "rebuilt_moves": rebuilt_moves,
+        }
+
+    finally:
+        if owns_connection:
+            db.close()
 
 
-# =============================================================================
-# LEGACY IV / EV CLEANUP
-# =============================================================================
+# Backwards compatibility aliases
+def _remove_legacy_pokemon_columns(
+    db: sqlite3.Connection,
+) -> None:
+    pass
+
 
 def _remove_legacy_iv_ev_columns(
     db: sqlite3.Connection,
 ) -> None:
-    """
-    Remove legacy IV/EV columns if they exist.
-
-    IVs and EVs are NOT part of Krampus RPG.
-    """
-
-    if not table_exists(
-        db,
-        "pokemon_stats",
-    ):
-        return
-
-    legacy_columns = (
-        "hp_iv",
-        "attack_iv",
-        "defense_iv",
-        "sp_attack_iv",
-        "sp_defense_iv",
-        "speed_iv",
-        "hp_ev",
-        "attack_ev",
-        "defense_ev",
-        "sp_attack_ev",
-        "sp_defense_ev",
-        "speed_ev",
-    )
-
-    for column_name in legacy_columns:
-
-        if not column_exists(
-            db,
-            "pokemon_stats",
-            column_name,
-        ):
-            continue
-
-        try:
-
-            db.execute(
-                f"""
-                ALTER TABLE pokemon_stats
-                DROP COLUMN {column_name}
-                """
-            )
-
-        except sqlite3.OperationalError:
-            pass
+    pass
 
 
 # =============================================================================
@@ -1552,14 +1806,10 @@ def init_db() -> None:
         )
 
         # ---------------------------------------------------------------------
-        # Remove obsolete mechanics where SQLite allows it.
+        # Rebuild legacy Pokémon tables safely into the new schema.
         # ---------------------------------------------------------------------
 
-        _remove_legacy_pokemon_columns(
-            db
-        )
-
-        _remove_legacy_iv_ev_columns(
+        rebuild_legacy_pokemon_tables(
             db
         )
 
@@ -1692,32 +1942,34 @@ def seed_database() -> None:
 # STORAGE REPAIR
 # =============================================================================
 
-def repair_pokemon_storage() -> dict:
+def repair_pokemon_storage(
+    db: sqlite3.Connection | None = None,
+) -> dict:
     """
-    Repair Pokémon that are not assigned to Party or PC.
+    Repair Pokémon that are not assigned to Party or PC, or have ownership mismatches.
 
     Rules:
-
-        Party Pokémon stay in Party.
+        Party Pokémon stay in Party (max 6 per player; excess moves to PC).
         PC Pokémon stay in PC.
         Orphaned Pokémon are moved to PC.
         Pokémon in both are removed from PC.
+        Pokémon stored under another player are moved to true owner's PC.
     """
+    owns_connection = db is None
+
+    if owns_connection:
+        db = get_connection()
 
     repaired = 0
     already_stored = 0
     conflicts_fixed = 0
 
-    with get_connection() as db:
-
-        _ensure_storage_schema(
-            db
-        )
+    try:
+        _ensure_storage_schema(db)
 
         # ---------------------------------------------------------------------
         # Remove storage records for nonexistent Pokémon.
         # ---------------------------------------------------------------------
-
         db.execute(
             """
             DELETE FROM party
@@ -1739,9 +1991,37 @@ def repair_pokemon_storage() -> dict:
         )
 
         # ---------------------------------------------------------------------
+        # Fix storage owner mismatches (storage player_id != pokemon.owner_id).
+        # ---------------------------------------------------------------------
+        mismatched_party = db.execute(
+            """
+            DELETE FROM party
+            WHERE id IN (
+                SELECT pt.id
+                FROM party pt
+                JOIN pokemon p ON p.id = pt.pokemon_id
+                WHERE pt.player_id != p.owner_id
+            )
+            """
+        )
+        conflicts_fixed += mismatched_party.rowcount
+
+        mismatched_pc = db.execute(
+            """
+            DELETE FROM pc_storage
+            WHERE id IN (
+                SELECT pc.id
+                FROM pc_storage pc
+                JOIN pokemon p ON p.id = pc.pokemon_id
+                WHERE pc.player_id != p.owner_id
+            )
+            """
+        )
+        conflicts_fixed += mismatched_pc.rowcount
+
+        # ---------------------------------------------------------------------
         # Party takes priority if a Pokémon somehow exists in both.
         # ---------------------------------------------------------------------
-
         cursor = db.execute(
             """
             DELETE FROM pc_storage
@@ -1751,13 +2031,31 @@ def repair_pokemon_storage() -> dict:
             )
             """
         )
-
         conflicts_fixed += cursor.rowcount
 
         # ---------------------------------------------------------------------
-        # Find every owned Pokémon.
+        # Move excess party Pokémon (> 6) to PC.
         # ---------------------------------------------------------------------
+        party_players = db.execute(
+            "SELECT DISTINCT player_id FROM party"
+        ).fetchall()
 
+        for p_row in party_players:
+            pid = int(p_row["player_id"])
+            p_slots = db.execute(
+                "SELECT pokemon_id, slot FROM party WHERE player_id = ? ORDER BY slot",
+                (pid,),
+            ).fetchall()
+            if len(p_slots) > MAX_PARTY_SIZE:
+                for excess in p_slots[MAX_PARTY_SIZE:]:
+                    x_id = int(excess["pokemon_id"])
+                    db.execute("DELETE FROM party WHERE pokemon_id = ?", (x_id,))
+                    _put_in_pc(db, pid, x_id)
+                    repaired += 1
+
+        # ---------------------------------------------------------------------
+        # Find every owned Pokémon and ensure it is stored.
+        # ---------------------------------------------------------------------
         pokemon_rows = db.execute(
             """
             SELECT
@@ -1769,45 +2067,31 @@ def repair_pokemon_storage() -> dict:
         ).fetchall()
 
         for pokemon in pokemon_rows:
+            pokemon_id = int(pokemon["id"])
+            owner_id = int(pokemon["owner_id"])
 
-            pokemon_id = int(
-                pokemon["id"]
-            )
-
-            owner_id = int(
-                pokemon["owner_id"]
-            )
-
-            in_party = _pokemon_in_party(
-                db,
-                pokemon_id,
-            )
-
-            in_pc = _pokemon_in_pc(
-                db,
-                pokemon_id,
-            )
+            in_party = _pokemon_in_party(db, pokemon_id)
+            in_pc = _pokemon_in_pc(db, pokemon_id)
 
             if in_party or in_pc:
-
                 already_stored += 1
-
                 continue
 
-            if _put_in_pc(
-                db,
-                owner_id,
-                pokemon_id,
-            ):
+            if _put_in_pc(db, owner_id, pokemon_id):
                 repaired += 1
 
-        db.commit()
+        if owns_connection:
+            db.commit()
 
-    return {
-        "repaired": repaired,
-        "already_stored": already_stored,
-        "conflicts_fixed": conflicts_fixed,
-    }
+        return {
+            "repaired": repaired,
+            "already_stored": already_stored,
+            "conflicts_fixed": conflicts_fixed,
+        }
+
+    finally:
+        if owns_connection:
+            db.close()
 
 
 # =============================================================================
@@ -1948,6 +2232,7 @@ def get_owned_pokemon_count(
 
 def verify_storage_invariant(
     player_id: int | None = None,
+    db: sqlite3.Connection | None = None,
 ) -> list[dict]:
     """
     Find Pokémon that violate the Party/PC ownership invariant.
@@ -1966,9 +2251,12 @@ def verify_storage_invariant(
     """
 
     problems: list[dict] = []
+    owns_connection = db is None
 
-    with get_connection() as db:
+    if owns_connection:
+        db = get_connection()
 
+    try:
         if player_id is None:
 
             pokemon_rows = db.execute(
@@ -2075,4 +2363,28 @@ def verify_storage_invariant(
                     }
                 )
 
-    return problems
+        if player_id is None:
+            party_counts = db.execute(
+                "SELECT player_id, COUNT(*) AS cnt FROM party GROUP BY player_id"
+            ).fetchall()
+        else:
+            party_counts = db.execute(
+                "SELECT player_id, COUNT(*) AS cnt FROM party WHERE player_id = ? GROUP BY player_id",
+                (player_id,),
+            ).fetchall()
+
+        for pc_row in party_counts:
+            if int(pc_row["cnt"]) > MAX_PARTY_SIZE:
+                problems.append(
+                    {
+                        "player_id": int(pc_row["player_id"]),
+                        "party_count": int(pc_row["cnt"]),
+                        "problem": "party_exceeds_maximum",
+                    }
+                )
+
+        return problems
+
+    finally:
+        if owns_connection:
+            db.close()

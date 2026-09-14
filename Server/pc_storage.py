@@ -1486,6 +1486,21 @@ def get_search_filters(
     )
 
 
+def is_in_pc(
+    player_id: int,
+    pokemon_id: int,
+) -> bool:
+    """Check if a Pokémon is in the player's PC storage."""
+    with get_connection() as db:
+        ensure_pc_schema(db)
+        row = _pokemon_in_pc(
+            db,
+            pokemon_id,
+            player_id,
+        )
+        return row is not None
+
+
 # =============================================================================
 # LOCATION
 # =============================================================================

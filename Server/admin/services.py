@@ -377,16 +377,7 @@ def get_pokemon(
     """
     Retrieve Pokémon for the admin Pokémon page.
 
-    IMPORTANT:
-
-    This function intentionally does NOT use:
-
-        pokemon.is_active
-        pokemon.nature
-        pokemon.status
-
     Party membership is determined from the party table.
-
     PC membership is determined from the pc_storage table.
     """
 
@@ -442,6 +433,7 @@ def get_pokemon(
                 p.id,
                 p.unique_id,
                 p.owner_id,
+                pl.username AS username,
                 p.species_id,
                 p.nickname,
                 p.level,
@@ -458,6 +450,8 @@ def get_pokemon(
                 p.created_at
 
             FROM pokemon p
+            LEFT JOIN players pl
+                ON pl.id = p.owner_id
 
             {party_join}
             {pc_join}
@@ -541,6 +535,7 @@ def get_pokemon_by_id(
                 p.id,
                 p.unique_id,
                 p.owner_id,
+                pl.username AS username,
                 p.species_id,
                 p.nickname,
                 p.level,
@@ -557,6 +552,8 @@ def get_pokemon_by_id(
                 p.created_at
 
             FROM pokemon p
+            LEFT JOIN players pl
+                ON pl.id = p.owner_id
 
             {party_join}
             {pc_join}

@@ -452,8 +452,10 @@ def get_party_pokemon(
 
 
 def is_in_party(
+    player_id: int,
     pokemon_id: int,
 ) -> bool:
+    """Check if a Pokémon is in the player's party."""
     with get_connection() as db:
         ensure_party_schema(db)
 
@@ -461,10 +463,11 @@ def is_in_party(
             """
             SELECT 1
             FROM party
-            WHERE pokemon_id = ?
+            WHERE player_id = ?
+              AND pokemon_id = ?
             LIMIT 1
             """,
-            (pokemon_id,),
+            (player_id, pokemon_id),
         ).fetchone()
 
         return row is not None

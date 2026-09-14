@@ -792,25 +792,18 @@ def create_pokemon(
     level: int = 5,
     shiny: bool = False,
     variant: str = "normal",
-    nature: str | None = None,
     nickname: str | None = None,
+    auto_store: bool = True,
+    **kwargs: Any,
 ) -> dict[str, Any] | None:
     """
     Create a Pokémon.
 
-    IMPORTANT:
-
-    - Nature is ignored.
-    - IVs are not generated.
-    - EVs are not generated.
-    - Status is not managed.
-    - Party membership is NOT stored here.
-    - PC membership is NOT stored here.
-
-    Party/PC placement is handled by the storage layer.
+    - Nature, IVs, EVs, and status are not used in Krampus RPG.
+    - If auto_store is True (default), the Pokémon is automatically
+      placed into the player's Party (if under 6) or PC storage,
+      guaranteeing storage ownership integrity.
     """
-    del nature
-
     species = get_species(
         species_id
     )
@@ -824,7 +817,7 @@ def create_pokemon(
 
     level = max(
         1,
-        int(level),
+        min(100, int(level)),
     )
 
     gender = generate_gender(
@@ -1014,6 +1007,67 @@ def create_pokemon(
             pokemon_id,
             species,
         )
+
+        if auto_store:
+            if _table_exists(db, "party") and _table_exists(db, "pc_storage"):
+                party_rows = db.execute(
+                    """
+                    SELECT slot
+                    FROM party
+                    WHERE player_id = ?
+                    ORDER BY slot
+                    """,
+                    (owner_id,),
+                ).fetchall()
+
+                occupied_party = {int(r["slot"]) for r in party_rows}
+                if len(occupied_party) < 6:
+                    assigned_slot = None
+                    for s in range(1, 7):
+                        if s not in occupied_party:
+                            assigned_slot = s
+                            break
+                    if assigned_slot is not None:
+                        db.execute(
+                            """
+                            INSERT INTO party (player_id, pokemon_id, slot)
+                            VALUES (?, ?, ?)
+                            """,
+                            (owner_id, pokemon_id, assigned_slot),
+                        )
+                else:
+                    pc_rows = db.execute(
+                        """
+                        SELECT page, slot
+                        FROM pc_storage
+                        WHERE player_id = ?
+                        ORDER BY page, slot
+                        """,
+                        (owner_id,),
+                    ).fetchall()
+                    occupied_pc = {
+                        (int(r["page"]), int(r["slot"]))
+                        for r in pc_rows
+                    }
+                    assigned_page = 1
+                    assigned_pc_slot = 1
+                    found = False
+                    while not found:
+                        for s in range(1, 31):
+                            if (assigned_page, s) not in occupied_pc:
+                                assigned_pc_slot = s
+                                found = True
+                                break
+                        if not found:
+                            assigned_page += 1
+
+                    db.execute(
+                        """
+                        INSERT INTO pc_storage (player_id, pokemon_id, page, slot)
+                        VALUES (?, ?, ?, ?)
+                        """,
+                        (owner_id, pokemon_id, assigned_page, assigned_pc_slot),
+                    )
 
         db.commit()
 

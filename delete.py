@@ -77,17 +77,14 @@ def delete_player(username: str) -> None:
             (player_id,),
         )
 
-        # Remove owned Pokémon if this table exists.
-        try:
-            db.execute(
-                """
-                DELETE FROM player_pokemon
-                WHERE player_id = ?
-                """,
-                (player_id,),
-            )
-        except sqlite3.OperationalError:
-            pass
+        # Remove owned Pokémon.
+        db.execute(
+            """
+            DELETE FROM pokemon
+            WHERE owner_id = ?
+            """,
+            (player_id,),
+        )
 
         # Finally remove the player.
         cursor = db.execute(
