@@ -1,0 +1,979 @@
+diff --git a/Server/pokemon_catalog.py b/Server/pokemon_catalog.py
+index 77e6c7ee..45cf47a7 100644
+--- a/Server/pokemon_catalog.py
++++ b/Server/pokemon_catalog.py
+@@ -22,8 +22,11 @@ CREATE TABLE IF NOT EXISTS pokemon_species (
+     base_sp_defense INTEGER NOT NULL DEFAULT 1,
+     base_speed INTEGER NOT NULL DEFAULT 1,
+     gender_rate INTEGER NOT NULL DEFAULT -1,
++    generation INTEGER NOT NULL DEFAULT 0,
++    description TEXT NOT NULL DEFAULT '',
+     is_fakemon INTEGER NOT NULL DEFAULT 0,
+-    is_active INTEGER NOT NULL DEFAULT 1
++    is_active INTEGER NOT NULL DEFAULT 1,
++    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+ );
+ 
+ CREATE TABLE IF NOT EXISTS pokemon_species_types (
+@@ -70,9 +73,12 @@ CREATE TABLE IF NOT EXISTS pokemon_forms (
+     species_id TEXT NOT NULL,
+     name TEXT NOT NULL,
+     form_name TEXT NOT NULL DEFAULT '',
++    display_name TEXT NOT NULL DEFAULT '',
++    form_identifier TEXT NOT NULL DEFAULT '',
+     is_default INTEGER NOT NULL DEFAULT 0,
+     is_battle_only INTEGER NOT NULL DEFAULT 0,
+     is_mega INTEGER NOT NULL DEFAULT 0,
++    is_gmax INTEGER NOT NULL DEFAULT 0,
+     sort_order INTEGER NOT NULL DEFAULT 0,
+ 
+     FOREIGN KEY (species_id)
+@@ -154,7 +160,10 @@ CREATE TABLE IF NOT EXISTS pokemon_evolutions (
+     minimum_beauty INTEGER,
+     minimum_affection INTEGER,
+     known_move_id TEXT,
++    known_move_type TEXT,
+     location TEXT,
++    relative_physical_stats INTEGER,
++    trade_species_id TEXT,
+     raw_condition TEXT NOT NULL DEFAULT '',
+ 
+     FOREIGN KEY (from_species_id)
+@@ -182,11 +191,12 @@ CREATE TABLE IF NOT EXISTS pokemon_sprite_inventory (
+     form_id TEXT,
+     variant_id TEXT,
+     filename TEXT NOT NULL,
+-    relative_path TEXT NOT NULL,
++    relative_path TEXT NOT NULL UNIQUE,
+     file_sha256 TEXT NOT NULL,
+     git_blob_sha1 TEXT,
+     is_duplicate INTEGER NOT NULL DEFAULT 0,
+     duplicate_group TEXT,
++    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ 
+     FOREIGN KEY (species_id)
+         REFERENCES pokemon_species(id)
+@@ -204,80 +214,87 @@ CREATE TABLE IF NOT EXISTS pokemon_sprite_inventory (
+ CREATE INDEX IF NOT EXISTS idx_sprite_species
+ ON pokemon_sprite_inventory(species_id);
+ 
++CREATE INDEX IF NOT EXISTS idx_sprite_form
++ON pokemon_sprite_inventory(form_id);
++
++CREATE INDEX IF NOT EXISTS idx_sprite_variant
++ON pokemon_sprite_inventory(variant_id);
++
+ CREATE INDEX IF NOT EXISTS idx_sprite_filename
+ ON pokemon_sprite_inventory(filename);
+ 
+ CREATE INDEX IF NOT EXISTS idx_sprite_sha256
+ ON pokemon_sprite_inventory(file_sha256);
+ 
++CREATE INDEX IF NOT EXISTS idx_sprite_git_sha1
++ON pokemon_sprite_inventory(git_blob_sha1);
++
+ CREATE INDEX IF NOT EXISTS idx_sprite_duplicate_group
+ ON pokemon_sprite_inventory(duplicate_group);
+ """
+ 
+ 
+-DEFAULT_VARIANTS = [
+-    (
+-        "normal",
+-        "Normal",
+-        "",
+-        "Standard Pokémon coloration.",
+-        1,
+-    ),
+-    (
+-        "ruby",
+-        "Ruby",
+-        "-ruby",
+-        "Ruby custom coloration.",
+-        1,
+-    ),
+-    (
+-        "sapphire",
+-        "Sapphire",
+-        "-sapphire",
+-        "Sapphire custom coloration.",
+-        1,
+-    ),
+-    (
+-        "emerald",
+-        "Emerald",
+-        "-emerald",
+-        "Emerald custom coloration.",
+-        1,
+-    ),
+-    (
+-        "gold",
+-        "Gold",
+-        "-gold",
+-        "Gold custom coloration.",
+-        1,
+-    ),
+-    (
+-        "silver",
+-        "Silver",
+-        "-silver",
+-        "Silver custom coloration.",
+-        1,
+-    ),
+-    (
+-        "undead",
+-        "Undead",
+-        "-undead",
+-        "Undead custom coloration.",
+-        1,
+-    ),
++# Canonical variant roster. This is the single source of truth for both the
++# live app (via ensure_catalog_schema) and the offline importer (via
++# `from Server.pokemon_catalog import DEFAULT_VARIANTS`), so the two can
++# never drift apart again.
++DEFAULT_VARIANTS: list[dict[str, Any]] = [
++    {
++        "id": "normal",
++        "name": "Normal",
++        "sprite_suffix": "",
++        "description": "Standard Pokémon coloration.",
++        "is_custom": 0,
++    },
++    {
++        "id": "ruby",
++        "name": "Ruby",
++        "sprite_suffix": "-ruby",
++        "description": "Ruby custom coloration.",
++        "is_custom": 1,
++    },
++    {
++        "id": "sapphire",
++        "name": "Sapphire",
++        "sprite_suffix": "-sapphire",
++        "description": "Sapphire custom coloration.",
++        "is_custom": 1,
++    },
++    {
++        "id": "emerald",
++        "name": "Emerald",
++        "sprite_suffix": "-emerald",
++        "description": "Emerald custom coloration.",
++        "is_custom": 1,
++    },
++    {
++        "id": "gold",
++        "name": "Gold",
++        "sprite_suffix": "-gold",
++        "description": "Gold custom coloration.",
++        "is_custom": 1,
++    },
++    {
++        "id": "silver",
++        "name": "Silver",
++        "sprite_suffix": "-silver",
++        "description": "Silver custom coloration.",
++        "is_custom": 1,
++    },
++    {
++        "id": "undead",
++        "name": "Undead",
++        "sprite_suffix": "-undead",
++        "description": "Undead custom coloration.",
++        "is_custom": 1,
++    },
+ ]
+ 
+ 
+ def ensure_catalog_schema(db: sqlite3.Connection) -> None:
+     db.executescript(CATALOG_SCHEMA)
+ 
+-    for (
+-        variant_id,
+-        name,
+-        sprite_suffix,
+-        description,
+-        is_custom,
+-    ) in DEFAULT_VARIANTS:
++    for variant in DEFAULT_VARIANTS:
+         db.execute(
+             """
+             INSERT INTO pokemon_variants
+@@ -297,11 +314,11 @@ def ensure_catalog_schema(db: sqlite3.Connection) -> None:
+                 is_custom = excluded.is_custom
+             """,
+             (
+-                variant_id,
+-                name,
+-                sprite_suffix,
+-                description,
+-                is_custom,
++                variant["id"],
++                variant["name"],
++                variant["sprite_suffix"],
++                variant["description"],
++                variant["is_custom"],
+             ),
+         )
+ 
+diff --git a/Tools/import_pokemon_catalog.py b/Tools/import_pokemon_catalog.py
+index fdfbbee2..20b9db67 100644
+--- a/Tools/import_pokemon_catalog.py
++++ b/Tools/import_pokemon_catalog.py
+@@ -23,6 +23,10 @@ if str(PROJECT_ROOT) not in sys.path:
+ 
+ from Server.config import DATABASE_PATH  # noqa: E402
+ from Server.database import get_connection  # noqa: E402
++from Server.pokemon_catalog import (  # noqa: E402
++    CATALOG_SCHEMA,
++    DEFAULT_VARIANTS,
++)
+ 
+ 
+ # ---------------------------------------------------------------------------
+@@ -57,50 +61,9 @@ CSV_FILES = {
+ 
+ NATIONAL_DEX_LIMIT = 1025
+ 
+-DEFAULT_VARIANTS = [
+-    {
+-        "id": "normal",
+-        "name": "Normal",
+-        "sprite_suffix": "",
+-        "description": "The standard Krampus RPG Pokémon variant.",
+-    },
+-    {
+-        "id": "ruby",
+-        "name": "Ruby",
+-        "sprite_suffix": "-ruby",
+-        "description": "Ruby custom-color variant.",
+-    },
+-    {
+-        "id": "sapphire",
+-        "name": "Sapphire",
+-        "sprite_suffix": "-sapphire",
+-        "description": "Sapphire custom-color variant.",
+-    },
+-    {
+-        "id": "emerald",
+-        "name": "Emerald",
+-        "sprite_suffix": "-emerald",
+-        "description": "Emerald custom-color variant.",
+-    },
+-    {
+-        "id": "gold",
+-        "name": "Gold",
+-        "sprite_suffix": "-gold",
+-        "description": "Gold custom-color variant.",
+-    },
+-    {
+-        "id": "silver",
+-        "name": "Silver",
+-        "sprite_suffix": "-silver",
+-        "description": "Silver custom-color variant.",
+-    },
+-    {
+-        "id": "undead",
+-        "name": "Undead",
+-        "sprite_suffix": "-undead",
+-        "description": "Undead custom Krampus RPG variant.",
+-    },
+-]
++# DEFAULT_VARIANTS now comes from Server.pokemon_catalog — that module is the
++# single canonical source so the live app and this importer can never drift
++# apart on the variant roster again.
+ 
+ 
+ # ---------------------------------------------------------------------------
+@@ -242,221 +205,17 @@ def ensure_catalog_schema(connection: sqlite3.Connection) -> None:
+     """
+     Create the catalog tables used by Krampus RPG.
+ 
+-    These tables intentionally separate:
+-
+-        species
+-        forms
+-        variants
+-        moves
+-        learnsets
+-        evolutions
+-        sprite inventory
+-
+-    from individual player-owned Pokémon.
++    This now delegates to Server.pokemon_catalog.CATALOG_SCHEMA, which is
++    the single canonical schema shared by the live app and this importer.
++    Previously this function defined its own competing copy of the schema
++    (different column sets on pokemon_species/pokemon_forms/pokemon_evolutions,
++    an INTEGER pokemon_types.id instead of TEXT, and a plain `type` string on
++    moves instead of a real type_id foreign key) which could silently drift
++    out of sync with what the app actually reads. That duplication has been
++    removed.
+     """
+ 
+-    connection.executescript(
+-        """
+-        CREATE TABLE IF NOT EXISTS pokemon_types (
+-            id INTEGER PRIMARY KEY,
+-            name TEXT NOT NULL UNIQUE
+-        );
+-
+-        CREATE TABLE IF NOT EXISTS pokemon_species (
+-            id TEXT PRIMARY KEY,
+-            national_dex INTEGER NOT NULL UNIQUE,
+-            name TEXT NOT NULL,
+-            generation INTEGER NOT NULL DEFAULT 0,
+-            is_fakemon INTEGER NOT NULL DEFAULT 0,
+-            description TEXT NOT NULL DEFAULT '',
+-            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+-        );
+-
+-        CREATE TABLE IF NOT EXISTS pokemon_species_types (
+-            species_id TEXT NOT NULL,
+-            type_id INTEGER NOT NULL,
+-            slot INTEGER NOT NULL DEFAULT 1,
+-
+-            PRIMARY KEY (species_id, slot),
+-
+-            FOREIGN KEY (species_id)
+-                REFERENCES pokemon_species(id)
+-                ON DELETE CASCADE,
+-
+-            FOREIGN KEY (type_id)
+-                REFERENCES pokemon_types(id)
+-                ON DELETE CASCADE
+-        );
+-
+-        CREATE TABLE IF NOT EXISTS pokemon_abilities (
+-            id TEXT PRIMARY KEY,
+-            name TEXT NOT NULL,
+-            description TEXT NOT NULL DEFAULT ''
+-        );
+-
+-        CREATE TABLE IF NOT EXISTS pokemon_species_abilities (
+-            species_id TEXT NOT NULL,
+-            ability_id TEXT NOT NULL,
+-            slot INTEGER NOT NULL DEFAULT 1,
+-            is_hidden INTEGER NOT NULL DEFAULT 0,
+-
+-            PRIMARY KEY (species_id, slot),
+-
+-            FOREIGN KEY (species_id)
+-                REFERENCES pokemon_species(id)
+-                ON DELETE CASCADE,
+-
+-            FOREIGN KEY (ability_id)
+-                REFERENCES pokemon_abilities(id)
+-                ON DELETE CASCADE
+-        );
+-
+-        CREATE TABLE IF NOT EXISTS pokemon_forms (
+-            id TEXT PRIMARY KEY,
+-            species_id TEXT NOT NULL,
+-            form_name TEXT NOT NULL DEFAULT '',
+-            display_name TEXT NOT NULL DEFAULT '',
+-            form_identifier TEXT NOT NULL DEFAULT '',
+-            is_default INTEGER NOT NULL DEFAULT 0,
+-            is_battle_only INTEGER NOT NULL DEFAULT 0,
+-            is_mega INTEGER NOT NULL DEFAULT 0,
+-            is_gmax INTEGER NOT NULL DEFAULT 0,
+-
+-            FOREIGN KEY (species_id)
+-                REFERENCES pokemon_species(id)
+-                ON DELETE CASCADE
+-        );
+-
+-        CREATE INDEX IF NOT EXISTS idx_pokemon_forms_species
+-        ON pokemon_forms(species_id);
+-
+-        CREATE TABLE IF NOT EXISTS pokemon_variants (
+-            id TEXT PRIMARY KEY,
+-            name TEXT NOT NULL UNIQUE,
+-            sprite_suffix TEXT NOT NULL DEFAULT '',
+-            description TEXT NOT NULL DEFAULT '',
+-            is_custom INTEGER NOT NULL DEFAULT 1
+-        );
+-
+-        CREATE TABLE IF NOT EXISTS moves (
+-            id TEXT PRIMARY KEY,
+-            name TEXT NOT NULL,
+-            type TEXT NOT NULL DEFAULT 'normal',
+-            category TEXT NOT NULL DEFAULT 'status',
+-            power INTEGER,
+-            accuracy INTEGER,
+-            max_pp INTEGER NOT NULL DEFAULT 0,
+-            description TEXT NOT NULL DEFAULT ''
+-        );
+-
+-        CREATE TABLE IF NOT EXISTS pokemon_species_moves (
+-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+-            species_id TEXT NOT NULL,
+-            move_id TEXT NOT NULL,
+-            learn_method TEXT NOT NULL DEFAULT 'unknown',
+-            learn_level INTEGER NOT NULL DEFAULT 0,
+-            version_group_id INTEGER NOT NULL DEFAULT 0,
+-
+-            FOREIGN KEY (species_id)
+-                REFERENCES pokemon_species(id)
+-                ON DELETE CASCADE,
+-
+-            FOREIGN KEY (move_id)
+-                REFERENCES moves(id)
+-                ON DELETE CASCADE,
+-
+-            UNIQUE (
+-                species_id,
+-                move_id,
+-                learn_method,
+-                learn_level,
+-                version_group_id
+-            )
+-        );
+-
+-        CREATE INDEX IF NOT EXISTS idx_species_moves_species
+-        ON pokemon_species_moves(species_id);
+-
+-        CREATE INDEX IF NOT EXISTS idx_species_moves_move
+-        ON pokemon_species_moves(move_id);
+-
+-        CREATE TABLE IF NOT EXISTS pokemon_evolutions (
+-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+-            from_species_id TEXT NOT NULL,
+-            to_species_id TEXT NOT NULL,
+-            trigger TEXT NOT NULL DEFAULT '',
+-            minimum_level INTEGER,
+-            item_id TEXT,
+-            known_move_id TEXT,
+-            known_move_type TEXT,
+-            location TEXT,
+-            time_of_day TEXT,
+-            gender TEXT,
+-            minimum_happiness INTEGER,
+-            minimum_beauty INTEGER,
+-            minimum_affection INTEGER,
+-            relative_physical_stats INTEGER,
+-            trade_species_id TEXT,
+-            raw_condition TEXT NOT NULL DEFAULT '',
+-
+-            FOREIGN KEY (from_species_id)
+-                REFERENCES pokemon_species(id)
+-                ON DELETE CASCADE,
+-
+-            FOREIGN KEY (to_species_id)
+-                REFERENCES pokemon_species(id)
+-                ON DELETE CASCADE
+-        );
+-
+-        CREATE INDEX IF NOT EXISTS idx_pokemon_evolutions_from
+-        ON pokemon_evolutions(from_species_id);
+-
+-        CREATE INDEX IF NOT EXISTS idx_pokemon_evolutions_to
+-        ON pokemon_evolutions(to_species_id);
+-
+-        CREATE TABLE IF NOT EXISTS pokemon_sprite_inventory (
+-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+-            species_id TEXT,
+-            form_id TEXT,
+-            variant_id TEXT,
+-            filename TEXT NOT NULL,
+-            relative_path TEXT NOT NULL UNIQUE,
+-            file_sha256 TEXT NOT NULL,
+-            git_blob_sha1 TEXT NOT NULL,
+-            is_duplicate INTEGER NOT NULL DEFAULT 0,
+-            duplicate_group TEXT,
+-            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+-
+-            FOREIGN KEY (species_id)
+-                REFERENCES pokemon_species(id)
+-                ON DELETE SET NULL,
+-
+-            FOREIGN KEY (form_id)
+-                REFERENCES pokemon_forms(id)
+-                ON DELETE SET NULL,
+-
+-            FOREIGN KEY (variant_id)
+-                REFERENCES pokemon_variants(id)
+-                ON DELETE SET NULL
+-        );
+-
+-        CREATE INDEX IF NOT EXISTS idx_sprite_species
+-        ON pokemon_sprite_inventory(species_id);
+-
+-        CREATE INDEX IF NOT EXISTS idx_sprite_form
+-        ON pokemon_sprite_inventory(form_id);
+-
+-        CREATE INDEX IF NOT EXISTS idx_sprite_variant
+-        ON pokemon_sprite_inventory(variant_id);
+-
+-        CREATE INDEX IF NOT EXISTS idx_sprite_sha256
+-        ON pokemon_sprite_inventory(file_sha256);
+-
+-        CREATE INDEX IF NOT EXISTS idx_sprite_git_sha1
+-        ON pokemon_sprite_inventory(git_blob_sha1);
+-        """
+-    )
+-
++    connection.executescript(CATALOG_SCHEMA)
+     connection.commit()
+ 
+ 
+@@ -475,17 +234,19 @@ def import_variants(connection: sqlite3.Connection) -> None:
+                 description,
+                 is_custom
+             )
+-            VALUES (?, ?, ?, ?, 1)
++            VALUES (?, ?, ?, ?, ?)
+             ON CONFLICT(id) DO UPDATE SET
+                 name = excluded.name,
+                 sprite_suffix = excluded.sprite_suffix,
+-                description = excluded.description
++                description = excluded.description,
++                is_custom = excluded.is_custom
+             """,
+             (
+                 variant["id"],
+                 variant["name"],
+                 variant["sprite_suffix"],
+                 variant["description"],
++                variant["is_custom"],
+             ),
+         )
+ 
+@@ -500,20 +261,33 @@ def import_types(
+     connection: sqlite3.Connection,
+     rows: list[dict[str, str]],
+ ) -> dict[int, str]:
++    """
++    Import Pokémon types.
++
++    The canonical schema (Server.pokemon_catalog.CATALOG_SCHEMA) stores
++    pokemon_types.id as TEXT — a lowercase slug like "fire" or "water" —
++    to match how the rest of the codebase (Data/pokemon.json, Server/
++    pc_storage.py) already references types by name, not by PokeAPI's
++    internal integer id. This function still returns a dict keyed by the
++    numeric PokeAPI id, since that's what the CSV rows reference, but the
++    values (and what actually gets written to the database) are the TEXT
++    slug that every other table's type_id foreign key now expects.
++    """
++
+     type_rows: dict[int, str] = {}
+ 
+     for row in rows:
+-        type_id = to_int(row.get("id"))
++        numeric_id = to_int(row.get("id"))
+ 
+-        if type_id <= 0:
++        if numeric_id <= 0:
+             continue
+ 
+-        name = row.get("identifier", "").strip().lower()
++        slug = row.get("identifier", "").strip().lower()
+ 
+-        if not name:
++        if not slug:
+             continue
+ 
+-        type_rows[type_id] = name
++        type_rows[numeric_id] = slug
+ 
+         connection.execute(
+             """
+@@ -526,8 +300,8 @@ def import_types(
+                 name = excluded.name
+             """,
+             (
+-                type_id,
+-                name,
++                slug,
++                clean_name(slug),
+             ),
+         )
+ 
+@@ -568,10 +342,93 @@ def generation_from_dex_number(national_dex: int) -> int:
+     return 9
+ 
+ 
++# Standard PokeAPI stat ids (pokemon_stats.csv `stat_id` column). These are
++# stable across PokeAPI's dataset and match https://pokeapi.co/api/v2/stat/.
++STAT_ID_HP = 1
++STAT_ID_ATTACK = 2
++STAT_ID_DEFENSE = 3
++STAT_ID_SPECIAL_ATTACK = 4
++STAT_ID_SPECIAL_DEFENSE = 5
++STAT_ID_SPEED = 6
++
++
++def build_base_stats_lookup(
++    stats_rows: list[dict[str, str]],
++) -> dict[int, dict[int, int]]:
++    """
++    pokemon_stats.csv has one row per (pokemon_id, stat_id) pair. Collapse
++    it into pokemon_id -> {stat_id: base_stat} so import_species can look
++    up all six base stats for a given Pokémon in one dict access.
++    """
++
++    lookup: dict[int, dict[int, int]] = {}
++
++    for row in stats_rows:
++        pokemon_id = to_int(row.get("pokemon_id"))
++        stat_id = to_int(row.get("stat_id"))
++
++        if pokemon_id <= 0 or stat_id <= 0:
++            continue
++
++        lookup.setdefault(pokemon_id, {})[stat_id] = to_int(
++            row.get("base_stat"),
++            1,
++        )
++
++    return lookup
++
++
++def build_species_metadata_lookup(
++    species_rows: list[dict[str, str]],
++) -> dict[int, dict[str, Any]]:
++    """
++    pokemon_species.csv is keyed by species id (not the same as pokemon.csv's
++    `id` — see the note in import_species), and carries gender_rate plus the
++    legendary/mythical/baby flags this importer uses to set `category`.
++    """
++
++    lookup: dict[int, dict[str, Any]] = {}
++
++    for row in species_rows:
++        species_id = to_int(row.get("id"))
++
++        if species_id <= 0:
++            continue
++
++        lookup[species_id] = {
++            "gender_rate": to_int(row.get("gender_rate"), -1),
++            "generation_id": to_int(row.get("generation_id"), 0),
++            "is_legendary": to_int(row.get("is_legendary"), 0),
++            "is_mythical": to_int(row.get("is_mythical"), 0),
++            "is_baby": to_int(row.get("is_baby"), 0),
++        }
++
++    return lookup
++
++
+ def import_species(
+     connection: sqlite3.Connection,
+     rows: list[dict[str, str]],
++    stats_rows: list[dict[str, str]] | None = None,
++    species_rows: list[dict[str, str]] | None = None,
+ ) -> dict[int, str]:
++    """
++    Import species from pokemon.csv, enriched with base stats (from
++    pokemon_stats.csv) and gender_rate/category (from pokemon_species.csv).
++
++    Note the two different "id" concepts at play, straight from PokeAPI:
++      - pokemon.csv `id` is the specific Pokémon/form row (what
++        NATIONAL_DEX_LIMIT filters against here).
++      - pokemon.csv `species_id` / pokemon_species.csv `id` is the species
++        itself, which base_stats_lookup and species_metadata_lookup are
++        keyed by.
++    Previously this function silently dropped every stat/gender_rate value,
++    since pokemon_stats.csv was downloaded but never consulted.
++    """
++
++    base_stats_lookup = build_base_stats_lookup(stats_rows or [])
++    species_metadata_lookup = build_species_metadata_lookup(species_rows or [])
++
+     species_by_pokemon_id: dict[int, str] = {}
+ 
+     for row in rows:
+@@ -595,19 +452,52 @@ def import_species(
+ 
+         name = clean_name(identifier)
+ 
++        stats = base_stats_lookup.get(pokemon_id, {})
++        metadata = species_metadata_lookup.get(species_id, {})
++
++        generation = (
++            metadata.get("generation_id")
++            or generation_from_dex_number(pokemon_id)
++        )
++
++        if metadata.get("is_mythical"):
++            category = "mythical"
++        elif metadata.get("is_legendary"):
++            category = "legendary"
++        elif metadata.get("is_baby"):
++            category = "baby"
++        else:
++            category = "pokemon"
++
+         connection.execute(
+             """
+             INSERT INTO pokemon_species (
+                 id,
+                 national_dex,
+                 name,
++                category,
++                base_hp,
++                base_attack,
++                base_defense,
++                base_sp_attack,
++                base_sp_defense,
++                base_speed,
++                gender_rate,
+                 generation,
+                 is_fakemon
+             )
+-            VALUES (?, ?, ?, ?, 0)
++            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+             ON CONFLICT(id) DO UPDATE SET
+                 national_dex = excluded.national_dex,
+                 name = excluded.name,
++                category = excluded.category,
++                base_hp = excluded.base_hp,
++                base_attack = excluded.base_attack,
++                base_defense = excluded.base_defense,
++                base_sp_attack = excluded.base_sp_attack,
++                base_sp_defense = excluded.base_sp_defense,
++                base_speed = excluded.base_speed,
++                gender_rate = excluded.gender_rate,
+                 generation = excluded.generation,
+                 is_fakemon = excluded.is_fakemon
+             """,
+@@ -615,7 +505,15 @@ def import_species(
+                 species_key,
+                 pokemon_id,
+                 name,
+-                generation_from_dex_number(pokemon_id),
++                category,
++                stats.get(STAT_ID_HP, 1),
++                stats.get(STAT_ID_ATTACK, 1),
++                stats.get(STAT_ID_DEFENSE, 1),
++                stats.get(STAT_ID_SPECIAL_ATTACK, 1),
++                stats.get(STAT_ID_SPECIAL_DEFENSE, 1),
++                stats.get(STAT_ID_SPEED, 1),
++                metadata.get("gender_rate", -1),
++                generation,
+             ),
+         )
+ 
+@@ -642,11 +540,6 @@ def import_species_types(
+     depending on temporary SQL tables.
+     """
+ 
+-    type_id_by_name = {
+-        name.lower(): type_id
+-        for type_id, name in type_rows.items()
+-    }
+-
+     pokemon_to_species: dict[int, str] = {}
+ 
+     for pokemon_row in pokemon_rows:
+@@ -660,14 +553,14 @@ def import_species_types(
+         if species_key:
+             pokemon_to_species[pokemon_id] = species_key
+ 
+-    grouped: dict[str, list[tuple[int, int]]] = {}
++    grouped: dict[str, list[tuple[int, str]]] = {}
+ 
+     for row in pokemon_type_rows:
+         pokemon_id = to_int(row.get("pokemon_id"))
+-        type_id = to_int(row.get("type_id"))
++        numeric_type_id = to_int(row.get("type_id"))
+         slot = to_int(row.get("slot"), 1)
+ 
+-        if pokemon_id <= 0 or type_id <= 0:
++        if pokemon_id <= 0 or numeric_type_id <= 0:
+             continue
+ 
+         species_key = pokemon_to_species.get(pokemon_id)
+@@ -675,13 +568,15 @@ def import_species_types(
+         if not species_key:
+             continue
+ 
+-        if type_id not in type_rows:
++        type_slug = type_rows.get(numeric_type_id)
++
++        if not type_slug:
+             continue
+ 
+         grouped.setdefault(species_key, []).append(
+             (
+                 slot,
+-                type_id,
++                type_slug,
+             )
+         )
+ 
+@@ -696,7 +591,7 @@ def import_species_types(
+             (species_key,),
+         )
+ 
+-        for slot, type_id in values:
++        for slot, type_slug in values:
+             connection.execute(
+                 """
+                 INSERT INTO pokemon_species_types (
+@@ -708,7 +603,7 @@ def import_species_types(
+                 """,
+                 (
+                     species_key,
+-                    type_id,
++                    type_slug,
+                     slot,
+                 ),
+             )
+@@ -913,19 +808,31 @@ def import_forms(
+     form_by_pokemon_id: dict[int, str] = {}
+ 
+     for row in rows:
+-        pokemon_id = to_int(row.get("id"))
++        # NOTE: pokemon_forms.csv's own `id` column is the form's own
++        # primary key, NOT the Pokémon it belongs to — that's `pokemon_id`.
++        # This function previously read `row.get("id")` for both the
++        # lookup key and the returned dict key, which meant it was almost
++        # never finding the right species (a form's own id rarely matches
++        # any pokemon.csv id) and the returned form_by_pokemon_id mapping
++        # was keyed by the wrong thing entirely.
++        pokemon_id = to_int(row.get("pokemon_id"))
+ 
+         if pokemon_id <= 0:
+             continue
+ 
+-        if pokemon_id > 2000:
+-            # Avoid pulling unrelated future/internal form records into the
+-            # current catalog unless they belong to the supported roster.
+-            continue
++        # NOTE: there used to be a `pokemon_id > 2000` guard here meant to
++        # filter out "unrelated future/internal form records". In practice
++        # this silently dropped every Mega Evolution, regional variant, and
++        # Gigantamax form, since PokeAPI assigns alternate-form Pokémon ids
++        # starting at 10001 (e.g. Mega Charizard X = 10034). The species_key
++        # lookup below already rejects anything species_by_pokemon_id
++        # doesn't recognize, so the extra ceiling was both unnecessary and
++        # actively harmful. See the caveat on import_species / NATIONAL_DEX_
++        # LIMIT below for the remaining piece of this (those alternate-form
++        # pokemon.csv rows still need their own species_by_pokemon_id entry
++        # for this lookup to succeed at all).
+ 
+-        species_key = species_by_pokemon_id.get(
+-            to_int(row.get("id"))
+-        )
++        species_key = species_by_pokemon_id.get(pokemon_id)
+ 
+         if not species_key:
+             continue
+@@ -964,33 +871,44 @@ def import_forms(
+             or "gigantamax" in form_identifier.lower()
+         )
+ 
++        sort_order = to_int(
++            row.get("form_order")
++            or row.get("order"),
++            0,
++        )
++
+         connection.execute(
+             """
+             INSERT INTO pokemon_forms (
+                 id,
+                 species_id,
++                name,
+                 form_name,
+                 display_name,
+                 form_identifier,
+                 is_default,
+                 is_battle_only,
+                 is_mega,
+-                is_gmax
++                is_gmax,
++                sort_order
+             )
+-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
++            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             ON CONFLICT(id) DO UPDATE SET
+                 species_id = excluded.species_id,
++                name = excluded.name,
+                 form_name = excluded.form_name,
+                 display_name = excluded.display_name,
+                 form_identifier = excluded.form_identifier,
+                 is_default = excluded.is_default,
+                 is_battle_only = excluded.is_battle_only,
+                 is_mega = excluded.is_mega,
+-                is_gmax = excluded.is_gmax
++                is_gmax = excluded.is_gmax,
++                sort_order = excluded.sort_order
+             """,
+             (
+                 form_key,
+                 species_key,
++                display_name,
+                 form_name,
+                 display_name,
+                 form_identifier,
+@@ -998,6 +916,7 @@ def import_forms(
+                 is_battle_only,
+                 1 if is_mega else 0,
+                 1 if is_gmax else 0,
++                sort_order,
+             ),
+         )
+ 
+@@ -1041,9 +960,9 @@ def import_moves(
+ 
+         move_by_numeric_id[numeric_id] = move_key
+ 
+-        type_id = to_int(row.get("type_id"))
+-        move_type = type_rows.get(
+-            type_id,
++        numeric_type_id = to_int(row.get("type_id"))
++        move_type_slug = type_rows.get(
++            numeric_type_id,
+             "normal",
+         )
+ 
+@@ -1077,7 +996,7 @@ def import_moves(
+             INSERT INTO moves (
+                 id,
+                 name,
+-                type,
++                type_id,
+                 category,
+                 power,
+                 accuracy,
+@@ -1086,7 +1005,7 @@ def import_moves(
+             VALUES (?, ?, ?, ?, ?, ?, ?)
+             ON CONFLICT(id) DO UPDATE SET
+                 name = excluded.name,
+-                type = excluded.type,
++                type_id = excluded.type_id,
+                 category = excluded.category,
+                 power = excluded.power,
+                 accuracy = excluded.accuracy,
+@@ -1095,7 +1014,7 @@ def import_moves(
+             (
+                 move_key,
+                 clean_name(identifier),
+-                move_type,
++                move_type_slug,
+                 category,
+                 power,
+                 accuracy,
+@@ -2014,6 +1933,7 @@ def main() -> int:
+         "abilities",
+         "pokemon_abilities",
+         "pokemon_forms",
++        "pokemon_stats",
+         "moves",
+         "pokemon_moves",
+     ]
+@@ -2079,6 +1999,14 @@ def main() -> int:
+                 "pokemon",
+                 [],
+             ),
++            datasets.get(
++                "pokemon_stats",
++                [],
++            ),
++            datasets.get(
++                "pokemon_species",
++                [],
++            ),
+         )
+ 
+         print("Importing species types...")
