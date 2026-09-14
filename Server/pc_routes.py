@@ -3,7 +3,6 @@ from __future__ import annotations
 from flask import Blueprint, jsonify, render_template, request
 
 from .auth import current_player_id
-from .database import get_connection
 from .party_storage import (
     MAX_PARTY_SIZE,
     add_to_party,
@@ -14,7 +13,6 @@ from .party_storage import (
 from .pc_storage import (
     PC_SLOTS_PER_PAGE,
     deposit_pokemon,
-    ensure_pc_schema,
     get_page,
     get_pc_count,
     get_pc_page_count,
@@ -33,6 +31,10 @@ pc_bp = Blueprint(
 )
 
 
+# =============================================================================
+# HELPERS
+# =============================================================================
+
 def _require_player() -> int:
     """
     Return the currently authenticated player ID.
@@ -43,7 +45,9 @@ def _require_player() -> int:
     player_id = current_player_id()
 
     if player_id is None:
-        raise PermissionError("Authentication required.")
+        raise PermissionError(
+            "Authentication required."
+        )
 
     return int(player_id)
 
@@ -60,15 +64,18 @@ def _error_response(
     ), status_code
 
 
-def _get_json():
+def _get_json() -> dict:
     """
     Safely return a JSON request body.
-
-    Flask may return None for an empty or invalid JSON body.
     """
-    return request.get_json(
+    data = request.get_json(
         silent=True
-    ) or {}
+    )
+
+    if not isinstance(data, dict):
+        return {}
+
+    return data
 
 
 def _optional_int(
@@ -77,15 +84,51 @@ def _optional_int(
 ):
     """
     Convert an optional value to int.
-
-    Returns default when value is None or empty.
-    Raises ValueError for invalid numeric input.
     """
     if value is None or value == "":
         return default
 
     return int(value)
 
+
+def _parse_shiny(value):
+    """
+    Convert common query-string representations of shiny into
+    True, False, or None.
+    """
+    if value is None:
+        return None
+
+    text = str(value).strip().lower()
+
+    if text == "":
+        return None
+
+    if text in {
+        "1",
+        "true",
+        "yes",
+        "on",
+        "shiny",
+    }:
+        return True
+
+    if text in {
+        "0",
+        "false",
+        "no",
+        "off",
+        "normal",
+        "non-shiny",
+    }:
+        return False
+
+    return None
+
+
+# =============================================================================
+# PC PAGE
+# =============================================================================
 
 @pc_bp.get("/pc")
 def pc_page():
@@ -104,13 +147,19 @@ def pc_page():
     )
 
 
+# =============================================================================
+# PC DATA
+# =============================================================================
+
 @pc_bp.get("/api/pc")
 def pc_index():
     """
-    Get one PC page.
+    Return one PC page.
 
-    PC storage is database-backed and has unlimited pages,
-    with PC_SLOTS_PER_PAGE slots on each page.
+    PC storage:
+        - database-backed
+        - 30 slots per page
+        - unlimited pages
     """
     try:
         player_id = _require_player()
@@ -138,23 +187,24 @@ def pc_index():
         page,
     )
 
-    with get_connection() as db:
-        ensure_pc_schema(db)
-
+    try:
         pc = get_page(
-            db,
             player_id,
             page,
         )
 
         page_count = get_pc_page_count(
-            db,
             player_id,
         )
 
         total_count = get_pc_count(
-            db,
             player_id,
+        )
+
+    except Exception:
+        return _error_response(
+            "Unable to load the Pokémon PC.",
+            500,
         )
 
     return jsonify(
@@ -172,7 +222,7 @@ def pc_index():
 @pc_bp.get("/api/pc/page/<int:page>")
 def pc_page_api(page: int):
     """
-    Get a specific PC page.
+    Return a specific PC page.
     """
     try:
         player_id = _require_player()
@@ -188,23 +238,24 @@ def pc_page_api(page: int):
             400,
         )
 
-    with get_connection() as db:
-        ensure_pc_schema(db)
-
+    try:
         pc = get_page(
-            db,
             player_id,
             page,
         )
 
         page_count = get_pc_page_count(
-            db,
             player_id,
         )
 
         total_count = get_pc_count(
-            db,
             player_id,
+        )
+
+    except Exception:
+        return _error_response(
+            "Unable to load the Pokémon PC.",
+            500,
         )
 
     return jsonify(
@@ -219,10 +270,14 @@ def pc_page_api(page: int):
     )
 
 
+# =============================================================================
+# PARTY
+# =============================================================================
+
 @pc_bp.get("/api/pc/party")
 def pc_party():
     """
-    Return the player's current six-Pokémon Party.
+    Return the player's current Party.
     """
     try:
         player_id = _require_player()
@@ -232,9 +287,15 @@ def pc_party():
             401,
         )
 
-    party = get_party(
-        player_id
-    )
+    try:
+        party = get_party(
+            player_id
+        )
+    except Exception:
+        return _error_response(
+            "Unable to load the Party.",
+            500,
+        )
 
     return jsonify(
         {
@@ -244,6 +305,244 @@ def pc_party():
         }
     )
 
+
+@pc_bp.post("/api/pc/party/add")
+def pc_party_add():
+    """
+    Add an owned Pokémon to the Party.
+
+    If it is currently in the PC, the Party storage layer is
+    responsible for moving it out of PC storage atomically.
+    """
+    try:
+        player_id = _require_player()
+    except PermissionError as exc:
+        return _error_response(
+            str(exc),
+            401,
+        )
+
+    data = _get_json()
+
+    try:
+        pokemon_id = int(
+            data.get("pokemon_id")
+        )
+    except (
+        TypeError,
+        ValueError,
+    ):
+        return _error_response(
+            "pokemon_id is required.",
+            400,
+        )
+
+    try:
+        slot = _optional_int(
+            data.get("slot")
+        )
+    except (
+        TypeError,
+        ValueError,
+    ):
+        return _error_response(
+            "slot must be a number.",
+            400,
+        )
+
+    if slot is not None:
+        if slot < 1 or slot > MAX_PARTY_SIZE:
+            return _error_response(
+                f"Party slot must be between 1 and {MAX_PARTY_SIZE}.",
+                400,
+            )
+
+    try:
+        result = add_to_party(
+            player_id,
+            pokemon_id,
+            slot=slot,
+        )
+    except PermissionError as exc:
+        return _error_response(
+            str(exc),
+            403,
+        )
+    except ValueError as exc:
+        return _error_response(
+            str(exc),
+            400,
+        )
+    except Exception:
+        return _error_response(
+            "Unable to add that Pokémon to the Party.",
+            500,
+        )
+
+    try:
+        party = get_party(
+            player_id
+        )
+    except Exception:
+        party = result
+
+    return jsonify(
+        {
+            "success": True,
+            "party": party,
+            "result": result,
+        }
+    )
+
+
+@pc_bp.post("/api/pc/party/remove")
+def pc_party_remove():
+    """
+    Remove a Pokémon from the Party.
+
+    The storage layer automatically moves it into PC storage.
+    The Pokémon itself is never deleted.
+    """
+    try:
+        player_id = _require_player()
+    except PermissionError as exc:
+        return _error_response(
+            str(exc),
+            401,
+        )
+
+    data = _get_json()
+
+    try:
+        pokemon_id = int(
+            data.get("pokemon_id")
+        )
+    except (
+        TypeError,
+        ValueError,
+    ):
+        return _error_response(
+            "pokemon_id is required.",
+            400,
+        )
+
+    try:
+        result = remove_from_party(
+            player_id,
+            pokemon_id,
+        )
+    except PermissionError as exc:
+        return _error_response(
+            str(exc),
+            403,
+        )
+    except ValueError as exc:
+        return _error_response(
+            str(exc),
+            400,
+        )
+    except Exception:
+        return _error_response(
+            "Unable to move that Pokémon to the PC.",
+            500,
+        )
+
+    try:
+        party = get_party(
+            player_id
+        )
+    except Exception:
+        party = []
+
+    return jsonify(
+        {
+            "success": True,
+            "party": party,
+            "location": result,
+        }
+    )
+
+
+@pc_bp.post("/api/pc/party/move")
+def pc_party_move():
+    """
+    Move a Pokémon to another Party slot.
+    """
+    try:
+        player_id = _require_player()
+    except PermissionError as exc:
+        return _error_response(
+            str(exc),
+            401,
+        )
+
+    data = _get_json()
+
+    try:
+        pokemon_id = int(
+            data.get("pokemon_id")
+        )
+
+        slot = int(
+            data.get("slot")
+        )
+
+    except (
+        TypeError,
+        ValueError,
+    ):
+        return _error_response(
+            "pokemon_id and slot are required.",
+            400,
+        )
+
+    if slot < 1 or slot > MAX_PARTY_SIZE:
+        return _error_response(
+            f"Party slot must be between 1 and {MAX_PARTY_SIZE}.",
+            400,
+        )
+
+    try:
+        result = move_party_pokemon(
+            player_id,
+            pokemon_id,
+            slot,
+        )
+    except PermissionError as exc:
+        return _error_response(
+            str(exc),
+            403,
+        )
+    except ValueError as exc:
+        return _error_response(
+            str(exc),
+            400,
+        )
+    except Exception:
+        return _error_response(
+            "Unable to move that Pokémon in the Party.",
+            500,
+        )
+
+    try:
+        party = get_party(
+            player_id
+        )
+    except Exception:
+        party = []
+
+    return jsonify(
+        {
+            "success": True,
+            "party": party,
+            "result": result,
+        }
+    )
+
+
+# =============================================================================
+# PC SEARCH
+# =============================================================================
 
 @pc_bp.get("/api/pc/search")
 def pc_search():
@@ -281,39 +580,30 @@ def pc_search():
         "",
     ).strip()
 
-    shiny_value = request.args.get(
-        "shiny",
-        "",
-    ).strip().lower()
+    if not pokemon_type:
+        pokemon_type = request.args.get(
+            "pokemon_type",
+            "",
+        ).strip()
 
-    shiny = None
+    shiny = _parse_shiny(
+        request.args.get(
+            "shiny"
+        )
+    )
 
-    if shiny_value in {
-        "1",
-        "true",
-        "yes",
-        "on",
-    }:
-        shiny = True
-
-    elif shiny_value in {
-        "0",
-        "false",
-        "no",
-        "off",
-    }:
-        shiny = False
-
-    with get_connection() as db:
-        ensure_pc_schema(db)
-
+    try:
         results = search_pc(
-            db,
-            player_id,
-            name=name or None,
+            player_id=player_id,
+            search=name or None,
             variant=variant or None,
             pokemon_type=pokemon_type or None,
             shiny=shiny,
+        )
+    except Exception:
+        return _error_response(
+            "Unable to search the Pokémon PC.",
+            500,
         )
 
     return jsonify(
@@ -328,7 +618,7 @@ def pc_search():
 @pc_bp.get("/api/pc/filters")
 def pc_filters():
     """
-    Return available search/filter values for the player's PC.
+    Return available PC search filters.
     """
     try:
         player_id = _require_player()
@@ -338,12 +628,14 @@ def pc_filters():
             401,
         )
 
-    with get_connection() as db:
-        ensure_pc_schema(db)
-
+    try:
         filters = get_pc_search_filters(
-            db,
-            player_id,
+            player_id
+        )
+    except Exception:
+        return _error_response(
+            "Unable to load PC search filters.",
+            500,
         )
 
     return jsonify(
@@ -354,10 +646,14 @@ def pc_filters():
     )
 
 
+# =============================================================================
+# PC COUNTS
+# =============================================================================
+
 @pc_bp.get("/api/pc/count")
 def pc_count():
     """
-    Return the player's total number of Pokémon currently in the PC.
+    Return the player's total PC Pokémon count.
     """
     try:
         player_id = _require_player()
@@ -367,17 +663,19 @@ def pc_count():
             401,
         )
 
-    with get_connection() as db:
-        ensure_pc_schema(db)
-
+    try:
         count = get_pc_count(
-            db,
-            player_id,
+            player_id
         )
 
         page_count = get_pc_page_count(
-            db,
-            player_id,
+            player_id
+        )
+
+    except Exception:
+        return _error_response(
+            "Unable to load PC counts.",
+            500,
         )
 
     return jsonify(
@@ -390,17 +688,16 @@ def pc_count():
     )
 
 
+# =============================================================================
+# POKÉMON LOCATION
+# =============================================================================
+
 @pc_bp.get("/api/pc/pokemon/<int:pokemon_id>")
 def pc_pokemon_location(
     pokemon_id: int,
 ):
     """
-    Return the storage location of a player's Pokémon.
-
-    A Pokémon can be:
-        party
-        pc
-        unassigned
+    Return the storage location of a Pokémon.
     """
     try:
         player_id = _require_player()
@@ -410,14 +707,26 @@ def pc_pokemon_location(
             401,
         )
 
-    with get_connection() as db:
-        ensure_pc_schema(db)
-
+    try:
         location = get_pokemon_location(
-            db,
-            player_id,
-            pokemon_id,
+            pokemon_id
         )
+    except Exception:
+        return _error_response(
+            "Unable to determine Pokémon location.",
+            500,
+        )
+
+    location_player_id = location.get(
+        "player_id"
+    )
+
+    if location_player_id is not None:
+        if int(location_player_id) != int(player_id):
+            return _error_response(
+                "You do not own this Pokémon.",
+                403,
+            )
 
     return jsonify(
         {
@@ -427,13 +736,17 @@ def pc_pokemon_location(
     )
 
 
+# =============================================================================
+# DEPOSIT
+# =============================================================================
+
 @pc_bp.post("/api/pc/deposit")
 def pc_deposit():
     """
-    Deposit an owned Pokémon directly into the PC.
+    Deposit an unassigned owned Pokémon into PC storage.
 
-    Party Pokémon should normally use the Party remove endpoint,
-    which automatically transfers them into PC storage.
+    A Pokémon currently in the Party should use the Party remove
+    endpoint so the Party -> PC transition remains atomic.
     """
     try:
         player_id = _require_player()
@@ -477,23 +790,22 @@ def pc_deposit():
         )
 
     try:
-        with get_connection() as db:
-            ensure_pc_schema(db)
-
-            location = deposit_pokemon(
-                db,
-                player_id,
-                pokemon_id,
-                page=page,
-                slot=slot,
-            )
-
+        result = deposit_pokemon(
+            player_id,
+            pokemon_id,
+            page=page,
+            slot=slot,
+        )
+    except PermissionError as exc:
+        return _error_response(
+            str(exc),
+            403,
+        )
     except ValueError as exc:
         return _error_response(
             str(exc),
             400,
         )
-
     except Exception:
         return _error_response(
             "Unable to deposit that Pokémon.",
@@ -503,21 +815,25 @@ def pc_deposit():
     return jsonify(
         {
             "success": True,
-            "location": location,
+            "location": result,
         }
     )
 
 
+# =============================================================================
+# WITHDRAW
+# =============================================================================
+
 @pc_bp.post("/api/pc/withdraw")
 def pc_withdraw():
     """
-    Withdraw a Pokémon from PC storage.
+    Withdraw a Pokémon from the PC.
 
-    Withdrawing removes the PC location record.
-    It does not delete the Pokémon.
+    IMPORTANT:
+    PC -> Party is atomic.
 
-    Adding the withdrawn Pokémon to the Party is a separate
-    operation through /api/pc/party/add.
+    The Pokémon will never be intentionally left unassigned.
+    If the Party is full, the PC record remains untouched.
     """
     try:
         player_id = _require_player()
@@ -543,39 +859,50 @@ def pc_withdraw():
         )
 
     try:
-        with get_connection() as db:
-            ensure_pc_schema(db)
-
-            location = withdraw_pokemon(
-                db,
-                player_id,
-                pokemon_id,
-            )
-
+        result = withdraw_pokemon(
+            player_id,
+            pokemon_id,
+        )
+    except PermissionError as exc:
+        return _error_response(
+            str(exc),
+            403,
+        )
     except ValueError as exc:
         return _error_response(
             str(exc),
             400,
         )
-
     except Exception:
         return _error_response(
             "Unable to withdraw that Pokémon.",
             500,
         )
 
+    try:
+        party = get_party(
+            player_id
+        )
+    except Exception:
+        party = []
+
     return jsonify(
         {
             "success": True,
-            "location": location,
+            "location": result,
+            "party": party,
         }
     )
 
 
+# =============================================================================
+# MOVE
+# =============================================================================
+
 @pc_bp.post("/api/pc/move")
 def pc_move():
     """
-    Move a Pokémon to a specific PC page and slot.
+    Move a Pokémon to an empty PC position.
     """
     try:
         player_id = _require_player()
@@ -622,23 +949,22 @@ def pc_move():
         )
 
     try:
-        with get_connection() as db:
-            ensure_pc_schema(db)
-
-            location = move_pokemon(
-                db,
-                player_id,
-                pokemon_id,
-                page,
-                slot,
-            )
-
+        result = move_pokemon(
+            player_id,
+            pokemon_id,
+            page,
+            slot,
+        )
+    except PermissionError as exc:
+        return _error_response(
+            str(exc),
+            403,
+        )
     except ValueError as exc:
         return _error_response(
             str(exc),
             400,
         )
-
     except Exception:
         return _error_response(
             "Unable to move that Pokémon.",
@@ -648,15 +974,21 @@ def pc_move():
     return jsonify(
         {
             "success": True,
-            "location": location,
+            "location": result,
         }
     )
 
 
+# =============================================================================
+# SWAP
+# =============================================================================
+
 @pc_bp.post("/api/pc/swap")
 def pc_swap():
     """
-    Swap the PC locations of two Pokémon.
+    Swap two Pokémon currently stored in the PC.
+
+    The storage layer performs the swap atomically.
     """
     try:
         player_id = _require_player()
@@ -681,10 +1013,24 @@ def pc_swap():
         TypeError,
         ValueError,
     ):
-        return _error_response(
-            "pokemon_id_a and pokemon_id_b are required.",
-            400,
-        )
+        # Support an alternate client naming convention.
+        try:
+            pokemon_id_a = int(
+                data.get("source_pokemon_id")
+            )
+
+            pokemon_id_b = int(
+                data.get("target_pokemon_id")
+            )
+
+        except (
+            TypeError,
+            ValueError,
+        ):
+            return _error_response(
+                "pokemon_id_a and pokemon_id_b are required.",
+                400,
+            )
 
     if pokemon_id_a == pokemon_id_b:
         return _error_response(
@@ -693,22 +1039,21 @@ def pc_swap():
         )
 
     try:
-        with get_connection() as db:
-            ensure_pc_schema(db)
-
-            result = swap_pokemon(
-                db,
-                player_id,
-                pokemon_id_a,
-                pokemon_id_b,
-            )
-
+        result = swap_pokemon(
+            player_id,
+            pokemon_id_a,
+            pokemon_id_b,
+        )
+    except PermissionError as exc:
+        return _error_response(
+            str(exc),
+            403,
+        )
     except ValueError as exc:
         return _error_response(
             str(exc),
             400,
         )
-
     except Exception:
         return _error_response(
             "Unable to swap those Pokémon.",
@@ -723,213 +1068,21 @@ def pc_swap():
     )
 
 
-@pc_bp.post("/api/pc/party/add")
-def pc_party_add():
-    """
-    Add an owned Pokémon to the player's Party.
+# =============================================================================
+# ERROR HANDLERS
+# =============================================================================
 
-    If the Pokémon is currently in the PC, its PC location is
-    removed automatically by party_storage.
-    """
-    try:
-        player_id = _require_player()
-    except PermissionError as exc:
-        return _error_response(
-            str(exc),
-            401,
-        )
-
-    data = _get_json()
-
-    try:
-        pokemon_id = int(
-            data.get("pokemon_id")
-        )
-    except (
-        TypeError,
-        ValueError,
-    ):
-        return _error_response(
-            "pokemon_id is required.",
-            400,
-        )
-
-    try:
-        slot = _optional_int(
-            data.get("slot")
-        )
-
-    except (
-        TypeError,
-        ValueError,
-    ):
-        return _error_response(
-            "slot must be a number.",
-            400,
-        )
-
-    if slot is not None:
-        if slot < 1 or slot > MAX_PARTY_SIZE:
-            return _error_response(
-                f"Party slot must be between 1 and {MAX_PARTY_SIZE}.",
-                400,
-            )
-
-    try:
-        result = add_to_party(
-            player_id,
-            pokemon_id,
-            slot=slot,
-        )
-
-    except ValueError as exc:
-        return _error_response(
-            str(exc),
-            400,
-        )
-
-    except Exception:
-        return _error_response(
-            "Unable to add that Pokémon to the Party.",
-            500,
-        )
-
-    return jsonify(
-        {
-            "success": True,
-            "party": result,
-        }
+@pc_bp.errorhandler(404)
+def pc_not_found(error):
+    return _error_response(
+        "PC endpoint not found.",
+        404,
     )
 
 
-@pc_bp.post("/api/pc/party/remove")
-def pc_party_remove():
-    """
-    Remove a Pokémon from the Party.
-
-    IMPORTANT:
-    This does NOT delete the Pokémon.
-
-    Party -> PC is automatic.
-    """
-    try:
-        player_id = _require_player()
-    except PermissionError as exc:
-        return _error_response(
-            str(exc),
-            401,
-        )
-
-    data = _get_json()
-
-    try:
-        pokemon_id = int(
-            data.get("pokemon_id")
-        )
-    except (
-        TypeError,
-        ValueError,
-    ):
-        return _error_response(
-            "pokemon_id is required.",
-            400,
-        )
-
-    try:
-        result = remove_from_party(
-            player_id,
-            pokemon_id,
-        )
-
-    except ValueError as exc:
-        return _error_response(
-            str(exc),
-            400,
-        )
-
-    except Exception:
-        return _error_response(
-            "Unable to move that Pokémon to the PC.",
-            500,
-        )
-
-    return jsonify(
-        {
-            "success": True,
-            "party": get_party(
-                player_id
-            ),
-            "location": result,
-        }
-    )
-
-
-@pc_bp.post("/api/pc/party/move")
-def pc_party_move():
-    """
-    Move a Pokémon to a different Party slot.
-
-    Party size remains limited to six.
-    """
-    try:
-        player_id = _require_player()
-    except PermissionError as exc:
-        return _error_response(
-            str(exc),
-            401,
-        )
-
-    data = _get_json()
-
-    try:
-        pokemon_id = int(
-            data.get("pokemon_id")
-        )
-
-        slot = int(
-            data.get("slot")
-        )
-
-    except (
-        TypeError,
-        ValueError,
-    ):
-        return _error_response(
-            "pokemon_id and slot are required.",
-            400,
-        )
-
-    if slot < 1 or slot > MAX_PARTY_SIZE:
-        return _error_response(
-            f"Party slot must be between 1 and {MAX_PARTY_SIZE}.",
-            400,
-        )
-
-    try:
-        result = move_party_pokemon(
-            player_id,
-            pokemon_id,
-            slot,
-        )
-
-    except ValueError as exc:
-        return _error_response(
-            str(exc),
-            400,
-        )
-
-    except Exception:
-        return _error_response(
-            "Unable to move that Pokémon in the Party.",
-            500,
-        )
-
-    return jsonify(
-        {
-            "success": True,
-            "party": get_party(
-                player_id
-            ),
-            "result": result,
-        }
+@pc_bp.errorhandler(405)
+def pc_method_not_allowed(error):
+    return _error_response(
+        "Method not allowed.",
+        405,
     )
