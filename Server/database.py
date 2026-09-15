@@ -278,6 +278,86 @@ CREATE TABLE IF NOT EXISTS settings (
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS evolution_rules (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+    from_species TEXT NOT NULL,
+    to_species TEXT NOT NULL,
+
+    method TEXT NOT NULL DEFAULT 'level',
+
+    condition_level INTEGER,
+    condition_item TEXT,
+    condition_friendship INTEGER,
+    condition_time TEXT,
+    condition_location TEXT,
+    condition_held_item TEXT,
+
+    description TEXT,
+
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE (from_species, to_species, method)
+);
+
+CREATE INDEX IF NOT EXISTS idx_evolution_from_species
+ON evolution_rules(from_species);
+
+CREATE INDEX IF NOT EXISTS idx_evolution_to_species
+ON evolution_rules(to_species);
+
+CREATE TABLE IF NOT EXISTS pvp_matches (
+    match_id TEXT PRIMARY KEY,
+
+    player1_id INTEGER NOT NULL,
+    player2_id INTEGER NOT NULL,
+
+    status TEXT NOT NULL DEFAULT 'active',
+
+    winner_id INTEGER,
+    loser_id INTEGER,
+
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    completed_at TEXT,
+
+    FOREIGN KEY (player1_id)
+        REFERENCES players(id)
+        ON DELETE CASCADE,
+
+    FOREIGN KEY (player2_id)
+        REFERENCES players(id)
+        ON DELETE CASCADE,
+
+    FOREIGN KEY (winner_id)
+        REFERENCES players(id)
+        ON DELETE SET NULL,
+
+    FOREIGN KEY (loser_id)
+        REFERENCES players(id)
+        ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS pvp_stats (
+    player_id INTEGER PRIMARY KEY,
+
+    wins INTEGER NOT NULL DEFAULT 0,
+    losses INTEGER NOT NULL DEFAULT 0,
+    total_matches INTEGER NOT NULL DEFAULT 0,
+
+    FOREIGN KEY (player_id)
+        REFERENCES players(id)
+        ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_pvp_matches_player1
+ON pvp_matches(player1_id);
+
+CREATE INDEX IF NOT EXISTS idx_pvp_matches_player2
+ON pvp_matches(player2_id);
+
+CREATE INDEX IF NOT EXISTS idx_pvp_matches_status
+ON pvp_matches(status);
+
 CREATE INDEX IF NOT EXISTS idx_players_role_id
 ON players(role_id);
 
@@ -1737,6 +1817,76 @@ def _seed_default_settings(
 
 
 # =============================================================================
+# EVOLUTION SEEDING
+# =============================================================================
+
+def _seed_evolution_rules(
+    db: sqlite3.Connection,
+) -> None:
+    """Seed basic evolution rules into the database."""
+
+    evolution_rules = [
+        # Kanto starters
+        ("bulbasaur", "ivysaur", "level", 16, None, None, None, None, None, "Level 16 evolution"),
+        ("ivysaur", "venusaur", "level", 32, None, None, None, None, None, "Level 32 evolution"),
+        ("charmander", "charmeleon", "level", 16, None, None, None, None, None, "Level 16 evolution"),
+        ("charmeleon", "charizard", "level", 36, None, None, None, None, None, "Level 36 evolution"),
+        ("squirtle", "wartortle", "level", 16, None, None, None, None, None, "Level 16 evolution"),
+        ("wartortle", "blastoise", "level", 36, None, None, None, None, None, "Level 36 evolution"),
+
+        # Stone evolutions
+        ("pikachu", "raichu", "item", None, "thunder_stone", None, None, None, None, "Thunder Stone evolution"),
+        ("eevee", "flareon", "item", None, "fire_stone", None, None, None, None, "Fire Stone evolution"),
+        ("eevee", "vaporeon", "item", None, "water_stone", None, None, None, None, "Water Stone evolution"),
+        ("eevee", "jolteon", "item", None, "thunder_stone", None, None, None, None, "Thunder Stone evolution"),
+    ]
+
+    for (
+        from_species,
+        to_species,
+        method,
+        condition_level,
+        condition_item,
+        condition_friendship,
+        condition_time,
+        condition_location,
+        condition_held_item,
+        description,
+    ) in evolution_rules:
+
+        db.execute(
+            """
+            INSERT OR IGNORE INTO evolution_rules
+            (
+                from_species,
+                to_species,
+                method,
+                condition_level,
+                condition_item,
+                condition_friendship,
+                condition_time,
+                condition_location,
+                condition_held_item,
+                description
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                from_species,
+                to_species,
+                method,
+                condition_level,
+                condition_item,
+                condition_friendship,
+                condition_time,
+                condition_location,
+                condition_held_item,
+                description,
+            ),
+        )
+
+
+# =============================================================================
 # DATABASE INITIALIZATION
 # =============================================================================
 
@@ -1818,6 +1968,14 @@ def init_db() -> None:
         # ---------------------------------------------------------------------
 
         _seed_default_settings(
+            db
+        )
+
+        # ---------------------------------------------------------------------
+        # Evolution rules.
+        # ---------------------------------------------------------------------
+
+        _seed_evolution_rules(
             db
         )
 

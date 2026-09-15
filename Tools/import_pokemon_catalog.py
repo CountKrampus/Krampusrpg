@@ -3,35 +3,45 @@ from __future__ import annotations
 import argparse
 import csv
 import hashlib
-import json
 import re
 import sqlite3
 import sys
+import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any
 
 
-# ---------------------------------------------------------------------------
-# Project paths
-# ---------------------------------------------------------------------------
+# =============================================================================
+# PROJECT PATHS
+# =============================================================================
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+
 from Server.config import DATABASE_PATH  # noqa: E402
 from Server.database import get_connection  # noqa: E402
+from Server.pokemon_catalog import (  # noqa: E402
+    DEFAULT_VARIANTS,
+    OFFICIAL_NATIONAL_DEX_LIMIT,
+    ensure_catalog_schema,
+    migrate_catalog_schema,
+    set_default_forms_for_owned_pokemon,
+)
 
 
-# ---------------------------------------------------------------------------
-# PokéAPI source
-# ---------------------------------------------------------------------------
+# =============================================================================
+# POKÉAPI
+# =============================================================================
 
 POKEAPI_CSV_BASE = (
-    "https://raw.githubusercontent.com/PokeAPI/pokeapi/master/data/v2/csv"
+    "https://raw.githubusercontent.com/"
+    "PokeAPI/pokeapi/master/data/v2/csv"
 )
+
 
 CSV_FILES = {
     "types": "types.csv",
@@ -44,428 +54,74 @@ CSV_FILES = {
     "moves": "moves.csv",
     "pokemon_moves": "pokemon_moves.csv",
     "pokemon_stats": "pokemon_stats.csv",
-    "pokemon_evolution": "evolution_chains.csv",
-    "evolution_trigger": "evolution_triggers.csv",
-    "pokemon_species_flavor_text": "pokemon_species_flavor_text.csv",
-    "move_flavor_text": "move_flavor_text.csv",
+    "pokemon_species_flavor_text": (
+        "pokemon_species_flavor_text.csv"
+    ),
+    "move_flavor_text": (
+        "move_flavor_text.csv"
+    ),
+    "evolution_chains": (
+        "evolution_chains.csv"
+    ),
+    "evolution_triggers": (
+        "evolution_triggers.csv"
+    ),
 }
 
 
-# ---------------------------------------------------------------------------
-# Limits / constants
-# ---------------------------------------------------------------------------
+# =============================================================================
+# CONSTANTS
+# =============================================================================
 
-NATIONAL_DEX_LIMIT = 1025
+NATIONAL_DEX_LIMIT = OFFICIAL_NATIONAL_DEX_LIMIT
 
-DEFAULT_VARIANTS = [
-    {
-        "id": "normal",
-        "name": "Normal",
-        "sprite_suffix": "",
-        "description": "The standard Krampus RPG Pokémon variant.",
-    },
-    {
-        "id": "ruby",
-        "name": "Ruby",
-        "sprite_suffix": "-ruby",
-        "description": "Ruby custom-color variant.",
-    },
-    {
-        "id": "sapphire",
-        "name": "Sapphire",
-        "sprite_suffix": "-sapphire",
-        "description": "Sapphire custom-color variant.",
-    },
-    {
-        "id": "emerald",
-        "name": "Emerald",
-        "sprite_suffix": "-emerald",
-        "description": "Emerald custom-color variant.",
-    },
-    {
-        "id": "gold",
-        "name": "Gold",
-        "sprite_suffix": "-gold",
-        "description": "Gold custom-color variant.",
-    },
-    {
-        "id": "silver",
-        "name": "Silver",
-        "sprite_suffix": "-silver",
-        "description": "Silver custom-color variant.",
-    },
-    {
-        "id": "undead",
-        "name": "Undead",
-        "sprite_suffix": "-undead",
-        "description": "Undead custom Krampus RPG variant.",
-    },
-]
+REQUEST_TIMEOUT = 120
+
+USER_AGENT = (
+    "KrampusRPG-PokemonCatalogImporter/2.0"
+)
 
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
+# =============================================================================
+# DEFAULT VARIANTS
+# =============================================================================
 
-def download_csv(filename: str) -> list[dict[str, str]]:
-    """Download a PokéAPI CSV file and return it as dictionaries."""
-
-    url = f"{POKEAPI_CSV_BASE}/{filename}"
-
-    print(f"Downloading {filename}...")
-
-    request = urllib.request.Request(
-        url,
-        headers={
-            "User-Agent": "KrampusRPG-PokemonCatalogImporter/1.0",
-        },
-    )
-
-    with urllib.request.urlopen(request, timeout=60) as response:
-        raw = response.read()
-
-    text = raw.decode("utf-8-sig")
-
-    return list(csv.DictReader(text.splitlines()))
-
-
-def download_all_csvs() -> dict[str, list[dict[str, str]]]:
-    """Download all required PokéAPI CSV datasets."""
-
-    datasets: dict[str, list[dict[str, str]]] = {}
-
-    for key, filename in CSV_FILES.items():
-        try:
-            datasets[key] = download_csv(filename)
-        except Exception as exc:
-            print(f"WARNING: Could not download {filename}: {exc}")
-            datasets[key] = []
-
-    return datasets
-
-
-def to_int(value: Any, default: int = 0) -> int:
-    try:
-        if value is None or value == "":
-            return default
-        return int(value)
-    except (TypeError, ValueError):
-        return default
-
-
-def clean_name(value: str | None) -> str:
-    """Convert PokéAPI identifiers into readable names."""
-
-    if not value:
-        return ""
-
-    value = value.replace("-", " ")
-
-    return " ".join(
-        part.capitalize()
-        for part in value.split()
-    )
-
-
-def slugify(value: str) -> str:
-    """Convert a name into a stable Krampus RPG identifier."""
-
-    value = value.lower().strip()
-
-    value = value.replace("♀", "-female")
-    value = value.replace("♂", "-male")
-
-    value = re.sub(r"[^a-z0-9]+", "-", value)
-    value = re.sub(r"-+", "-", value)
-
-    return value.strip("-")
-
-
-def json_dumps(value: Any) -> str:
-    return json.dumps(
-        value,
-        ensure_ascii=False,
-        separators=(",", ":"),
-    )
-
-
-def sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-
-    with path.open("rb") as handle:
-        while True:
-            chunk = handle.read(1024 * 1024)
-
-            if not chunk:
-                break
-
-            digest.update(chunk)
-
-    return digest.hexdigest()
-
-
-def git_blob_sha1(path: Path) -> str:
+def import_default_variants(
+    connection: sqlite3.Connection,
+) -> None:
     """
-    Calculate Git's blob SHA-1 for a file.
+    Synchronize the canonical Krampus RPG variants.
 
-    This lets us identify exact duplicate sprites even when the filenames
-    are different.
+    Variants are intentionally separate from official Pokémon forms.
     """
 
-    data = path.read_bytes()
-
-    header = f"blob {len(data)}\0".encode("utf-8")
-
-    return hashlib.sha1(header + data).hexdigest()
-
-
-def table_exists(connection: sqlite3.Connection, table_name: str) -> bool:
-    row = connection.execute(
-        """
-        SELECT 1
-        FROM sqlite_master
-        WHERE type = 'table'
-          AND name = ?
-        LIMIT 1
-        """,
-        (table_name,),
-    ).fetchone()
-
-    return row is not None
-
-
-# ---------------------------------------------------------------------------
-# Catalog schema
-# ---------------------------------------------------------------------------
-
-def ensure_catalog_schema(connection: sqlite3.Connection) -> None:
-    """
-    Create the catalog tables used by Krampus RPG.
-
-    These tables intentionally separate:
-
-        species
-        forms
-        variants
-        moves
-        learnsets
-        evolutions
-        sprite inventory
-
-    from individual player-owned Pokémon.
-    """
-
-    connection.executescript(
-        """
-        CREATE TABLE IF NOT EXISTS pokemon_types (
-            id INTEGER PRIMARY KEY,
-            name TEXT NOT NULL UNIQUE
-        );
-
-        CREATE TABLE IF NOT EXISTS pokemon_species (
-            id TEXT PRIMARY KEY,
-            national_dex INTEGER NOT NULL UNIQUE,
-            name TEXT NOT NULL,
-            generation INTEGER NOT NULL DEFAULT 0,
-            is_fakemon INTEGER NOT NULL DEFAULT 0,
-            description TEXT NOT NULL DEFAULT '',
-            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-        );
-
-        CREATE TABLE IF NOT EXISTS pokemon_species_types (
-            species_id TEXT NOT NULL,
-            type_id INTEGER NOT NULL,
-            slot INTEGER NOT NULL DEFAULT 1,
-
-            PRIMARY KEY (species_id, slot),
-
-            FOREIGN KEY (species_id)
-                REFERENCES pokemon_species(id)
-                ON DELETE CASCADE,
-
-            FOREIGN KEY (type_id)
-                REFERENCES pokemon_types(id)
-                ON DELETE CASCADE
-        );
-
-        CREATE TABLE IF NOT EXISTS pokemon_abilities (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            description TEXT NOT NULL DEFAULT ''
-        );
-
-        CREATE TABLE IF NOT EXISTS pokemon_species_abilities (
-            species_id TEXT NOT NULL,
-            ability_id TEXT NOT NULL,
-            slot INTEGER NOT NULL DEFAULT 1,
-            is_hidden INTEGER NOT NULL DEFAULT 0,
-
-            PRIMARY KEY (species_id, slot),
-
-            FOREIGN KEY (species_id)
-                REFERENCES pokemon_species(id)
-                ON DELETE CASCADE,
-
-            FOREIGN KEY (ability_id)
-                REFERENCES pokemon_abilities(id)
-                ON DELETE CASCADE
-        );
-
-        CREATE TABLE IF NOT EXISTS pokemon_forms (
-            id TEXT PRIMARY KEY,
-            species_id TEXT NOT NULL,
-            form_name TEXT NOT NULL DEFAULT '',
-            display_name TEXT NOT NULL DEFAULT '',
-            form_identifier TEXT NOT NULL DEFAULT '',
-            is_default INTEGER NOT NULL DEFAULT 0,
-            is_battle_only INTEGER NOT NULL DEFAULT 0,
-            is_mega INTEGER NOT NULL DEFAULT 0,
-            is_gmax INTEGER NOT NULL DEFAULT 0,
-
-            FOREIGN KEY (species_id)
-                REFERENCES pokemon_species(id)
-                ON DELETE CASCADE
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_pokemon_forms_species
-        ON pokemon_forms(species_id);
-
-        CREATE TABLE IF NOT EXISTS pokemon_variants (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL UNIQUE,
-            sprite_suffix TEXT NOT NULL DEFAULT '',
-            description TEXT NOT NULL DEFAULT '',
-            is_custom INTEGER NOT NULL DEFAULT 1
-        );
-
-        CREATE TABLE IF NOT EXISTS moves (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            type TEXT NOT NULL DEFAULT 'normal',
-            category TEXT NOT NULL DEFAULT 'status',
-            power INTEGER,
-            accuracy INTEGER,
-            max_pp INTEGER NOT NULL DEFAULT 0,
-            description TEXT NOT NULL DEFAULT ''
-        );
-
-        CREATE TABLE IF NOT EXISTS pokemon_species_moves (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            species_id TEXT NOT NULL,
-            move_id TEXT NOT NULL,
-            learn_method TEXT NOT NULL DEFAULT 'unknown',
-            learn_level INTEGER NOT NULL DEFAULT 0,
-            version_group_id INTEGER NOT NULL DEFAULT 0,
-
-            FOREIGN KEY (species_id)
-                REFERENCES pokemon_species(id)
-                ON DELETE CASCADE,
-
-            FOREIGN KEY (move_id)
-                REFERENCES moves(id)
-                ON DELETE CASCADE,
-
-            UNIQUE (
-                species_id,
-                move_id,
-                learn_method,
-                learn_level,
-                version_group_id
-            )
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_species_moves_species
-        ON pokemon_species_moves(species_id);
-
-        CREATE INDEX IF NOT EXISTS idx_species_moves_move
-        ON pokemon_species_moves(move_id);
-
-        CREATE TABLE IF NOT EXISTS pokemon_evolutions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            from_species_id TEXT NOT NULL,
-            to_species_id TEXT NOT NULL,
-            trigger TEXT NOT NULL DEFAULT '',
-            minimum_level INTEGER,
-            item_id TEXT,
-            known_move_id TEXT,
-            known_move_type TEXT,
-            location TEXT,
-            time_of_day TEXT,
-            gender TEXT,
-            minimum_happiness INTEGER,
-            minimum_beauty INTEGER,
-            minimum_affection INTEGER,
-            relative_physical_stats INTEGER,
-            trade_species_id TEXT,
-            raw_condition TEXT NOT NULL DEFAULT '',
-
-            FOREIGN KEY (from_species_id)
-                REFERENCES pokemon_species(id)
-                ON DELETE CASCADE,
-
-            FOREIGN KEY (to_species_id)
-                REFERENCES pokemon_species(id)
-                ON DELETE CASCADE
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_pokemon_evolutions_from
-        ON pokemon_evolutions(from_species_id);
-
-        CREATE INDEX IF NOT EXISTS idx_pokemon_evolutions_to
-        ON pokemon_evolutions(to_species_id);
-
-        CREATE TABLE IF NOT EXISTS pokemon_sprite_inventory (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            species_id TEXT,
-            form_id TEXT,
-            variant_id TEXT,
-            filename TEXT NOT NULL,
-            relative_path TEXT NOT NULL UNIQUE,
-            file_sha256 TEXT NOT NULL,
-            git_blob_sha1 TEXT NOT NULL,
-            is_duplicate INTEGER NOT NULL DEFAULT 0,
-            duplicate_group TEXT,
-            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-            FOREIGN KEY (species_id)
-                REFERENCES pokemon_species(id)
-                ON DELETE SET NULL,
-
-            FOREIGN KEY (form_id)
-                REFERENCES pokemon_forms(id)
-                ON DELETE SET NULL,
-
-            FOREIGN KEY (variant_id)
-                REFERENCES pokemon_variants(id)
-                ON DELETE SET NULL
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_sprite_species
-        ON pokemon_sprite_inventory(species_id);
-
-        CREATE INDEX IF NOT EXISTS idx_sprite_form
-        ON pokemon_sprite_inventory(form_id);
-
-        CREATE INDEX IF NOT EXISTS idx_sprite_variant
-        ON pokemon_sprite_inventory(variant_id);
-
-        CREATE INDEX IF NOT EXISTS idx_sprite_sha256
-        ON pokemon_sprite_inventory(file_sha256);
-
-        CREATE INDEX IF NOT EXISTS idx_sprite_git_sha1
-        ON pokemon_sprite_inventory(git_blob_sha1);
-        """
-    )
-
-    connection.commit()
-
-
-# ---------------------------------------------------------------------------
-# Variants
-# ---------------------------------------------------------------------------
-
-def import_variants(connection: sqlite3.Connection) -> None:
     for variant in DEFAULT_VARIANTS:
+        if isinstance(variant, dict):
+            variant_id = variant["id"]
+            name = variant["name"]
+            sprite_suffix = variant.get(
+                "sprite_suffix",
+                "",
+            )
+            description = variant.get(
+                "description",
+                "",
+            )
+            is_custom = int(
+                variant.get(
+                    "is_custom",
+                    1,
+                )
+            )
+        else:
+            (
+                variant_id,
+                name,
+                sprite_suffix,
+                description,
+                is_custom,
+            ) = variant
+
         connection.execute(
             """
             INSERT INTO pokemon_variants (
@@ -473,74 +129,227 @@ def import_variants(connection: sqlite3.Connection) -> None:
                 name,
                 sprite_suffix,
                 description,
-                is_custom
+                is_custom,
+                is_active
             )
-            VALUES (?, ?, ?, ?, 1)
-            ON CONFLICT(id) DO UPDATE SET
+            VALUES (?, ?, ?, ?, ?, 1)
+
+            ON CONFLICT(id)
+            DO UPDATE SET
                 name = excluded.name,
                 sprite_suffix = excluded.sprite_suffix,
-                description = excluded.description
+                description = excluded.description,
+                is_custom = excluded.is_custom,
+                is_active = 1
             """,
             (
-                variant["id"],
-                variant["name"],
-                variant["sprite_suffix"],
-                variant["description"],
-            ),
-        )
-
-    connection.commit()
-
-
-# ---------------------------------------------------------------------------
-# Types
-# ---------------------------------------------------------------------------
-
-def import_types(
-    connection: sqlite3.Connection,
-    rows: list[dict[str, str]],
-) -> dict[int, str]:
-    type_rows: dict[int, str] = {}
-
-    for row in rows:
-        type_id = to_int(row.get("id"))
-
-        if type_id <= 0:
-            continue
-
-        name = row.get("identifier", "").strip().lower()
-
-        if not name:
-            continue
-
-        type_rows[type_id] = name
-
-        connection.execute(
-            """
-            INSERT INTO pokemon_types (
-                id,
-                name
-            )
-            VALUES (?, ?)
-            ON CONFLICT(id) DO UPDATE SET
-                name = excluded.name
-            """,
-            (
-                type_id,
+                variant_id,
                 name,
+                sprite_suffix,
+                description,
+                is_custom,
             ),
         )
 
     connection.commit()
 
-    return type_rows
+
+# =============================================================================
+# CSV HELPERS
+# =============================================================================
+
+def download_csv(
+    filename: str,
+) -> list[dict[str, str]]:
+    """
+    Download one PokéAPI CSV dataset.
+    """
+
+    url = (
+        f"{POKEAPI_CSV_BASE}/{filename}"
+    )
+
+    print(
+        f"Downloading {filename}..."
+    )
+
+    request = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": USER_AGENT,
+        },
+    )
+
+    try:
+        with urllib.request.urlopen(
+            request,
+            timeout=REQUEST_TIMEOUT,
+        ) as response:
+            raw = response.read()
+    except urllib.error.URLError as exc:
+        raise RuntimeError(
+            f"Unable to download {filename}: {exc}"
+        ) from exc
+
+    text = raw.decode(
+        "utf-8-sig"
+    )
+
+    return list(
+        csv.DictReader(
+            text.splitlines()
+        )
+    )
 
 
-# ---------------------------------------------------------------------------
-# Species
-# ---------------------------------------------------------------------------
+def download_all_csvs(
+    requested: set[str] | None = None,
+) -> dict[str, list[dict[str, str]]]:
+    """
+    Download all required datasets.
 
-def generation_from_dex_number(national_dex: int) -> int:
+    A failed optional dataset does not necessarily abort the complete import.
+    Core datasets are validated separately.
+    """
+
+    datasets: dict[
+        str,
+        list[dict[str, str]],
+    ] = {}
+
+    for key, filename in CSV_FILES.items():
+
+        if requested and key not in requested:
+            continue
+
+        try:
+            datasets[key] = download_csv(
+                filename
+            )
+        except Exception as exc:
+            print(
+                f"WARNING: {exc}"
+            )
+            datasets[key] = []
+
+    return datasets
+
+
+# =============================================================================
+# VALUE HELPERS
+# =============================================================================
+
+def to_int(
+    value: Any,
+    default: int = 0,
+) -> int:
+    try:
+        if value is None:
+            return default
+
+        if str(value).strip() == "":
+            return default
+
+        return int(value)
+
+    except (
+        TypeError,
+        ValueError,
+    ):
+        return default
+
+
+def to_optional_int(
+    value: Any,
+) -> int | None:
+    try:
+        if value is None:
+            return None
+
+        if str(value).strip() == "":
+            return None
+
+        return int(value)
+
+    except (
+        TypeError,
+        ValueError,
+    ):
+        return None
+
+
+def clean_identifier(
+    value: str | None,
+) -> str:
+    if not value:
+        return ""
+
+    return value.strip().lower()
+
+
+def slugify(
+    value: str,
+) -> str:
+    """
+    Produce stable database identifiers.
+
+    PokéAPI identifiers are already mostly slug-compatible, but this also
+    handles unusual future/fakemon names safely.
+    """
+
+    value = (
+        value
+        .strip()
+        .lower()
+    )
+
+    value = (
+        value
+        .replace("♀", "-female")
+        .replace("♂", "-male")
+    )
+
+    value = re.sub(
+        r"[^a-z0-9]+",
+        "-",
+        value,
+    )
+
+    value = re.sub(
+        r"-+",
+        "-",
+        value,
+    )
+
+    return value.strip("-")
+
+
+def readable_name(
+    value: str | None,
+) -> str:
+    if not value:
+        return ""
+
+    value = (
+        value
+        .replace("-", " ")
+        .replace("_", " ")
+    )
+
+    return " ".join(
+        word.capitalize()
+        for word in value.split()
+    )
+
+
+# =============================================================================
+# GENERATION
+# =============================================================================
+
+def generation_from_dex(
+    national_dex: int,
+) -> int:
+
     if national_dex <= 151:
         return 1
 
@@ -568,32 +377,250 @@ def generation_from_dex_number(national_dex: int) -> int:
     return 9
 
 
-def import_species(
-    connection: sqlite3.Connection,
-    rows: list[dict[str, str]],
+# =============================================================================
+# SPECIES LOOKUPS
+# =============================================================================
+
+def build_species_lookup(
+    species_rows: list[dict[str, str]],
 ) -> dict[int, str]:
-    species_by_pokemon_id: dict[int, str] = {}
+    """
+    Map PokéAPI species IDs to stable Krampus species identifiers.
+    """
 
-    for row in rows:
-        pokemon_id = to_int(row.get("id"))
-        species_id = to_int(row.get("species_id"))
+    result: dict[int, str] = {}
 
-        if pokemon_id <= 0 or species_id <= 0:
+    for row in species_rows:
+        species_id = to_int(
+            row.get("id")
+        )
+
+        identifier = clean_identifier(
+            row.get("identifier")
+        )
+
+        if species_id <= 0:
             continue
-
-        if pokemon_id > NATIONAL_DEX_LIMIT:
-            continue
-
-        identifier = row.get("identifier", "").strip()
 
         if not identifier:
             continue
 
-        species_key = slugify(identifier)
+        result[species_id] = slugify(
+            identifier
+        )
 
-        species_by_pokemon_id[pokemon_id] = species_key
+    return result
 
-        name = clean_name(identifier)
+
+def build_species_dex_lookup(
+    species_rows: list[dict[str, str]],
+) -> dict[int, int]:
+    """
+    Map PokéAPI species ID to National Dex number.
+    """
+
+    result: dict[int, int] = {}
+
+    for row in species_rows:
+
+        species_id = to_int(
+            row.get("id")
+        )
+
+        national_dex = to_int(
+            row.get("id")
+        )
+
+        if (
+            species_id > 0
+            and 1 <= national_dex <= NATIONAL_DEX_LIMIT
+        ):
+            result[species_id] = national_dex
+
+    return result
+
+
+def build_pokemon_species_mapping(
+    pokemon_rows: list[dict[str, str]],
+    species_rows: list[dict[str, str]],
+) -> dict[int, str]:
+    """
+    CRITICAL FORM MAPPING.
+
+    PokéAPI has:
+
+        pokemon.id
+        pokemon.species_id
+
+    Alternate forms have their own pokemon IDs.
+
+    Therefore we must map:
+
+        EVERY pokemon ID
+            ->
+        its species ID
+            ->
+        our stable species identifier
+
+    We must NOT assume Pokémon ID == species ID.
+    """
+
+    species_by_numeric_id = (
+        build_species_lookup(
+            species_rows
+        )
+    )
+
+    result: dict[int, str] = {}
+
+    for row in pokemon_rows:
+
+        pokemon_id = to_int(
+            row.get("id")
+        )
+
+        species_numeric_id = to_int(
+            row.get("species_id")
+        )
+
+        if pokemon_id <= 0:
+            continue
+
+        species_identifier = (
+            species_by_numeric_id.get(
+                species_numeric_id
+            )
+        )
+
+        if not species_identifier:
+            continue
+
+        result[pokemon_id] = (
+            species_identifier
+        )
+
+    return result
+
+
+# =============================================================================
+# TYPES
+# =============================================================================
+
+def import_types(
+    connection: sqlite3.Connection,
+    rows: list[dict[str, str]],
+) -> dict[int, str]:
+
+    type_lookup: dict[
+        int,
+        str,
+    ] = {}
+
+    for row in rows:
+
+        numeric_id = to_int(
+            row.get("id")
+        )
+
+        identifier = clean_identifier(
+            row.get("identifier")
+        )
+
+        if numeric_id <= 0:
+            continue
+
+        if not identifier:
+            continue
+
+        type_lookup[
+            numeric_id
+        ] = identifier
+
+        connection.execute(
+            """
+            INSERT INTO pokemon_types (
+                id,
+                name
+            )
+            VALUES (?, ?)
+
+            ON CONFLICT(id)
+            DO UPDATE SET
+                name = excluded.name
+            """,
+            (
+                numeric_id,
+                identifier,
+            ),
+        )
+
+    connection.commit()
+
+    return type_lookup
+
+
+# =============================================================================
+# SPECIES
+# =============================================================================
+
+def import_species(
+    connection: sqlite3.Connection,
+    species_rows: list[dict[str, str]],
+) -> dict[int, str]:
+    """
+    Import exactly the official species represented by
+    pokemon_species.csv.
+
+    National Dex comes from the species identifier itself.
+    """
+
+    species_by_numeric_id: dict[
+        int,
+        str,
+    ] = {}
+
+    imported = 0
+
+    for row in species_rows:
+
+        species_numeric_id = to_int(
+            row.get("id")
+        )
+
+        identifier = clean_identifier(
+            row.get("identifier")
+        )
+
+        if species_numeric_id <= 0:
+            continue
+
+        if not identifier:
+            continue
+
+        if (
+            species_numeric_id
+            > NATIONAL_DEX_LIMIT
+        ):
+            continue
+
+        species_id = slugify(
+            identifier
+        )
+
+        name = readable_name(
+            identifier
+        )
+
+        generation = (
+            generation_from_dex(
+                species_numeric_id
+            )
+        )
+
+        gender_rate = to_int(
+            row.get("gender_rate"),
+            -1,
+        )
 
         connection.execute(
             """
@@ -602,101 +629,460 @@ def import_species(
                 national_dex,
                 name,
                 generation,
-                is_fakemon
+                gender_rate,
+                is_fakemon,
+                is_active
             )
-            VALUES (?, ?, ?, ?, 0)
-            ON CONFLICT(id) DO UPDATE SET
-                national_dex = excluded.national_dex,
-                name = excluded.name,
-                generation = excluded.generation,
-                is_fakemon = excluded.is_fakemon
+            VALUES (?, ?, ?, ?, ?, 0, 1)
+
+            ON CONFLICT(id)
+            DO UPDATE SET
+                national_dex =
+                    excluded.national_dex,
+                name =
+                    excluded.name,
+                generation =
+                    excluded.generation,
+                gender_rate =
+                    excluded.gender_rate,
+                is_fakemon = 0,
+                is_active = 1
             """,
             (
-                species_key,
-                pokemon_id,
+                species_id,
+                species_numeric_id,
                 name,
-                generation_from_dex_number(pokemon_id),
+                generation,
+                gender_rate,
             ),
         )
 
+        species_by_numeric_id[
+            species_numeric_id
+        ] = species_id
+
+        imported += 1
+
     connection.commit()
 
-    return species_by_pokemon_id
+    print(
+        f"Imported {imported} species."
+    )
+
+    return species_by_numeric_id
 
 
-# ---------------------------------------------------------------------------
-# Species types
-# ---------------------------------------------------------------------------
+# =============================================================================
+# SPECIES DESCRIPTIONS
+# =============================================================================
 
-def import_species_types(
+def import_species_descriptions(
     connection: sqlite3.Connection,
-    pokemon_rows: list[dict[str, str]],
-    pokemon_type_rows: list[dict[str, str]],
-    type_rows: dict[int, str],
-    species_by_pokemon_id: dict[int, str],
-) -> None:
+    flavor_rows: list[dict[str, str]],
+    species_lookup: dict[int, str],
+) -> int:
     """
-    Import Pokémon typing.
+    Import species descriptions.
 
-    This version intentionally uses the already-imported type map instead of
-    depending on temporary SQL tables.
+    PokéAPI has descriptions in multiple languages and versions.
+
+    We prefer English and keep one clean description per species.
     """
 
-    type_id_by_name = {
-        name.lower(): type_id
-        for type_id, name in type_rows.items()
-    }
+    descriptions: dict[
+        int,
+        str,
+    ] = {}
 
-    pokemon_to_species: dict[int, str] = {}
+    for row in flavor_rows:
 
-    for pokemon_row in pokemon_rows:
-        pokemon_id = to_int(pokemon_row.get("id"))
+        species_id = to_int(
+            row.get("species_id")
+        )
 
-        if pokemon_id <= 0 or pokemon_id > NATIONAL_DEX_LIMIT:
+        language_id = to_int(
+            row.get("language_id")
+        )
+
+        flavor_text = (
+            row.get(
+                "flavor_text",
+                "",
+            )
+            .strip()
+        )
+
+        if species_id <= 0:
             continue
 
-        species_key = species_by_pokemon_id.get(pokemon_id)
-
-        if species_key:
-            pokemon_to_species[pokemon_id] = species_key
-
-    grouped: dict[str, list[tuple[int, int]]] = {}
-
-    for row in pokemon_type_rows:
-        pokemon_id = to_int(row.get("pokemon_id"))
-        type_id = to_int(row.get("type_id"))
-        slot = to_int(row.get("slot"), 1)
-
-        if pokemon_id <= 0 or type_id <= 0:
+        if not flavor_text:
             continue
 
-        species_key = pokemon_to_species.get(pokemon_id)
+        # PokéAPI language ID 9 is English.
+        if language_id != 9:
+            continue
+
+        # Keep the first usable description.
+        descriptions.setdefault(
+            species_id,
+            flavor_text,
+        )
+
+    updated = 0
+
+    for numeric_species_id, description in descriptions.items():
+
+        species_key = species_lookup.get(
+            numeric_species_id
+        )
 
         if not species_key:
             continue
 
-        if type_id not in type_rows:
+        description = (
+            description
+            .replace("\n", " ")
+            .replace("\r", " ")
+            .replace("\f", " ")
+        )
+
+        description = re.sub(
+            r"\s+",
+            " ",
+            description,
+        ).strip()
+
+        connection.execute(
+            """
+            UPDATE pokemon_species
+
+            SET description = ?
+
+            WHERE id = ?
+            """,
+            (
+                description,
+                species_key,
+            ),
+        )
+
+        updated += 1
+
+    connection.commit()
+
+    print(
+        f"Imported descriptions for {updated} species."
+    )
+
+    return updated
+
+
+# =============================================================================
+# BASE STATS
+# =============================================================================
+
+def import_base_stats(
+    connection: sqlite3.Connection,
+    pokemon_rows: list[dict[str, str]],
+    stat_rows: list[dict[str, str]],
+    species_lookup: dict[int, str],
+) -> int:
+    """
+    Import base stats for the default Pokémon representation of each species.
+
+    pokemon_stats.csv identifies:
+
+        pokemon_id
+        stat_id
+        base_stat
+
+    We use the default Pokémon record associated with the species.
+    """
+
+    pokemon_to_species: dict[
+        int,
+        int,
+    ] = {}
+
+    for row in pokemon_rows:
+
+        pokemon_id = to_int(
+            row.get("id")
+        )
+
+        species_id = to_int(
+            row.get("species_id")
+        )
+
+        if (
+            pokemon_id > 0
+            and species_id > 0
+        ):
+            pokemon_to_species[
+                pokemon_id
+            ] = species_id
+
+    stats_by_pokemon: dict[
+        int,
+        dict[int, int],
+    ] = {}
+
+    for row in stat_rows:
+
+        pokemon_id = to_int(
+            row.get("pokemon_id")
+        )
+
+        stat_id = to_int(
+            row.get("stat_id")
+        )
+
+        base_stat = to_int(
+            row.get("base_stat")
+        )
+
+        if (
+            pokemon_id <= 0
+            or stat_id <= 0
+        ):
             continue
 
-        grouped.setdefault(species_key, []).append(
+        stats_by_pokemon.setdefault(
+            pokemon_id,
+            {},
+        )[stat_id] = base_stat
+
+    # -------------------------------------------------------------------------
+    # Find the default Pokémon record for each species.
+    # -------------------------------------------------------------------------
+
+    default_pokemon_for_species: dict[
+        int,
+        int,
+    ] = {}
+
+    for row in pokemon_rows:
+
+        pokemon_id = to_int(
+            row.get("id")
+        )
+
+        species_id = to_int(
+            row.get("species_id")
+        )
+
+        is_default = to_int(
+            row.get("is_default")
+        )
+
+        if (
+            pokemon_id <= 0
+            or species_id <= 0
+        ):
+            continue
+
+        if is_default == 1:
+            default_pokemon_for_species[
+                species_id
+            ] = pokemon_id
+
+    updated = 0
+
+    for species_numeric_id, species_key in species_lookup.items():
+
+        pokemon_id = (
+            default_pokemon_for_species.get(
+                species_numeric_id
+            )
+        )
+
+        if pokemon_id is None:
+            continue
+
+        stats = stats_by_pokemon.get(
+            pokemon_id
+        )
+
+        if not stats:
+            continue
+
+        connection.execute(
+            """
+            UPDATE pokemon_species
+
+            SET
+                base_hp = ?,
+                base_attack = ?,
+                base_defense = ?,
+                base_sp_attack = ?,
+                base_sp_defense = ?,
+                base_speed = ?
+
+            WHERE id = ?
+            """,
+            (
+                stats.get(1, 1),
+                stats.get(2, 1),
+                stats.get(3, 1),
+                stats.get(4, 1),
+                stats.get(5, 1),
+                stats.get(6, 1),
+                species_key,
+            ),
+        )
+
+        updated += 1
+
+    connection.commit()
+
+    print(
+        f"Imported base stats for {updated} species."
+    )
+
+    return updated
+
+
+# =============================================================================
+# SPECIES TYPES
+# =============================================================================
+
+def import_species_types(
+    connection: sqlite3.Connection,
+    pokemon_type_rows: list[dict[str, str]],
+    pokemon_rows: list[dict[str, str]],
+    type_lookup: dict[int, str],
+    pokemon_to_species: dict[int, str],
+) -> int:
+    """
+    Import types using every Pokémon's species relationship.
+
+    Default forms are preferred, but alternate forms are allowed to provide
+    additional mappings where appropriate.
+    """
+
+    inserted: set[
+        tuple[str, int]
+    ] = set()
+
+    rows_by_species: dict[
+        str,
+        list[tuple[int, int]],
+    ] = {}
+
+    for row in pokemon_type_rows:
+
+        pokemon_id = to_int(
+            row.get("pokemon_id")
+        )
+
+        type_id = to_int(
+            row.get("type_id")
+        )
+
+        slot = to_int(
+            row.get("slot"),
+            1,
+        )
+
+        species_key = pokemon_to_species.get(
+            pokemon_id
+        )
+
+        if not species_key:
+            continue
+
+        if type_id not in type_lookup:
+            continue
+
+        rows_by_species.setdefault(
+            species_key,
+            [],
+        ).append(
             (
                 slot,
                 type_id,
             )
         )
 
-    for species_key, values in grouped.items():
-        values.sort(key=lambda item: item[0])
+    # -------------------------------------------------------------------------
+    # Prefer types from the default form.
+    # -------------------------------------------------------------------------
 
-        connection.execute(
-            """
-            DELETE FROM pokemon_species_types
-            WHERE species_id = ?
-            """,
-            (species_key,),
+    default_pokemon_ids: set[int] = set()
+
+    for row in pokemon_rows:
+
+        pokemon_id = to_int(
+            row.get("id")
         )
 
-        for slot, type_id in values:
+        if (
+            pokemon_id > 0
+            and to_int(
+                row.get("is_default")
+            ) == 1
+        ):
+            default_pokemon_ids.add(
+                pokemon_id
+            )
+
+    default_type_rows: dict[
+        str,
+        list[tuple[int, int]],
+    ] = {}
+
+    for row in pokemon_type_rows:
+
+        pokemon_id = to_int(
+            row.get("pokemon_id")
+        )
+
+        if pokemon_id not in default_pokemon_ids:
+            continue
+
+        species_key = pokemon_to_species.get(
+            pokemon_id
+        )
+
+        type_id = to_int(
+            row.get("type_id")
+        )
+
+        slot = to_int(
+            row.get("slot"),
+            1,
+        )
+
+        if (
+            species_key
+            and type_id in type_lookup
+        ):
+            default_type_rows.setdefault(
+                species_key,
+                [],
+            ).append(
+                (
+                    slot,
+                    type_id,
+                )
+            )
+
+    # -------------------------------------------------------------------------
+    # Insert default-form types first.
+    # -------------------------------------------------------------------------
+
+    for species_key, type_rows in default_type_rows.items():
+
+        for slot, type_id in sorted(
+            type_rows
+        ):
+
+            if (
+                species_key,
+                slot,
+            ) in inserted:
+                continue
+
             connection.execute(
                 """
                 INSERT INTO pokemon_species_types (
@@ -705,6 +1091,14 @@ def import_species_types(
                     slot
                 )
                 VALUES (?, ?, ?)
+
+                ON CONFLICT(
+                    species_id,
+                    slot
+                )
+                DO UPDATE SET
+                    type_id =
+                        excluded.type_id
                 """,
                 (
                     species_key,
@@ -713,29 +1107,97 @@ def import_species_types(
                 ),
             )
 
+            inserted.add(
+                (
+                    species_key,
+                    slot,
+                )
+            )
+
+    # -------------------------------------------------------------------------
+    # Fill missing species types from available records.
+    # -------------------------------------------------------------------------
+
+    for species_key, type_rows in rows_by_species.items():
+
+        for slot, type_id in sorted(
+            type_rows
+        ):
+
+            if (
+                species_key,
+                slot,
+            ) in inserted:
+                continue
+
+            connection.execute(
+                """
+                INSERT INTO pokemon_species_types (
+                    species_id,
+                    type_id,
+                    slot
+                )
+                VALUES (?, ?, ?)
+
+                ON CONFLICT(
+                    species_id,
+                    slot
+                )
+                DO UPDATE SET
+                    type_id =
+                        excluded.type_id
+                """,
+                (
+                    species_key,
+                    type_id,
+                    slot,
+                ),
+            )
+
+            inserted.add(
+                (
+                    species_key,
+                    slot,
+                )
+            )
+
     connection.commit()
 
+    print(
+        f"Imported {len(inserted)} species type slots."
+    )
 
-# ---------------------------------------------------------------------------
-# Abilities
-# ---------------------------------------------------------------------------
+    return len(inserted)
+
+
+# =============================================================================
+# ABILITIES
+# =============================================================================
 
 def import_abilities(
     connection: sqlite3.Connection,
-    rows: list[dict[str, str]],
+    ability_rows: list[dict[str, str]],
 ) -> None:
-    for row in rows:
-        ability_id = to_int(row.get("id"))
 
-        if ability_id <= 0:
+    for row in ability_rows:
+
+        ability_numeric_id = to_int(
+            row.get("id")
+        )
+
+        identifier = clean_identifier(
+            row.get("identifier")
+        )
+
+        if (
+            ability_numeric_id <= 0
+            or not identifier
+        ):
             continue
 
-        identifier = row.get("identifier", "").strip()
-
-        if not identifier:
-            continue
-
-        ability_key = slugify(identifier)
+        ability_id = slugify(
+            identifier
+        )
 
         connection.execute(
             """
@@ -744,12 +1206,16 @@ def import_abilities(
                 name
             )
             VALUES (?, ?)
-            ON CONFLICT(id) DO UPDATE SET
+
+            ON CONFLICT(id)
+            DO UPDATE SET
                 name = excluded.name
             """,
             (
-                ability_key,
-                clean_name(identifier),
+                ability_id,
+                readable_name(
+                    identifier
+                ),
             ),
         )
 
@@ -759,108 +1225,88 @@ def import_abilities(
 def import_species_abilities(
     connection: sqlite3.Connection,
     pokemon_ability_rows: list[dict[str, str]],
-    species_by_pokemon_id: dict[int, str],
-) -> None:
-    grouped: dict[str, list[tuple[int, str, int]]] = {}
-
-    for row in pokemon_ability_rows:
-        pokemon_id = to_int(row.get("pokemon_id"))
-        ability_id = to_int(row.get("ability_id"))
-        slot = to_int(row.get("slot"), 1)
-        is_hidden = to_int(row.get("is_hidden"), 0)
-
-        if pokemon_id <= 0 or ability_id <= 0:
-            continue
-
-        if pokemon_id > NATIONAL_DEX_LIMIT:
-            continue
-
-        species_key = species_by_pokemon_id.get(pokemon_id)
-
-        if not species_key:
-            continue
-
-        ability_identifier = row.get("ability_id")
-
-        if not ability_identifier:
-            continue
-
-        # PokeAPI's ability ID must be resolved to its identifier.
-        # We do that later using the abilities table.
-        grouped.setdefault(species_key, []).append(
-            (
-                slot,
-                str(ability_id),
-                is_hidden,
-            )
-        )
-
-    ability_rows = connection.execute(
-        """
-        SELECT id, rowid
-        FROM pokemon_abilities
-        """
-    ).fetchall()
-
-    ability_by_numeric_id: dict[int, str] = {}
-
-    # The imported ability IDs are stored as slugs. Resolve them by the
-    # numeric PokéAPI identifier using the downloaded data below instead.
-    # The actual mapping is handled by import_species_abilities_resolved.
-    del ability_rows
-
-    # Rebuild directly from numeric IDs stored in the source table by
-    # matching against the original imported ability dataset is cleaner.
-    # This function is retained for compatibility but does not write until
-    # the resolved importer below is called.
-    del ability_by_numeric_id
-    del grouped
-
-    connection.commit()
-
-
-def import_species_abilities_resolved(
-    connection: sqlite3.Connection,
-    pokemon_ability_rows: list[dict[str, str]],
+    pokemon_to_species: dict[int, str],
     ability_rows: list[dict[str, str]],
-    species_by_pokemon_id: dict[int, str],
-) -> None:
-    ability_by_numeric_id: dict[int, str] = {}
+) -> int:
+
+    ability_by_numeric_id: dict[
+        int,
+        str,
+    ] = {}
 
     for row in ability_rows:
-        numeric_id = to_int(row.get("id"))
 
-        if numeric_id <= 0:
-            continue
+        numeric_id = to_int(
+            row.get("id")
+        )
 
-        identifier = row.get("identifier", "").strip()
+        identifier = clean_identifier(
+            row.get("identifier")
+        )
 
-        if not identifier:
-            continue
+        if (
+            numeric_id > 0
+            and identifier
+        ):
+            ability_by_numeric_id[
+                numeric_id
+            ] = slugify(
+                identifier
+            )
 
-        ability_by_numeric_id[numeric_id] = slugify(identifier)
+    # Remove stale catalog mappings before rebuilding them.
+    connection.execute(
+        """
+        DELETE FROM pokemon_species_abilities
+        """
+    )
 
-    grouped: dict[str, list[tuple[int, str, int]]] = {}
+    # -------------------------------------------------------------------------
+    # Group abilities by species.
+    # -------------------------------------------------------------------------
+
+    grouped: dict[
+        str,
+        list[tuple[int, str, int]],
+    ] = {}
 
     for row in pokemon_ability_rows:
-        pokemon_id = to_int(row.get("pokemon_id"))
-        ability_numeric_id = to_int(row.get("ability_id"))
-        slot = to_int(row.get("slot"), 1)
-        is_hidden = to_int(row.get("is_hidden"), 0)
 
-        if pokemon_id <= 0 or ability_numeric_id <= 0:
+        pokemon_id = to_int(
+            row.get("pokemon_id")
+        )
+
+        ability_numeric_id = to_int(
+            row.get("ability_id")
+        )
+
+        slot = to_int(
+            row.get("slot"),
+            1,
+        )
+
+        is_hidden = to_int(
+            row.get("is_hidden")
+        )
+
+        species_key = pokemon_to_species.get(
+            pokemon_id
+        )
+
+        ability_key = ability_by_numeric_id.get(
+            ability_numeric_id
+        )
+
+        if (
+            not species_key
+            or not ability_key
+        ):
             continue
 
-        if pokemon_id > NATIONAL_DEX_LIMIT:
-            continue
-
-        species_key = species_by_pokemon_id.get(pokemon_id)
-        ability_key = ability_by_numeric_id.get(ability_numeric_id)
-
-        if not species_key or not ability_key:
-            continue
-
-        grouped.setdefault(species_key, []).append(
+        grouped.setdefault(
+            species_key,
+            [],
+        ).append(
             (
                 slot,
                 ability_key,
@@ -868,18 +1314,27 @@ def import_species_abilities_resolved(
             )
         )
 
-    for species_key, values in grouped.items():
-        connection.execute(
-            """
-            DELETE FROM pokemon_species_abilities
-            WHERE species_id = ?
-            """,
-            (species_key,),
-        )
+    inserted = 0
 
-        values.sort(key=lambda item: item[0])
+    for species_key, abilities in grouped.items():
 
-        for slot, ability_key, is_hidden in values:
+        seen_slots: set[int] = set()
+
+        for (
+            slot,
+            ability_key,
+            is_hidden,
+        ) in sorted(
+            abilities,
+            key=lambda item: (
+                item[0],
+                item[1],
+            ),
+        ):
+
+            if slot in seen_slots:
+                continue
+
             connection.execute(
                 """
                 INSERT INTO pokemon_species_abilities (
@@ -889,6 +1344,16 @@ def import_species_abilities_resolved(
                     is_hidden
                 )
                 VALUES (?, ?, ?, ?)
+
+                ON CONFLICT(
+                    species_id,
+                    slot
+                )
+                DO UPDATE SET
+                    ability_id =
+                        excluded.ability_id,
+                    is_hidden =
+                        excluded.is_hidden
                 """,
                 (
                     species_key,
@@ -898,70 +1363,190 @@ def import_species_abilities_resolved(
                 ),
             )
 
+            seen_slots.add(
+                slot
+            )
+
+            inserted += 1
+
     connection.commit()
 
+    print(
+        f"Imported {inserted} species ability slots."
+    )
 
-# ---------------------------------------------------------------------------
-# Forms
-# ---------------------------------------------------------------------------
+    return inserted
+
+
+# =============================================================================
+# FORMS
+# =============================================================================
 
 def import_forms(
     connection: sqlite3.Connection,
-    rows: list[dict[str, str]],
-    species_by_pokemon_id: dict[int, str],
-) -> dict[int, str]:
-    form_by_pokemon_id: dict[int, str] = {}
+    pokemon_form_rows: list[dict[str, str]],
+    pokemon_rows: list[dict[str, str]],
+    pokemon_to_species: dict[int, str],
+) -> int:
+    """
+    Import official Pokémon forms.
 
-    for row in rows:
-        pokemon_id = to_int(row.get("id"))
+    This is the corrected form architecture.
 
-        if pokemon_id <= 0:
-            continue
+    We do NOT use:
 
-        if pokemon_id > 2000:
-            # Avoid pulling unrelated future/internal form records into the
-            # current catalog unless they belong to the supported roster.
-            continue
+        pokemon_id <= 1025
 
-        species_key = species_by_pokemon_id.get(
-            to_int(row.get("id"))
+    to determine species.
+
+    Instead:
+
+        pokemon_id
+            ->
+        species_id
+            ->
+        species key
+
+    This correctly handles alternate Pokémon records such as:
+
+        Mega
+        G-Max
+        regional
+        female
+        cosmetic
+        battle-only
+        other official forms
+    """
+
+    # -------------------------------------------------------------------------
+    # Form metadata from pokemon_forms.csv
+    # -------------------------------------------------------------------------
+
+    form_metadata: dict[
+        int,
+        dict[str, Any],
+    ] = {}
+
+    for row in pokemon_form_rows:
+
+        form_numeric_id = to_int(
+            row.get("id")
         )
 
-        if not species_key:
-            continue
-
-        form_identifier = (
-            row.get("form_identifier", "").strip()
-            or row.get("identifier", "").strip()
+        pokemon_id = to_int(
+            row.get("pokemon_id")
         )
 
-        form_name = row.get("form_name", "").strip()
+        if (
+            form_numeric_id <= 0
+            or pokemon_id <= 0
+        ):
+            continue
 
+        form_metadata[
+            pokemon_id
+        ] = {
+            "form_id": form_numeric_id,
+            "form_identifier": clean_identifier(
+                row.get("form_identifier")
+            ),
+            "form_name": clean_identifier(
+                row.get("form_name")
+            ),
+            "is_default": to_int(
+                row.get("is_default")
+            ),
+            "is_battle_only": to_int(
+                row.get("is_battle_only")
+            ),
+            "is_mega": to_int(
+                row.get("is_mega")
+            ),
+            "is_gmax": to_int(
+                row.get("is_gmax")
+            ),
+            "order": to_int(
+                row.get("order")
+            ),
+        }
+
+    # -------------------------------------------------------------------------
+    # Pokemon records contain the stable Pokémon identifier.
+    # -------------------------------------------------------------------------
+
+    imported = 0
+
+    for row in pokemon_rows:
+
+        pokemon_id = to_int(
+            row.get("id")
+        )
+
+        identifier = clean_identifier(
+            row.get("identifier")
+        )
+
+        species_key = pokemon_to_species.get(
+            pokemon_id
+        )
+
+        if (
+            pokemon_id <= 0
+            or not identifier
+            or not species_key
+        ):
+            continue
+
+        metadata = form_metadata.get(
+            pokemon_id,
+            {},
+        )
+
+        is_default = int(
+            metadata.get(
+                "is_default",
+                to_int(
+                    row.get(
+                        "is_default"
+                    )
+                ),
+            )
+        )
+
+        form_identifier = clean_identifier(
+            metadata.get(
+                "form_identifier",
+                "",
+            )
+        )
+
+        form_name = clean_identifier(
+            metadata.get(
+                "form_name",
+                "",
+            )
+        )
+
+        # Default Pokémon form.
         if not form_identifier:
-            form_identifier = f"{species_key}-default"
+            form_identifier = (
+                "default"
+                if is_default
+                else slugify(
+                    identifier
+                )
+            )
 
-        form_key = slugify(form_identifier)
-
-        if not form_key:
-            form_key = f"{species_key}-default"
-
-        display_name = clean_name(form_name or form_identifier)
-
-        is_default = to_int(
-            row.get("is_default"),
-            0,
+        # Stable form ID.
+        #
+        # Use the Pokémon identifier rather than the numeric form ID so
+        # database IDs remain readable.
+        form_id = slugify(
+            identifier
         )
 
-        is_battle_only = to_int(
-            row.get("is_battle_only"),
-            0,
-        )
-
-        is_mega = "mega" in form_identifier.lower()
-
-        is_gmax = (
-            "gmax" in form_identifier.lower()
-            or "gigantamax" in form_identifier.lower()
+        display_name = readable_name(
+            identifier
         )
 
         connection.execute(
@@ -969,107 +1554,166 @@ def import_forms(
             INSERT INTO pokemon_forms (
                 id,
                 species_id,
+                name,
                 form_name,
                 display_name,
                 form_identifier,
                 is_default,
                 is_battle_only,
                 is_mega,
-                is_gmax
+                is_gmax,
+                sort_order
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(id) DO UPDATE SET
-                species_id = excluded.species_id,
-                form_name = excluded.form_name,
-                display_name = excluded.display_name,
-                form_identifier = excluded.form_identifier,
-                is_default = excluded.is_default,
-                is_battle_only = excluded.is_battle_only,
-                is_mega = excluded.is_mega,
-                is_gmax = excluded.is_gmax
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+
+            ON CONFLICT(id)
+            DO UPDATE SET
+                species_id =
+                    excluded.species_id,
+                name =
+                    excluded.name,
+                form_name =
+                    excluded.form_name,
+                display_name =
+                    excluded.display_name,
+                form_identifier =
+                    excluded.form_identifier,
+                is_default =
+                    excluded.is_default,
+                is_battle_only =
+                    excluded.is_battle_only,
+                is_mega =
+                    excluded.is_mega,
+                is_gmax =
+                    excluded.is_gmax,
+                sort_order =
+                    excluded.sort_order
             """,
             (
-                form_key,
+                form_id,
                 species_key,
+                identifier,
                 form_name,
                 display_name,
                 form_identifier,
                 is_default,
-                is_battle_only,
-                1 if is_mega else 0,
-                1 if is_gmax else 0,
+                int(
+                    metadata.get(
+                        "is_battle_only",
+                        0,
+                    )
+                ),
+                int(
+                    metadata.get(
+                        "is_mega",
+                        0,
+                    )
+                ),
+                int(
+                    metadata.get(
+                        "is_gmax",
+                        0,
+                    )
+                ),
+                int(
+                    metadata.get(
+                        "order",
+                        pokemon_id,
+                    )
+                ),
             ),
         )
 
-        form_by_pokemon_id[pokemon_id] = form_key
+        imported += 1
 
     connection.commit()
 
-    return form_by_pokemon_id
+    print(
+        f"Imported {imported} official forms."
+    )
+
+    return imported
 
 
-# ---------------------------------------------------------------------------
-# Moves
-# ---------------------------------------------------------------------------
-
-DAMAGE_CLASS_NAMES = {
-    "1": "status",
-    "2": "physical",
-    "3": "special",
-}
-
+# =============================================================================
+# MOVES
+# =============================================================================
 
 def import_moves(
     connection: sqlite3.Connection,
-    rows: list[dict[str, str]],
-    type_rows: dict[int, str],
+    move_rows: list[dict[str, str]],
+    type_lookup: dict[int, str],
 ) -> dict[int, str]:
-    move_by_numeric_id: dict[int, str] = {}
 
-    for row in rows:
-        numeric_id = to_int(row.get("id"))
+    move_lookup: dict[
+        int,
+        str,
+    ] = {}
 
-        if numeric_id <= 0:
+    imported = 0
+
+    for row in move_rows:
+
+        numeric_id = to_int(
+            row.get("id")
+        )
+
+        identifier = clean_identifier(
+            row.get("identifier")
+        )
+
+        if (
+            numeric_id <= 0
+            or not identifier
+        ):
             continue
 
-        identifier = row.get("identifier", "").strip()
-
-        if not identifier:
-            continue
-
-        move_key = slugify(identifier)
-
-        move_by_numeric_id[numeric_id] = move_key
-
-        type_id = to_int(row.get("type_id"))
-        move_type = type_rows.get(
-            type_id,
-            "normal",
+        move_id = slugify(
+            identifier
         )
 
-        category = DAMAGE_CLASS_NAMES.get(
-            row.get("damage_class_id", ""),
-            "status",
+        type_numeric_id = to_int(
+            row.get("type_id")
         )
 
-        power_value = row.get("power")
-        accuracy_value = row.get("accuracy")
-
-        power = (
-            to_int(power_value)
-            if power_value not in ("", None)
-            else None
+        type_identifier = (
+            type_lookup.get(
+                type_numeric_id,
+                "normal",
+            )
         )
 
-        accuracy = (
-            to_int(accuracy_value)
-            if accuracy_value not in ("", None)
-            else None
+        category = clean_identifier(
+            row.get("damage_class_id")
+        )
+
+        # PokéAPI damage class IDs:
+        #
+        # 1 = status
+        # 2 = physical
+        # 3 = special
+        #
+        damage_class_id = to_int(
+            row.get("damage_class_id")
+        )
+
+        if damage_class_id == 2:
+            category = "physical"
+        elif damage_class_id == 3:
+            category = "special"
+        else:
+            category = "status"
+
+        power = to_optional_int(
+            row.get("power")
+        )
+
+        accuracy = to_optional_int(
+            row.get("accuracy")
         )
 
         max_pp = to_int(
-            row.get("pp"),
-            0,
+            row.get("pp")
         )
 
         connection.execute(
@@ -1077,25 +1721,35 @@ def import_moves(
             INSERT INTO moves (
                 id,
                 name,
-                type,
+                type_id,
                 category,
                 power,
                 accuracy,
                 max_pp
             )
             VALUES (?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(id) DO UPDATE SET
-                name = excluded.name,
-                type = excluded.type,
-                category = excluded.category,
-                power = excluded.power,
-                accuracy = excluded.accuracy,
-                max_pp = excluded.max_pp
+
+            ON CONFLICT(id)
+            DO UPDATE SET
+                name =
+                    excluded.name,
+                type_id =
+                    excluded.type_id,
+                category =
+                    excluded.category,
+                power =
+                    excluded.power,
+                accuracy =
+                    excluded.accuracy,
+                max_pp =
+                    excluded.max_pp
             """,
             (
-                move_key,
-                clean_name(identifier),
-                move_type,
+                move_id,
+                readable_name(
+                    identifier
+                ),
+                type_identifier,
                 category,
                 power,
                 accuracy,
@@ -1103,86 +1757,131 @@ def import_moves(
             ),
         )
 
+        move_lookup[
+            numeric_id
+        ] = move_id
+
+        imported += 1
+
     connection.commit()
 
-    return move_by_numeric_id
+    print(
+        f"Imported {imported} moves."
+    )
+
+    return move_lookup
 
 
-# ---------------------------------------------------------------------------
-# Move descriptions
-# ---------------------------------------------------------------------------
+# =============================================================================
+# MOVE DESCRIPTIONS
+# =============================================================================
 
 def import_move_descriptions(
     connection: sqlite3.Connection,
-    rows: list[dict[str, str]],
-) -> None:
+    flavor_rows: list[dict[str, str]],
+    move_lookup: dict[int, str],
+) -> int:
     """
-    Import English move descriptions when available.
+    Actually persist move descriptions.
 
-    PokéAPI may contain several language/version-group entries, so we select
-    English entries and keep the first useful description.
+    The earlier Claude foundation downloaded these descriptions but did not
+    reliably write them into the moves table.
     """
 
-    descriptions: dict[int, str] = {}
+    descriptions: dict[
+        int,
+        str,
+    ] = {}
 
-    for row in rows:
-        language_id = to_int(row.get("language_id"))
+    for row in flavor_rows:
 
-        # PokéAPI English language ID is 9.
-        if language_id != 9:
-            continue
+        move_numeric_id = to_int(
+            row.get("move_id")
+        )
 
-        move_id = to_int(row.get("move_id"))
-
-        if move_id <= 0:
-            continue
+        language_id = to_int(
+            row.get("language_id")
+        )
 
         text = (
-            row.get("flavor_text", "")
-            .replace("\n", " ")
-            .replace("\f", " ")
+            row.get(
+                "flavor_text",
+                "",
+            )
             .strip()
         )
 
-        if text and move_id not in descriptions:
-            descriptions[move_id] = text
+        if (
+            move_numeric_id <= 0
+            or not text
+        ):
+            continue
 
-    if not descriptions:
-        return
+        if language_id != 9:
+            continue
 
-    # Move numeric ID -> current move key.
-    move_rows = connection.execute(
-        """
-        SELECT id, name
-        FROM moves
-        """
-    ).fetchall()
+        descriptions.setdefault(
+            move_numeric_id,
+            text,
+        )
 
-    del move_rows
+    updated = 0
 
-    # We cannot infer the numeric PokéAPI ID from the slug reliably, so
-    # descriptions are intentionally left available for future enrichment.
-    # The move catalog itself remains complete without them.
+    for numeric_id, description in descriptions.items():
+
+        move_id = move_lookup.get(
+            numeric_id
+        )
+
+        if not move_id:
+            continue
+
+        description = (
+            description
+            .replace("\n", " ")
+            .replace("\r", " ")
+            .replace("\f", " ")
+        )
+
+        description = re.sub(
+            r"\s+",
+            " ",
+            description,
+        ).strip()
+
+        connection.execute(
+            """
+            UPDATE moves
+            SET description = ?
+            WHERE id = ?
+            """,
+            (
+                description,
+                move_id,
+            ),
+        )
+
+        updated += 1
 
     connection.commit()
 
+    print(
+        f"Imported descriptions for {updated} moves."
+    )
 
-# ---------------------------------------------------------------------------
-# Learnsets
-# ---------------------------------------------------------------------------
+    return updated
+
+
+# =============================================================================
+# LEARNSETS
+# =============================================================================
 
 def import_learnsets(
     connection: sqlite3.Connection,
     pokemon_move_rows: list[dict[str, str]],
-    species_by_pokemon_id: dict[int, str],
-    move_by_numeric_id: dict[int, str],
-) -> None:
-    """
-    Import all PokéAPI learnset records for the supported National Dex.
-
-    version_group_id is normalized to 0 when the source does not provide it,
-    preventing NULL-based duplicate rows in SQLite.
-    """
+    pokemon_to_species: dict[int, str],
+    move_lookup: dict[int, str],
+) -> int:
 
     connection.execute(
         """
@@ -1190,38 +1889,67 @@ def import_learnsets(
         """
     )
 
+    inserted = 0
+
     for row in pokemon_move_rows:
-        pokemon_id = to_int(row.get("pokemon_id"))
-        move_numeric_id = to_int(row.get("move_id"))
 
-        if pokemon_id <= 0 or move_numeric_id <= 0:
+        pokemon_id = to_int(
+            row.get("pokemon_id")
+        )
+
+        move_numeric_id = to_int(
+            row.get("move_id")
+        )
+
+        species_key = pokemon_to_species.get(
+            pokemon_id
+        )
+
+        move_id = move_lookup.get(
+            move_numeric_id
+        )
+
+        if (
+            not species_key
+            or not move_id
+        ):
             continue
 
-        if pokemon_id > NATIONAL_DEX_LIMIT:
-            continue
-
-        species_key = species_by_pokemon_id.get(pokemon_id)
-        move_key = move_by_numeric_id.get(move_numeric_id)
-
-        if not species_key or not move_key:
-            continue
-
-        learn_method = row.get(
-            "pokemon_move_method_id",
-            "",
-        ).strip()
-
-        if not learn_method:
-            learn_method = "unknown"
-
-        learn_level = to_int(
-            row.get("level"),
-            0,
+        learn_method_id = to_int(
+            row.get(
+                "pokemon_move_method_id"
+            )
         )
 
         version_group_id = to_int(
-            row.get("version_group_id"),
-            0,
+            row.get(
+                "version_group_id"
+            )
+        )
+
+        level = to_int(
+            row.get(
+                "level",
+            )
+        )
+
+        # PokéAPI move method IDs:
+        #
+        # 1 = level-up
+        # 2 = egg
+        # 3 = tutor
+        # 4 = machine
+        #
+        method_map = {
+            1: "level-up",
+            2: "egg",
+            3: "tutor",
+            4: "machine",
+        }
+
+        learn_method = method_map.get(
+            learn_method_id,
+            "unknown",
         )
 
         connection.execute(
@@ -1237,98 +1965,300 @@ def import_learnsets(
             """,
             (
                 species_key,
-                move_key,
+                move_id,
                 learn_method,
-                learn_level,
+                level,
                 version_group_id,
             ),
         )
 
+        inserted += 1
+
     connection.commit()
 
+    print(
+        f"Imported {inserted} learnset entries."
+    )
 
-# ---------------------------------------------------------------------------
-# Evolution chains
-# ---------------------------------------------------------------------------
+    return inserted
 
-def parse_evolution_condition(
-    chain: dict[str, Any],
-    species_key_by_pokeapi_species_id: dict[int, str],
+
+# =============================================================================
+# EVOLUTION DATA
+# =============================================================================
+
+def import_evolutions(
     connection: sqlite3.Connection,
-) -> None:
-    species = chain.get("species") or {}
+    pokemon_rows: list[dict[str, str]],
+    species_rows: list[dict[str, str]],
+    pokemon_to_species: dict[int, str],
+    evolution_chains: list[dict[str, str]],
+) -> int:
+    """
+    Import evolution relationships.
 
-    species_pokeapi_id = to_int(
-        species.get("url", "").rstrip("/").split("/")[-1]
+    The CSV evolution-chain data identifies chains, but the detailed
+    evolution requirements live in the API's evolution-chain JSON.
+
+    This importer therefore uses the PokéAPI chain endpoint for each chain.
+    """
+
+    # -------------------------------------------------------------------------
+    # species numeric ID -> species key
+    # -------------------------------------------------------------------------
+
+    species_lookup = build_species_lookup(
+        species_rows
     )
 
-    from_species = species_key_by_pokeapi_species_id.get(
-        species_pokeapi_id
+    # -------------------------------------------------------------------------
+    # evolution chain IDs
+    # -------------------------------------------------------------------------
+
+    chain_ids: set[int] = set()
+
+    for row in species_rows:
+
+        chain_id = to_int(
+            row.get("evolution_chain_id")
+        )
+
+        species_id = to_int(
+            row.get("id")
+        )
+
+        if (
+            chain_id > 0
+            and species_id in species_lookup
+        ):
+            chain_ids.add(
+                chain_id
+            )
+
+    if not chain_ids:
+        print(
+            "No evolution chain IDs were available."
+        )
+
+        return 0
+
+    connection.execute(
+        """
+        DELETE FROM pokemon_evolutions
+        """
     )
 
-    if not from_species:
-        return
+    inserted = 0
 
-    for evolution in chain.get("evolves_to", []) or []:
-        target_species = evolution.get("species") or {}
+    # -------------------------------------------------------------------------
+    # Download each evolution chain.
+    # -------------------------------------------------------------------------
 
-        target_pokeapi_id = to_int(
-            target_species.get("url", "").rstrip("/").split("/")[-1]
+    for chain_id in sorted(
+        chain_ids
+    ):
+
+        url = (
+            "https://pokeapi.co/api/v2/"
+            f"evolution-chain/{chain_id}/"
         )
 
-        to_species = species_key_by_pokeapi_species_id.get(
-            target_pokeapi_id
+        request = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent": USER_AGENT,
+            },
         )
 
-        if not to_species:
+        try:
+            with urllib.request.urlopen(
+                request,
+                timeout=REQUEST_TIMEOUT,
+            ) as response:
+                import json
+
+                chain = json.loads(
+                    response.read().decode(
+                        "utf-8"
+                    )
+                )
+
+        except Exception as exc:
+            print(
+                f"WARNING: Could not load evolution chain "
+                f"{chain_id}: {exc}"
+            )
             continue
 
-        details_list = evolution.get(
+        chain_root = chain.get(
+            "chain"
+        )
+
+        if not chain_root:
+            continue
+
+        inserted += import_evolution_node(
+            connection,
+            chain_root,
+            species_lookup,
+        )
+
+    connection.commit()
+
+    print(
+        f"Imported {inserted} evolution relationships."
+    )
+
+    return inserted
+
+
+def import_evolution_node(
+    connection: sqlite3.Connection,
+    node: dict[str, Any],
+    species_lookup: dict[int, str],
+) -> int:
+
+    count = 0
+
+    species_url = (
+        node.get(
+            "species",
+            {},
+        )
+        .get(
+            "url",
+            "",
+        )
+    )
+
+    from_species_numeric_id = extract_api_id(
+        species_url
+    )
+
+    from_species_id = species_lookup.get(
+        from_species_numeric_id
+    )
+
+    if from_species_id:
+
+        for evolution in node.get(
             "evolution_details",
             [],
-        ) or []
+        ):
 
-        if not details_list:
-            details_list = [{}]
-
-        for details in details_list:
-            trigger = details.get("trigger") or {}
-
-            trigger_name = (
-                trigger.get("name", "")
-                if isinstance(trigger, dict)
-                else ""
+            target_url = (
+                evolution.get(
+                    "target_species_id"
+                )
             )
 
-            item = details.get("item") or {}
-            item_name = (
-                item.get("name", "")
-                if isinstance(item, dict)
-                else None
+            if target_url is None:
+                continue
+
+            to_species_id = species_lookup.get(
+                to_int(
+                    target_url
+                )
             )
 
-            known_move = details.get("known_move") or {}
-            known_move_name = (
-                known_move.get("name", "")
-                if isinstance(known_move, dict)
-                else None
+            if not to_species_id:
+                continue
+
+            trigger = clean_identifier(
+                evolution.get(
+                    "trigger_name",
+                    ""
+                )
             )
 
-            known_move_type = details.get(
-                "known_move_type"
-            ) or {}
-
-            known_move_type_name = (
-                known_move_type.get("name")
-                if isinstance(known_move_type, dict)
-                else None
+            minimum_level = to_optional_int(
+                evolution.get(
+                    "min_level"
+                )
             )
 
-            location = details.get("location") or {}
-            location_name = (
-                location.get("name")
-                if isinstance(location, dict)
-                else None
+            item_id = (
+                evolution.get(
+                    "item_name"
+                )
+                or None
+            )
+
+            gender = (
+                evolution.get(
+                    "gender"
+                )
+            )
+
+            time_of_day = (
+                evolution.get(
+                    "time_of_day"
+                )
+                or None
+            )
+
+            minimum_happiness = (
+                to_optional_int(
+                    evolution.get(
+                        "min_happiness"
+                    )
+                )
+            )
+
+            minimum_beauty = (
+                to_optional_int(
+                    evolution.get(
+                        "min_beauty"
+                    )
+                )
+            )
+
+            minimum_affection = (
+                to_optional_int(
+                    evolution.get(
+                        "min_affection"
+                    )
+                )
+            )
+
+            known_move_id = (
+                evolution.get(
+                    "known_move_name"
+                )
+                or None
+            )
+
+            known_move_type = (
+                evolution.get(
+                    "known_move_type"
+                )
+                or None
+            )
+
+            location = (
+                evolution.get(
+                    "location_name"
+                )
+                or None
+            )
+
+            relative_physical_stats = (
+                to_optional_int(
+                    evolution.get(
+                        "relative_physical_stats"
+                    )
+                )
+            )
+
+            trade_species_id = (
+                evolution.get(
+                    "trade_species_id"
+                )
+                or None
+            )
+
+            raw_condition = (
+                str(evolution)
             )
 
             connection.execute(
@@ -1339,14 +2269,14 @@ def parse_evolution_condition(
                     trigger,
                     minimum_level,
                     item_id,
-                    known_move_id,
-                    known_move_type,
-                    location,
-                    time_of_day,
                     gender,
+                    time_of_day,
                     minimum_happiness,
                     minimum_beauty,
                     minimum_affection,
+                    known_move_id,
+                    known_move_type,
+                    location,
                     relative_physical_stats,
                     trade_species_id,
                     raw_condition
@@ -1354,298 +2284,376 @@ def parse_evolution_condition(
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
-                    from_species,
-                    to_species,
-                    trigger_name,
-                    details.get("min_level"),
-                    item_name,
-                    known_move_name,
-                    known_move_type_name,
-                    location_name,
-                    details.get("time_of_day"),
-                    details.get("gender"),
-                    details.get("min_happiness"),
-                    details.get("min_beauty"),
-                    details.get("min_affection"),
-                    details.get("relative_physical_stats"),
-                    (
-                        (details.get("trade_species") or {}).get("name")
-                        if isinstance(
-                            details.get("trade_species"),
-                            dict,
-                        )
-                        else None
-                    ),
-                    json_dumps(details),
+                    from_species_id,
+                    to_species_id,
+                    trigger,
+                    minimum_level,
+                    item_id,
+                    gender,
+                    time_of_day,
+                    minimum_happiness,
+                    minimum_beauty,
+                    minimum_affection,
+                    known_move_id,
+                    known_move_type,
+                    location,
+                    relative_physical_stats,
+                    trade_species_id,
+                    raw_condition,
                 ),
             )
 
-        parse_evolution_condition(
-            evolution,
-            species_key_by_pokeapi_species_id,
-            connection,
-        )
+            count += 1
 
-
-def import_evolutions(
-    connection: sqlite3.Connection,
-    evolution_rows: list[dict[str, str]],
-    species_rows: list[dict[str, str]],
-) -> None:
-    """
-    Import evolution chains.
-
-    The CSV chain table contains the chain IDs, while the complete branching
-    structure is available through PokéAPI's JSON endpoints. This importer
-    therefore uses the chain IDs to fetch the actual chain JSON.
-    """
-
-    del evolution_rows
-
-    species_key_by_pokeapi_species_id: dict[int, str] = {}
-
-    for row in species_rows:
-        species_id = to_int(row.get("id"))
-
-        if species_id <= 0:
-            continue
-
-        identifier = row.get("identifier", "").strip()
-
-        if not identifier:
-            continue
-
-        species_key_by_pokeapi_species_id[
-            species_id
-        ] = slugify(identifier)
-
-    chain_ids: set[int] = set()
-
-    for row in species_rows:
-        chain_id = to_int(
-            row.get("evolution_chain_id")
-        )
-
-        if chain_id > 0:
-            chain_ids.add(chain_id)
-
-    if not chain_ids:
-        return
-
-    connection.execute(
-        """
-        DELETE FROM pokemon_evolutions
-        """
-    )
-
-    for chain_id in sorted(chain_ids):
-        url = (
-            "https://pokeapi.co/api/v2/evolution-chain/"
-            f"{chain_id}/"
-        )
-
-        try:
-            request = urllib.request.Request(
-                url,
-                headers={
-                    "User-Agent": "KrampusRPG-PokemonCatalogImporter/1.0",
-                },
-            )
-
-            with urllib.request.urlopen(
-                request,
-                timeout=30,
-            ) as response:
-                chain_data = json.loads(
-                    response.read().decode("utf-8")
-                )
-
-            chain = chain_data.get("chain")
-
-            if chain:
-                parse_evolution_condition(
-                    chain,
-                    species_key_by_pokeapi_species_id,
-                    connection,
-                )
-
-        except Exception as exc:
-            print(
-                f"WARNING: Could not import evolution chain "
-                f"{chain_id}: {exc}"
-            )
-
-    connection.commit()
-
-
-# ---------------------------------------------------------------------------
-# Sprite inventory
-# ---------------------------------------------------------------------------
-
-def normalize_sprite_stem(stem: str) -> str:
-    """
-    Normalize sprite filenames for matching against species/forms/variants.
-
-    Handles:
-        pikachu.png
-        pikachu - Copy.png
-        charizard-mega-x.png
-        basculin-blue-striped.png
-        pikachu-ruby.png
-    """
-
-    normalized = stem.strip()
-
-    normalized = re.sub(
-        r"\s*-\s*copy(?:\s*\(\d+\))?$",
-        "",
-        normalized,
-        flags=re.IGNORECASE,
-    )
-
-    normalized = re.sub(
-        r"\s*\(\d+\)$",
-        "",
-        normalized,
-    )
-
-    normalized = normalized.lower().strip()
-
-    normalized = re.sub(
-        r"\s+",
-        "-",
-        normalized,
-    )
-
-    normalized = re.sub(
-        r"-+",
-        "-",
-        normalized,
-    )
-
-    return normalized.strip("-")
-
-
-def identify_variant(
-    normalized_stem: str,
-    variants: list[dict[str, Any]],
-) -> str | None:
-    for variant in sorted(
-        variants,
-        key=lambda item: len(
-            str(item["sprite_suffix"])
-        ),
-        reverse=True,
+    for child in node.get(
+        "evolves_to",
+        [],
     ):
-        suffix = str(
-            variant["sprite_suffix"]
-        ).lower()
 
-        if not suffix:
-            continue
+        count += import_evolution_node(
+            connection,
+            child,
+            species_lookup,
+        )
 
-        if normalized_stem.endswith(suffix):
-            return str(
-                variant["id"]
+    return count
+
+
+def extract_api_id(
+    url: str | None,
+) -> int:
+    if not url:
+        return 0
+
+    match = re.search(
+        r"/(\d+)/?$",
+        url,
+    )
+
+    if not match:
+        return 0
+
+    return to_int(
+        match.group(1)
+    )
+
+
+# =============================================================================
+# SPRITE INVENTORY
+# =============================================================================
+
+def file_sha256(
+    path: Path,
+) -> str:
+
+    digest = hashlib.sha256()
+
+    with path.open(
+        "rb"
+    ) as handle:
+
+        while True:
+            chunk = handle.read(
+                1024 * 1024
             )
 
-    return "normal"
+            if not chunk:
+                break
+
+            digest.update(
+                chunk
+            )
+
+    return digest.hexdigest()
 
 
-def build_species_lookup(
+def git_blob_sha1(
+    path: Path,
+) -> str:
+
+    data = path.read_bytes()
+
+    header = (
+        f"blob {len(data)}\0"
+        .encode(
+            "utf-8"
+        )
+    )
+
+    return hashlib.sha1(
+        header + data
+    ).hexdigest()
+
+
+# =============================================================================
+# SPRITE NAME RESOLUTION
+# =============================================================================
+
+def build_species_name_lookup(
     connection: sqlite3.Connection,
 ) -> dict[str, str]:
+
     rows = connection.execute(
         """
-        SELECT id, name
+        SELECT
+            id,
+            name
         FROM pokemon_species
         """
     ).fetchall()
 
-    lookup: dict[str, str] = {}
+    result: dict[
+        str,
+        str,
+    ] = {}
 
     for row in rows:
-        species_id = row["id"]
-        name = row["name"]
 
-        lookup[normalize_sprite_stem(species_id)] = species_id
-        lookup[normalize_sprite_stem(name)] = species_id
+        result[
+            clean_identifier(
+                row["name"]
+            )
+        ] = row["id"]
 
-    return lookup
+        result[
+            clean_identifier(
+                row["id"]
+            )
+        ] = row["id"]
+
+    return result
 
 
-def build_form_lookup(
-    connection: sqlite3.Connection,
-) -> dict[str, str]:
-    rows = connection.execute(
-        """
-        SELECT id, species_id, form_identifier, display_name
-        FROM pokemon_forms
-        """
-    ).fetchall()
+def resolve_sprite_components(
+    filename: str,
+    species_lookup: dict[str, str],
+    form_ids: set[str],
+    variant_ids: set[str],
+) -> tuple[
+    str | None,
+    str | None,
+    str | None,
+]:
 
-    lookup: dict[str, str] = {}
+    stem = Path(
+        filename
+    ).stem.lower()
 
-    for row in rows:
-        form_id = row["id"]
+    # -------------------------------------------------------------------------
+    # Determine variant from suffix.
+    # -------------------------------------------------------------------------
 
-        for value in (
-            row["id"],
-            row["form_identifier"],
-            row["display_name"],
+    variant_id: str | None = None
+
+    for candidate in sorted(
+        variant_ids,
+        key=len,
+        reverse=True,
+    ):
+
+        suffix = (
+            "-"
+            + candidate
+        )
+
+        if (
+            candidate != "normal"
+            and stem.endswith(
+                suffix
+            )
         ):
-            if value:
-                lookup[
-                    normalize_sprite_stem(value)
-                ] = form_id
+            variant_id = candidate
 
-    return lookup
+            stem = stem[
+                : -len(suffix)
+            ]
+
+            break
+
+    if variant_id is None:
+        variant_id = "normal"
+
+    # -------------------------------------------------------------------------
+    # Exact form match.
+    # -------------------------------------------------------------------------
+
+    form_id: str | None = None
+
+    if stem in form_ids:
+        form_id = stem
+
+        species_id = None
+
+        # Form IDs are based on Pokémon identifiers. Find their species.
+        row = None
+
+        # This is intentionally resolved later by the database query.
+        return (
+            None,
+            form_id,
+            variant_id,
+        )
+
+    # -------------------------------------------------------------------------
+    # Species match.
+    # -------------------------------------------------------------------------
+
+    species_id = species_lookup.get(
+        stem
+    )
+
+    if species_id:
+        return (
+            species_id,
+            None,
+            variant_id,
+        )
+
+    # -------------------------------------------------------------------------
+    # Attempt to identify species from form naming.
+    #
+    # Examples:
+    #
+    #   charizard-mega-x
+    #   meowth-galar
+    #   growlithe-hisui
+    #
+    # Longest known species prefix wins.
+    # -------------------------------------------------------------------------
+
+    matching_species = sorted(
+        (
+            key
+            for key in species_lookup
+            if stem == key
+            or stem.startswith(
+                key + "-"
+            )
+        ),
+        key=len,
+        reverse=True,
+    )
+
+    if matching_species:
+        species_key = matching_species[0]
+
+        possible_form = stem
+
+        if possible_form in form_ids:
+            form_id = possible_form
+
+        return (
+            species_lookup[
+                species_key
+            ],
+            form_id,
+            variant_id,
+        )
+
+    return (
+        None,
+        None,
+        variant_id,
+    )
 
 
 def import_sprite_inventory(
     connection: sqlite3.Connection,
-    sprite_directory: Path,
-) -> None:
-    if not sprite_directory.exists():
+    sprite_root: Path,
+) -> int:
+
+    if not sprite_root.exists():
         print(
-            f"WARNING: Sprite directory does not exist: "
-            f"{sprite_directory}"
+            f"Sprite directory does not exist: {sprite_root}"
         )
-        return
 
-    variants = [
-        dict(row)
-        for row in connection.execute(
-            """
-            SELECT
-                id,
-                name,
-                sprite_suffix,
-                description
-            FROM pokemon_variants
-            """
-        ).fetchall()
-    ]
+        return 0
 
-    species_lookup = build_species_lookup(
-        connection
-    )
+    if not sprite_root.is_dir():
+        print(
+            f"Sprite path is not a directory: {sprite_root}"
+        )
 
-    form_lookup = build_form_lookup(
-        connection
-    )
+        return 0
 
-    sprite_files = sorted(
-        path
-        for path in sprite_directory.rglob("*")
-        if path.is_file()
-        and path.suffix.lower() in {
-            ".png",
-            ".jpg",
-            ".jpeg",
-            ".webp",
-        }
-    )
+    species_rows = connection.execute(
+        """
+        SELECT
+            id,
+            name
+        FROM pokemon_species
+        """
+    ).fetchall()
+
+    species_lookup: dict[
+        str,
+        str,
+    ] = {}
+
+    for row in species_rows:
+
+        species_id = row["id"]
+
+        species_lookup[
+            clean_identifier(
+                species_id
+            )
+        ] = species_id
+
+        species_lookup[
+            clean_identifier(
+                row["name"]
+            )
+        ] = species_id
+
+    form_rows = connection.execute(
+        """
+        SELECT
+            id,
+            species_id
+        FROM pokemon_forms
+        """
+    ).fetchall()
+
+    form_to_species: dict[
+        str,
+        str,
+    ] = {}
+
+    form_ids: set[str] = set()
+
+    for row in form_rows:
+
+        form_id = clean_identifier(
+            row["id"]
+        )
+
+        form_ids.add(
+            form_id
+        )
+
+        form_to_species[
+            form_id
+        ] = row["species_id"]
+
+    variant_rows = connection.execute(
+        """
+        SELECT id
+        FROM pokemon_variants
+        WHERE is_active = 1
+        """
+    ).fetchall()
+
+    variant_ids = {
+        clean_identifier(
+            row["id"]
+        )
+        for row in variant_rows
+    }
+
+    # -------------------------------------------------------------------------
+    # Existing inventory is rebuilt from the actual sprite directory.
+    # -------------------------------------------------------------------------
 
     connection.execute(
         """
@@ -1653,115 +2661,104 @@ def import_sprite_inventory(
         """
     )
 
-    records: list[dict[str, Any]] = []
+    all_files = sorted(
+        path
+        for path in sprite_root.rglob("*")
+        if path.is_file()
+        and path.suffix.lower()
+        in {
+            ".png",
+            ".gif",
+            ".webp",
+        }
+    )
 
-    for path in sprite_files:
-        relative_path = path.relative_to(
-            PROJECT_ROOT
-        ).as_posix()
+    # -------------------------------------------------------------------------
+    # Detect exact duplicates by Git blob hash.
+    # -------------------------------------------------------------------------
 
-        normalized_stem = normalize_sprite_stem(
-            path.stem
-        )
+    hash_groups: dict[
+        str,
+        list[Path],
+    ] = {}
 
-        variant_id = identify_variant(
-            normalized_stem,
-            variants,
-        )
+    for path in all_files:
 
-        species_id: str | None = None
-        form_id: str | None = None
-
-        if normalized_stem in form_lookup:
-            form_id = form_lookup[
-                normalized_stem
-            ]
-
-            row = connection.execute(
-                """
-                SELECT species_id
-                FROM pokemon_forms
-                WHERE id = ?
-                """,
-                (form_id,),
-            ).fetchone()
-
-            if row:
-                species_id = row["species_id"]
-
-        if species_id is None:
-            if normalized_stem in species_lookup:
-                species_id = species_lookup[
-                    normalized_stem
-                ]
-
-            else:
-                candidates = sorted(
-                    (
-                        key
-                        for key in species_lookup
-                        if normalized_stem.startswith(
-                            key + "-"
-                        )
-                    ),
-                    key=len,
-                    reverse=True,
-                )
-
-                if candidates:
-                    species_id = species_lookup[
-                        candidates[0]
-                    ]
-
-        file_sha256 = sha256_file(path)
-        git_sha = git_blob_sha1(path)
-
-        records.append(
-            {
-                "species_id": species_id,
-                "form_id": form_id,
-                "variant_id": variant_id,
-                "filename": path.name,
-                "relative_path": relative_path,
-                "file_sha256": file_sha256,
-                "git_blob_sha1": git_sha,
-            }
-        )
-
-    duplicate_counts: dict[str, int] = {}
-
-    for record in records:
-        key = record["git_blob_sha1"]
-
-        duplicate_counts[key] = (
-            duplicate_counts.get(key, 0) + 1
-        )
-
-    duplicate_group_ids: dict[str, str] = {}
-
-    for key, count in duplicate_counts.items():
-        if count <= 1:
+        try:
+            blob_hash = git_blob_sha1(
+                path
+            )
+        except OSError:
             continue
 
-        duplicate_group_ids[key] = (
-            f"git-{key[:16]}"
+        hash_groups.setdefault(
+            blob_hash,
+            [],
+        ).append(
+            path
         )
 
-    for record in records:
-        git_sha = record["git_blob_sha1"]
+    imported = 0
+
+    for path in all_files:
+
+        try:
+            relative_path = path.relative_to(
+                sprite_root
+            )
+
+            relative_path_string = (
+                relative_path
+                .as_posix()
+            )
+
+            filename = path.name
+
+            sha256 = file_sha256(
+                path
+            )
+
+            blob_sha1 = git_blob_sha1(
+                path
+            )
+
+        except OSError:
+            continue
+
+        species_id, form_id, variant_id = (
+            resolve_sprite_components(
+                filename,
+                species_lookup,
+                form_ids,
+                variant_ids,
+            )
+        )
+
+        # If a form was recognized, resolve its species.
+        if form_id:
+            species_id = (
+                form_to_species.get(
+                    form_id
+                )
+            )
+
+        duplicate_files = (
+            hash_groups.get(
+                blob_sha1,
+                [],
+            )
+        )
 
         is_duplicate = (
-            duplicate_counts.get(
-                git_sha,
-                0,
-            )
-            > 1
+            1
+            if len(
+                duplicate_files
+            ) > 1
+            else 0
         )
 
         duplicate_group = (
-            duplicate_group_ids.get(
-                git_sha
-            )
+            blob_sha1
             if is_duplicate
             else None
         )
@@ -1780,233 +2777,224 @@ def import_sprite_inventory(
                 duplicate_group
             )
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+
+            ON CONFLICT(relative_path)
+            DO UPDATE SET
+                species_id =
+                    excluded.species_id,
+                form_id =
+                    excluded.form_id,
+                variant_id =
+                    excluded.variant_id,
+                filename =
+                    excluded.filename,
+                file_sha256 =
+                    excluded.file_sha256,
+                git_blob_sha1 =
+                    excluded.git_blob_sha1,
+                is_duplicate =
+                    excluded.is_duplicate,
+                duplicate_group =
+                    excluded.duplicate_group
             """,
             (
-                record["species_id"],
-                record["form_id"],
-                record["variant_id"],
-                record["filename"],
-                record["relative_path"],
-                record["file_sha256"],
-                record["git_blob_sha1"],
-                1 if is_duplicate else 0,
+                species_id,
+                form_id,
+                variant_id,
+                filename,
+                relative_path_string,
+                sha256,
+                blob_sha1,
+                is_duplicate,
                 duplicate_group,
             ),
         )
 
-    connection.commit()
-
-    duplicate_file_count = sum(
-        1
-        for record in records
-        if duplicate_counts.get(
-            record["git_blob_sha1"],
-            0,
-        )
-        > 1
-    )
-
-    print(
-        f"Sprites indexed: {len(records)}"
-    )
-
-    print(
-        f"Exact duplicate sprite files: "
-        f"{duplicate_file_count}"
-    )
-
-
-# ---------------------------------------------------------------------------
-# Fakemon support
-# ---------------------------------------------------------------------------
-
-def ensure_fakemon_category(
-    connection: sqlite3.Connection,
-) -> None:
-    """
-    Ensure the database can support fan-made Pokémon.
-
-    Fakemon are represented as normal species records with is_fakemon=1.
-    They do not need to be part of the official National Dex.
-    """
-
-    connection.execute(
-        """
-        INSERT OR IGNORE INTO pokemon_species (
-            id,
-            national_dex,
-            name,
-            generation,
-            is_fakemon,
-            description
-        )
-        VALUES (
-            'fakemon',
-            0,
-            'Fakemon',
-            0,
-            1,
-            'Fan-made Pokémon category for future Krampus RPG content.'
-        )
-        """
-    )
+        imported += 1
 
     connection.commit()
 
+    print(
+        f"Indexed {imported} sprite files."
+    )
 
-# ---------------------------------------------------------------------------
-# Validation
-# ---------------------------------------------------------------------------
+    return imported
+
+
+# =============================================================================
+# VALIDATION
+# =============================================================================
 
 def validate_catalog(
     connection: sqlite3.Connection,
-) -> None:
-    species_count = connection.execute(
-        """
-        SELECT COUNT(*)
-        FROM pokemon_species
-        WHERE is_fakemon = 0
-        """
-    ).fetchone()[0]
+) -> dict[str, Any]:
 
-    type_count = connection.execute(
-        """
-        SELECT COUNT(*)
-        FROM pokemon_types
-        """
-    ).fetchone()[0]
+    def count(
+        table: str,
+    ) -> int:
 
-    ability_count = connection.execute(
-        """
-        SELECT COUNT(*)
-        FROM pokemon_abilities
-        """
-    ).fetchone()[0]
+        row = connection.execute(
+            f"""
+            SELECT COUNT(*)
+            FROM {table}
+            """
+        ).fetchone()
 
-    form_count = connection.execute(
-        """
-        SELECT COUNT(*)
-        FROM pokemon_forms
-        """
-    ).fetchone()[0]
-
-    move_count = connection.execute(
-        """
-        SELECT COUNT(*)
-        FROM moves
-        """
-    ).fetchone()[0]
-
-    learnset_count = connection.execute(
-        """
-        SELECT COUNT(*)
-        FROM pokemon_species_moves
-        """
-    ).fetchone()[0]
-
-    evolution_count = connection.execute(
-        """
-        SELECT COUNT(*)
-        FROM pokemon_evolutions
-        """
-    ).fetchone()[0]
-
-    sprite_count = connection.execute(
-        """
-        SELECT COUNT(*)
-        FROM pokemon_sprite_inventory
-        """
-    ).fetchone()[0]
-
-    print()
-    print("=" * 60)
-    print("KRAMPUS RPG POKÉMON CATALOG")
-    print("=" * 60)
-    print(f"Official species: {species_count}")
-    print(f"Types:            {type_count}")
-    print(f"Abilities:        {ability_count}")
-    print(f"Forms:            {form_count}")
-    print(f"Moves:            {move_count}")
-    print(f"Learnset entries: {learnset_count}")
-    print(f"Evolutions:       {evolution_count}")
-    print(f"Sprites indexed:  {sprite_count}")
-    print("=" * 60)
-
-    if species_count < NATIONAL_DEX_LIMIT:
-        print(
-            "WARNING: Official species count is below "
-            f"{NATIONAL_DEX_LIMIT}."
+        return int(
+            row[0]
         )
 
-    if move_count == 0:
-        print(
-            "WARNING: No moves were imported."
-        )
-
-    if type_count == 0:
-        print(
-            "WARNING: No types were imported."
-        )
-
-
-# ---------------------------------------------------------------------------
-# Main import
-# ---------------------------------------------------------------------------
-
-def main() -> int:
-    parser = argparse.ArgumentParser(
-        description=(
-            "Import the Pokémon catalog, forms, moves, "
-            "learnsets, evolutions and sprite inventory "
-            "into Krampus RPG."
-        )
+    official_species = int(
+        connection.execute(
+            """
+            SELECT COUNT(*)
+            FROM pokemon_species
+            WHERE
+                is_fakemon = 0
+                AND national_dex BETWEEN 1 AND ?
+            """,
+            (
+                NATIONAL_DEX_LIMIT,
+            ),
+        ).fetchone()[0]
     )
 
-    parser.add_argument(
-        "--database",
-        type=Path,
-        default=Path(DATABASE_PATH),
-        help="SQLite database path.",
+    missing_forms = int(
+        connection.execute(
+            """
+            SELECT COUNT(*)
+            FROM pokemon_species s
+
+            WHERE
+                s.is_fakemon = 0
+                AND s.national_dex BETWEEN 1 AND ?
+
+                AND NOT EXISTS (
+                    SELECT 1
+                    FROM pokemon_forms f
+                    WHERE
+                        f.species_id = s.id
+                        AND f.is_default = 1
+                )
+            """,
+            (
+                NATIONAL_DEX_LIMIT,
+            ),
+        ).fetchone()[0]
     )
 
-    parser.add_argument(
-        "--sprites",
-        type=Path,
-        default=PROJECT_ROOT / "Web" / "static" / "sprites",
-        help="Pokémon sprite directory.",
+    missing_types = int(
+        connection.execute(
+            """
+            SELECT COUNT(*)
+            FROM pokemon_species s
+
+            WHERE
+                s.is_fakemon = 0
+                AND s.national_dex BETWEEN 1 AND ?
+
+                AND NOT EXISTS (
+                    SELECT 1
+                    FROM pokemon_species_types st
+                    WHERE st.species_id = s.id
+                )
+            """,
+            (
+                NATIONAL_DEX_LIMIT,
+            ),
+        ).fetchone()[0]
     )
 
-    parser.add_argument(
-        "--skip-sprites",
-        action="store_true",
-        help="Do not scan the sprite directory.",
-    )
+    result = {
+        "species": official_species,
+        "expected_species": NATIONAL_DEX_LIMIT,
+        "types": count(
+            "pokemon_types"
+        ),
+        "abilities": count(
+            "pokemon_abilities"
+        ),
+        "forms": count(
+            "pokemon_forms"
+        ),
+        "variants": count(
+            "pokemon_variants"
+        ),
+        "moves": count(
+            "moves"
+        ),
+        "learnsets": count(
+            "pokemon_species_moves"
+        ),
+        "evolutions": count(
+            "pokemon_evolutions"
+        ),
+        "sprites": count(
+            "pokemon_sprite_inventory"
+        ),
+        "missing_default_forms": missing_forms,
+        "missing_types": missing_types,
+    }
 
-    parser.add_argument(
-        "--skip-evolutions",
-        action="store_true",
-        help="Do not download evolution chain JSON.",
-    )
-
-    args = parser.parse_args()
-
-    database_path = args.database.resolve()
-
-    database_path.parent.mkdir(
-        parents=True,
-        exist_ok=True,
+    result["complete"] = (
+        official_species
+        == NATIONAL_DEX_LIMIT
+        and missing_forms == 0
+        and missing_types == 0
     )
 
     print()
-    print("Krampus RPG Pokémon Catalog Importer")
-    print("-------------------------------------")
-    print(f"Database: {database_path}")
-    print(f"Sprites:  {args.sprites.resolve()}")
-    print()
+    print(
+        "========================================"
+    )
+    print(
+        "KRAMPUS RPG POKÉMON CATALOG VALIDATION"
+    )
+    print(
+        "========================================"
+    )
 
-    datasets = download_all_csvs()
+    for key, value in result.items():
+        print(
+            f"{key}: {value}"
+        )
 
-    required_datasets = [
+    print(
+        "========================================"
+    )
+
+    return result
+
+
+# =============================================================================
+# DATABASE CONNECTION
+# =============================================================================
+
+def open_database() -> sqlite3.Connection:
+    connection = get_connection()
+
+    connection.row_factory = sqlite3.Row
+
+    return connection
+
+
+# =============================================================================
+# CORE IMPORT
+# =============================================================================
+
+def run_import(
+    connection: sqlite3.Connection,
+    datasets: dict[str, list[dict[str, str]]],
+    sprite_root: Path | None,
+    skip_sprites: bool,
+    skip_evolutions: bool,
+) -> dict[str, Any]:
+
+    # -------------------------------------------------------------------------
+    # Validate required data.
+    # -------------------------------------------------------------------------
+
+    required = [
         "types",
         "pokemon",
         "pokemon_species",
@@ -2016,195 +3004,451 @@ def main() -> int:
         "pokemon_forms",
         "moves",
         "pokemon_moves",
+        "pokemon_stats",
+        "pokemon_species_flavor_text",
+        "move_flavor_text",
     ]
 
     missing = [
-        name
-        for name in required_datasets
-        if not datasets.get(name)
+        key
+        for key in required
+        if not datasets.get(key)
     ]
 
     if missing:
-        print(
-            "WARNING: The following required datasets "
-            "could not be downloaded:"
+        raise RuntimeError(
+            "Missing required PokéAPI datasets: "
+            + ", ".join(missing)
         )
 
-        for name in missing:
-            print(f"  - {name}")
+    # -------------------------------------------------------------------------
+    # Schema.
+    # -------------------------------------------------------------------------
+
+    print()
+    print(
+        "Preparing catalog database..."
+    )
+
+    ensure_catalog_schema(
+        connection
+    )
+
+    migrate_catalog_schema(
+        connection
+    )
+
+    import_default_variants(
+        connection
+    )
+
+    # -------------------------------------------------------------------------
+    # Types.
+    # -------------------------------------------------------------------------
+
+    print()
+    print(
+        "Importing Pokémon types..."
+    )
+
+    type_lookup = import_types(
+        connection,
+        datasets["types"],
+    )
+
+    # -------------------------------------------------------------------------
+    # Species.
+    # -------------------------------------------------------------------------
+
+    print()
+    print(
+        "Importing Pokémon species..."
+    )
+
+    species_lookup = import_species(
+        connection,
+        datasets["pokemon_species"],
+    )
+
+    # -------------------------------------------------------------------------
+    # CRITICAL mapping.
+    # -------------------------------------------------------------------------
+
+    print()
+    print(
+        "Building Pokémon → species mapping..."
+    )
+
+    pokemon_to_species = (
+        build_pokemon_species_mapping(
+            datasets["pokemon"],
+            datasets["pokemon_species"],
+        )
+    )
+
+    print(
+        f"Mapped {len(pokemon_to_species)} Pokémon records "
+        "to species."
+    )
+
+    # -------------------------------------------------------------------------
+    # Descriptions.
+    # -------------------------------------------------------------------------
+
+    print()
+    print(
+        "Importing species descriptions..."
+    )
+
+    import_species_descriptions(
+        connection,
+        datasets[
+            "pokemon_species_flavor_text"
+        ],
+        species_lookup,
+    )
+
+    # -------------------------------------------------------------------------
+    # Stats.
+    # -------------------------------------------------------------------------
+
+    print()
+    print(
+        "Importing base stats..."
+    )
+
+    import_base_stats(
+        connection,
+        datasets["pokemon"],
+        datasets["pokemon_stats"],
+        species_lookup,
+    )
+
+    # -------------------------------------------------------------------------
+    # Types.
+    # -------------------------------------------------------------------------
+
+    print()
+    print(
+        "Importing species types..."
+    )
+
+    import_species_types(
+        connection,
+        datasets["pokemon_types"],
+        datasets["pokemon"],
+        type_lookup,
+        pokemon_to_species,
+    )
+
+    # -------------------------------------------------------------------------
+    # Abilities.
+    # -------------------------------------------------------------------------
+
+    print()
+    print(
+        "Importing abilities..."
+    )
+
+    import_abilities(
+        connection,
+        datasets["abilities"],
+    )
+
+    print(
+        "Importing species abilities..."
+    )
+
+    import_species_abilities(
+        connection,
+        datasets["pokemon_abilities"],
+        pokemon_to_species,
+        datasets["abilities"],
+    )
+
+    # -------------------------------------------------------------------------
+    # Forms.
+    # -------------------------------------------------------------------------
+
+    print()
+    print(
+        "Importing official Pokémon forms..."
+    )
+
+    import_forms(
+        connection,
+        datasets["pokemon_forms"],
+        datasets["pokemon"],
+        pokemon_to_species,
+    )
+
+    # -------------------------------------------------------------------------
+    # Moves.
+    # -------------------------------------------------------------------------
+
+    print()
+    print(
+        "Importing moves..."
+    )
+
+    move_lookup = import_moves(
+        connection,
+        datasets["moves"],
+        type_lookup,
+    )
+
+    # -------------------------------------------------------------------------
+    # Move descriptions.
+    # -------------------------------------------------------------------------
+
+    print()
+    print(
+        "Importing move descriptions..."
+    )
+
+    import_move_descriptions(
+        connection,
+        datasets["move_flavor_text"],
+        move_lookup,
+    )
+
+    # -------------------------------------------------------------------------
+    # Learnsets.
+    # -------------------------------------------------------------------------
+
+    print()
+    print(
+        "Importing complete learnsets..."
+    )
+
+    import_learnsets(
+        connection,
+        datasets["pokemon_moves"],
+        pokemon_to_species,
+        move_lookup,
+    )
+
+    # -------------------------------------------------------------------------
+    # Evolutions.
+    # -------------------------------------------------------------------------
+
+    if not skip_evolutions:
 
         print()
         print(
-            "The import will continue with whatever "
-            "datasets were successfully downloaded."
+            "Importing evolution chains..."
         )
 
-    connection = sqlite3.connect(
-        str(database_path)
+        import_evolutions(
+            connection,
+            datasets["pokemon"],
+            datasets["pokemon_species"],
+            pokemon_to_species,
+            datasets.get(
+                "evolution_chains",
+                [],
+            ),
+        )
+
+    else:
+        print()
+        print(
+            "Skipping evolution import."
+        )
+
+    # -------------------------------------------------------------------------
+    # Existing owned Pokémon.
+    # -------------------------------------------------------------------------
+
+    print()
+    print(
+        "Assigning default forms to existing Pokémon..."
     )
 
-    connection.row_factory = sqlite3.Row
+    updated_owned = (
+        set_default_forms_for_owned_pokemon(
+            connection
+        )
+    )
+
+    print(
+        f"Updated {updated_owned} owned Pokémon."
+    )
+
+    # -------------------------------------------------------------------------
+    # Sprites.
+    # -------------------------------------------------------------------------
+
+    if (
+        not skip_sprites
+        and sprite_root is not None
+    ):
+
+        print()
+        print(
+            "Indexing Pokémon sprites..."
+        )
+
+        import_sprite_inventory(
+            connection,
+            sprite_root,
+        )
+
+    elif not skip_sprites:
+        print()
+        print(
+            "No sprite directory supplied; "
+            "sprite indexing skipped."
+        )
+
+    # -------------------------------------------------------------------------
+    # Final validation.
+    # -------------------------------------------------------------------------
+
+    return validate_catalog(
+        connection
+    )
+
+
+# =============================================================================
+# COMMAND LINE
+# =============================================================================
+
+def parse_args() -> argparse.Namespace:
+
+    parser = argparse.ArgumentParser(
+        description=(
+            "Import the complete Pokémon catalog "
+            "for Krampus RPG."
+        )
+    )
+
+    parser.add_argument(
+        "--database",
+        type=Path,
+        default=Path(
+            DATABASE_PATH
+        ),
+        help=(
+            "SQLite database path."
+        ),
+    )
+
+    parser.add_argument(
+        "--sprites",
+        type=Path,
+        default=None,
+        help=(
+            "Pokémon sprite directory."
+        ),
+    )
+
+    parser.add_argument(
+        "--skip-sprites",
+        action="store_true",
+        help=(
+            "Do not index sprite files."
+        ),
+    )
+
+    parser.add_argument(
+        "--skip-evolutions",
+        action="store_true",
+        help=(
+            "Do not import evolution chains."
+        ),
+    )
+
+    parser.add_argument(
+        "--validate-only",
+        action="store_true",
+        help=(
+            "Only validate the current catalog."
+        ),
+    )
+
+    return parser.parse_args()
+
+
+# =============================================================================
+# MAIN
+# =============================================================================
+
+def main() -> int:
+
+    args = parse_args()
+
+    print()
+    print(
+        "=========================================="
+    )
+    print(
+        " KRAMPUS RPG - POKÉMON CATALOG IMPORTER"
+    )
+    print(
+        "=========================================="
+    )
+
+    print(
+        f"Database: {args.database}"
+    )
+
+    if args.sprites:
+        print(
+            f"Sprites:  {args.sprites}"
+        )
+
+    connection = open_database()
 
     try:
-        connection.execute(
-            "PRAGMA foreign_keys = ON"
-        )
 
         ensure_catalog_schema(
             connection
         )
 
-        ensure_fakemon_category(
+        migrate_catalog_schema(
             connection
         )
 
-        print("Importing variants...")
-        import_variants(
-            connection
-        )
+        if args.validate_only:
 
-        print("Importing types...")
-        type_rows = import_types(
+            validate_catalog(
+                connection
+            )
+
+            return 0
+
+        datasets = download_all_csvs()
+
+        results = run_import(
             connection,
-            datasets.get(
-                "types",
-                [],
-            ),
+            datasets,
+            args.sprites,
+            args.skip_sprites,
+            args.skip_evolutions,
         )
 
-        print("Importing species...")
-        species_by_pokemon_id = import_species(
-            connection,
-            datasets.get(
-                "pokemon",
-                [],
-            ),
+        print()
+        print(
+            "Pokémon catalog import finished."
         )
 
-        print("Importing species types...")
-        import_species_types(
-            connection,
-            datasets.get(
-                "pokemon",
-                [],
-            ),
-            datasets.get(
-                "pokemon_types",
-                [],
-            ),
-            type_rows,
-            species_by_pokemon_id,
-        )
-
-        print("Importing abilities...")
-        import_abilities(
-            connection,
-            datasets.get(
-                "abilities",
-                [],
-            ),
-        )
-
-        print("Importing species abilities...")
-        import_species_abilities_resolved(
-            connection,
-            datasets.get(
-                "pokemon_abilities",
-                [],
-            ),
-            datasets.get(
-                "abilities",
-                [],
-            ),
-            species_by_pokemon_id,
-        )
-
-        print("Importing forms...")
-        import_forms(
-            connection,
-            datasets.get(
-                "pokemon_forms",
-                [],
-            ),
-            species_by_pokemon_id,
-        )
-
-        print("Importing moves...")
-        move_by_numeric_id = import_moves(
-            connection,
-            datasets.get(
-                "moves",
-                [],
-            ),
-            type_rows,
-        )
-
-        if datasets.get(
-            "move_flavor_text"
+        if results.get(
+            "complete"
         ):
             print(
-                "Importing move descriptions..."
+                "CATALOG STATUS: COMPLETE"
             )
+            return 0
 
-            import_move_descriptions(
-                connection,
-                datasets.get(
-                    "move_flavor_text",
-                    [],
-                ),
-            )
-
-        print("Importing complete learnsets...")
-        import_learnsets(
-            connection,
-            datasets.get(
-                "pokemon_moves",
-                [],
-            ),
-            species_by_pokemon_id,
-            move_by_numeric_id,
+        print(
+            "CATALOG STATUS: REVIEW REQUIRED"
         )
 
-        if not args.skip_evolutions:
-            print(
-                "Importing evolution chains..."
-            )
-
-            import_evolutions(
-                connection,
-                datasets.get(
-                    "pokemon_evolution",
-                    [],
-                ),
-                datasets.get(
-                    "pokemon_species",
-                    [],
-                ),
-            )
-
-        if not args.skip_sprites:
-            print(
-                "Indexing Pokémon sprites..."
-            )
-
-            import_sprite_inventory(
-                connection,
-                args.sprites.resolve(),
-            )
-
-        validate_catalog(
-            connection
-        )
+        return 1
 
     finally:
         connection.close()
-
-    print()
-    print(
-        "Pokémon catalog import complete."
-    )
-
-    return 0
 
 
 if __name__ == "__main__":
