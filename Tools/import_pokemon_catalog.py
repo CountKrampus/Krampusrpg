@@ -534,7 +534,7 @@ def import_types(
 
         type_lookup[
             numeric_id
-        ] = identifier
+        ] = str(numeric_id)
 
         connection.execute(
             """
@@ -1094,11 +1094,10 @@ def import_species_types(
 
                 ON CONFLICT(
                     species_id,
-                    slot
+                    type_id
                 )
                 DO UPDATE SET
-                    type_id =
-                        excluded.type_id
+                    slot = excluded.slot
                 """,
                 (
                     species_key,
@@ -1141,11 +1140,10 @@ def import_species_types(
 
                 ON CONFLICT(
                     species_id,
-                    slot
+                    type_id
                 )
                 DO UPDATE SET
-                    type_id =
-                        excluded.type_id
+                    slot = excluded.slot
                 """,
                 (
                     species_key,
@@ -1347,13 +1345,11 @@ def import_species_abilities(
 
                 ON CONFLICT(
                     species_id,
-                    slot
+                    ability_id
                 )
                 DO UPDATE SET
-                    ability_id =
-                        excluded.ability_id,
-                    is_hidden =
-                        excluded.is_hidden
+                    slot = excluded.slot,
+                    is_hidden = excluded.is_hidden
                 """,
                 (
                     species_key,
@@ -3076,7 +3072,7 @@ def run_import(
 
     print()
     print(
-        "Building Pokémon → species mapping..."
+        "Building Pokemon to species mapping..."
     )
 
     pokemon_to_species = (
