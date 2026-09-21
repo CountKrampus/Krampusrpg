@@ -2,23 +2,102 @@
 
 {% block title %}Reports{% endblock %}
 
+{% block page_heading %}Moderation Reports{% endblock %}
+
 {% block content %}
 <div class="admin-page-header">
     <div>
-        <h1>Reports</h1>
+        <h1>Moderation Reports</h1>
         <p class="admin-subtitle">
-            Review player reports and moderation issues.
+            Triage player reports, review violations, and record moderation resolutions.
         </p>
+    </div>
+
+    <div class="admin-page-actions">
+        <button
+            type="button"
+            class="admin-button"
+            onclick="const f = document.getElementById('newReportSection'); f.style.display = f.style.display === 'none' ? 'block' : 'none';"
+        >
+            + File Staff Report
+        </button>
     </div>
 </div>
 
+<!-- FILE REPORT DRAWER -->
+<section class="admin-section" id="newReportSection" style="display: none;">
+    <div class="admin-section-header">
+        <div>
+            <h2>File a Staff Report</h2>
+            <p>Log a player report or moderation case.</p>
+        </div>
+    </div>
+
+    <form class="admin-form" method="POST" action="{{ url_for('admin.report_create_post') }}">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            <div class="admin-form-group">
+                <label class="admin-form-label" for="reportedPlayerId">Reported Player ID</label>
+                <input
+                    type="number"
+                    class="admin-form-input"
+                    id="reportedPlayerId"
+                    name="reported_player_id"
+                    placeholder="e.g. 42"
+                    required
+                >
+            </div>
+            <div class="admin-form-group">
+                <label class="admin-form-label" for="reportReason">Reason / Violation Category</label>
+                <input
+                    type="text"
+                    class="admin-form-input"
+                    id="reportReason"
+                    name="reason"
+                    placeholder="e.g. Harassment, Cheating, Inappropriate Name"
+                    required
+                >
+            </div>
+        </div>
+
+        <div class="admin-form-group">
+            <label class="admin-form-label" for="reportDetails">Incident Details</label>
+            <textarea
+                class="admin-form-textarea"
+                id="reportDetails"
+                name="details"
+                placeholder="Provide relevant context, logs, or chat excerpts..."
+            ></textarea>
+        </div>
+
+        <div class="admin-form-actions">
+            <button type="submit" class="admin-button admin-button-primary">Submit Report</button>
+        </div>
+    </form>
+</section>
+
+<!-- FILTER TABS -->
+<div style="display: flex; gap: 8px; margin-bottom: 20px;">
+    <a href="{{ url_for('admin.reports') }}" class="admin-button {% if not current_status %}admin-button-primary{% endif %}">
+        All Reports
+    </a>
+    <a href="{{ url_for('admin.reports', status='open') }}" class="admin-button {% if current_status == 'open' %}admin-button-primary{% endif %}">
+        Open
+    </a>
+    <a href="{{ url_for('admin.reports', status='resolved') }}" class="admin-button {% if current_status == 'resolved' %}admin-button-primary{% endif %}">
+        Resolved
+    </a>
+    <a href="{{ url_for('admin.reports', status='dismissed') }}" class="admin-button {% if current_status == 'dismissed' %}admin-button-primary{% endif %}">
+        Dismissed
+    </a>
+</div>
+
+<!-- REPORTS TABLE -->
 <section class="admin-section">
     <div class="admin-section-header">
         <div>
-            <h2>Player Reports</h2>
+            <h2>Player Reports ({{ reports|length }})</h2>
             <p>
-                Review reports submitted by players and take appropriate
-                moderation action.
+                Take action on open reports to maintain fair play in Krampus RPG.
             </p>
         </div>
     </div>
@@ -29,72 +108,95 @@
             <thead>
                 <tr>
                     <th>ID</th>
-                    <th>Reporter</th>
                     <th>Reported Player</th>
+                    <th>Reporter</th>
                     <th>Reason</th>
                     <th>Status</th>
-                    <th>Created</th>
-                    <th>Actions</th>
+                    <th>Staff Resolution</th>
+                    <th>Date</th>
+                    <th>Action</th>
                 </tr>
             </thead>
 
             <tbody>
                 {% for report in reports %}
                 <tr>
-                    <td>
-                        {{ report.id|default("—") }}
-                    </td>
+                    <td>#{{ report.id }}</td>
 
                     <td>
-                        {{ report.reporter_username|default(report.reporter_id|default("—")) }}
-                    </td>
-
-                    <td>
-                        <strong>
-                            {{ report.reported_username|default(report.reported_player_id|default("—")) }}
-                        </strong>
-                    </td>
-
-                    <td>
-                        {{ report.reason|default("—") }}
-                    </td>
-
-                    <td>
-                        {% set report_status = report.status|default("open") %}
-
-                        {% if report_status == "open" %}
-                            <span class="admin-status-badge status-warning">
-                                Open
-                            </span>
-                        {% elif report_status == "resolved" %}
-                            <span class="admin-status-badge status-success">
-                                Resolved
-                            </span>
-                        {% elif report_status == "dismissed" %}
-                            <span class="admin-status-badge">
-                                Dismissed
-                            </span>
+                        {% if report.reported_player_id %}
+                        <a href="{{ url_for('admin.player_detail', player_id=report.reported_player_id) }}" style="color: #fca5a5; font-weight: 700;">
+                            {{ report.reported_username|default("Player #" ~ report.reported_player_id) }}
+                        </a>
                         {% else %}
-                            <span class="admin-status-badge">
-                                {{ report_status|replace("_", " ")|title }}
-                            </span>
+                        —
                         {% endif %}
                     </td>
 
                     <td>
+                        {{ report.reporter_username|default(report.reporter_id|default("System")) }}
+                    </td>
+
+                    <td>
+                        <strong>{{ report.reason }}</strong>
+                        {% if report.details %}
+                        <p style="margin: 4px 0 0; font-size: 11px; color: var(--admin-text-muted);">
+                            {{ report.details }}
+                        </p>
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        {% set report_status = report.status|default("open") %}
+                        {% if report_status == "open" %}
+                            <span class="admin-status-badge status-warning">Open</span>
+                        {% elif report_status == "resolved" %}
+                            <span class="admin-status-badge status-success">Resolved</span>
+                        {% elif report_status == "dismissed" %}
+                            <span class="admin-status-badge">Dismissed</span>
+                        {% else %}
+                            <span class="admin-status-badge">{{ report_status|title }}</span>
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        {% if report.resolved_by_username %}
+                        <span style="font-size: 11px;">
+                            By: <strong>{{ report.resolved_by_username }}</strong>
+                            {% if report.resolution_notes %}
+                            <br><em style="color: var(--admin-text-muted);">{{ report.resolution_notes }}</em>
+                            {% endif %}
+                        </span>
+                        {% else %}
+                        <span style="color: var(--admin-text-dark); font-size: 11px;">Unresolved</span>
+                        {% endif %}
+                    </td>
+
+                    <td style="color: var(--admin-text-dark); font-size: 11px;">
                         {{ report.created_at|default("—") }}
                     </td>
 
                     <td>
-                        {% if report.id %}
-                        <a
-                            class="admin-button admin-button-small"
-                            href="#report-{{ report.id }}"
-                        >
-                            Review
-                        </a>
+                        {% if report_status == "open" %}
+                        <div style="display: flex; gap: 4px;">
+                            <form method="POST" action="{{ url_for('admin.report_update_status', report_id=report.id) }}" style="display: inline;">
+                                <input type="hidden" name="status" value="resolved">
+                                <input type="hidden" name="notes" value="Resolved by moderator">
+                                <button type="submit" class="admin-button admin-button-small" style="background: rgba(34,197,94,0.15); border-color: rgba(34,197,94,0.3); color: #86efac;">
+                                    Resolve
+                                </button>
+                            </form>
+
+                            <form method="POST" action="{{ url_for('admin.report_update_status', report_id=report.id) }}" style="display: inline;">
+                                <input type="hidden" name="status" value="dismissed">
+                                <input type="hidden" name="notes" value="Dismissed after review">
+                                <button type="submit" class="admin-button admin-button-small">
+                                    Dismiss
+                                </button>
+                            </form>
+                        </div>
                         {% else %}
-                        —
+                        <span style="color: var(--admin-text-dark); font-size: 11px;">Closed</span>
                         {% endif %}
                     </td>
                 </tr>
@@ -105,10 +207,8 @@
 
     {% else %}
     <div class="admin-empty-state">
-        <h3>No Reports</h3>
-        <p>
-            There are currently no player reports to review.
-        </p>
+        <h3>No Reports Found</h3>
+        <p>There are no moderation reports matching this filter.</p>
     </div>
     {% endif %}
 </section>

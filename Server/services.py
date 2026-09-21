@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import random
 import secrets
+import sqlite3
 from pathlib import Path
 from typing import Any
 
@@ -304,34 +305,9 @@ def get_species(
 
     wanted = str(species_id).lower()
 
-    with get_connection() as db:
-        # Try exact ID match first
-        species = db.execute(
-            """
-            SELECT
-                id,
-                national_dex,
-                name,
-                category,
-                generation,
-                description,
-                base_hp,
-                base_attack,
-                base_defense,
-                base_sp_attack,
-                base_sp_defense,
-                base_speed,
-                gender_rate,
-                is_fakemon,
-                is_active
-            FROM pokemon_species
-            WHERE id = ? AND is_active = 1
-            """,
-            (wanted,),
-        ).fetchone()
-
-        if not species:
-            # Try name match
+    try:
+        with get_connection() as db:
+            # Try exact ID match first
             species = db.execute(
                 """
                 SELECT
@@ -351,38 +327,100 @@ def get_species(
                     is_fakemon,
                     is_active
                 FROM pokemon_species
-                WHERE LOWER(name) = ? AND is_active = 1
+                WHERE id = ? AND is_active = 1
                 """,
                 (wanted,),
             ).fetchone()
 
-        if not species:
-            return None
+            if not species:
+                # Try name match
+                species = db.execute(
+                    """
+                    SELECT
+                        id,
+                        national_dex,
+                        name,
+                        category,
+                        generation,
+                        description,
+                        base_hp,
+                        base_attack,
+                        base_defense,
+                        base_sp_attack,
+                        base_sp_defense,
+                        base_speed,
+                        gender_rate,
+                        is_fakemon,
+                        is_active
+                    FROM pokemon_species
+                    WHERE LOWER(name) = ? AND is_active = 1
+                    """,
+                    (wanted,),
+                ).fetchone()
 
-        species_dict = dict(species)
+            if species:
+                species_dict = dict(species)
 
-        # Get types
-        types = db.execute(
-            """
-            SELECT t.name FROM pokemon_types t
-            JOIN pokemon_species_types pst ON pst.type_id = t.id
-            WHERE pst.species_id = ?
-            ORDER BY pst.slot
-            """,
-            (species_dict["id"],),
-        ).fetchall()
+                # Get types
+                types = db.execute(
+                    """
+                    SELECT t.name FROM pokemon_types t
+                    JOIN pokemon_species_types pst ON pst.type_id = t.id
+                    WHERE pst.species_id = ?
+                    ORDER BY pst.slot
+                    """,
+                    (species_dict["id"],),
+                ).fetchall()
 
-        species_dict["type"] = [t[0] for t in types]
-        species_dict["base_stats"] = {
-            "hp": species_dict["base_hp"],
-            "attack": species_dict["base_attack"],
-            "defense": species_dict["base_defense"],
-            "sp_attack": species_dict["base_sp_attack"],
-            "sp_defense": species_dict["base_sp_defense"],
-            "speed": species_dict["base_speed"],
-        }
+                species_dict["type"] = [t[0] for t in types]
+                species_dict["base_stats"] = {
+                    "hp": species_dict["base_hp"],
+                    "attack": species_dict["base_attack"],
+                    "defense": species_dict["base_defense"],
+                    "sp_attack": species_dict["base_sp_attack"],
+                    "sp_defense": species_dict["base_sp_defense"],
+                    "speed": species_dict["base_speed"],
+                }
 
-        return species_dict
+                return species_dict
+    except sqlite3.OperationalError:
+        pass
+
+    # JSON catalog fallback
+    import json
+    from pathlib import Path
+    json_path = Path(__file__).resolve().parent.parent / "Data" / "pokemon.json"
+    if json_path.exists():
+        try:
+            with open(json_path, "r", encoding="utf-8") as f:
+                all_pokemon = json.load(f)
+            for p in all_pokemon:
+                if str(p.get("id")).lower() == wanted or str(p.get("name", "")).lower() == wanted:
+                    base_stats = p.get("base_stats", {})
+                    return {
+                        "id": str(p["id"]),
+                        "national_dex": p.get("national_dex", 0),
+                        "name": p.get("name", str(p["id"]).title()),
+                        "category": "pokemon",
+                        "generation": p.get("generation", 1),
+                        "description": p.get("description", ""),
+                        "base_hp": base_stats.get("hp", 45),
+                        "base_attack": base_stats.get("attack", 49),
+                        "base_defense": base_stats.get("defense", 49),
+                        "base_sp_attack": base_stats.get("sp_attack", 65),
+                        "base_sp_defense": base_stats.get("sp_defense", 65),
+                        "base_speed": base_stats.get("speed", 45),
+                        "gender_rate": p.get("gender_rate", -1),
+                        "is_fakemon": 0,
+                        "is_active": 1,
+                        "type": p.get("type", ["normal"]),
+                        "base_stats": base_stats,
+                        "starting_moves": p.get("starting_moves", ["tackle"]),
+                    }
+        except Exception:
+            pass
+
+    return None
 
 
 # ============================================================
@@ -423,54 +461,92 @@ def get_move(
 
     wanted = str(move_id).lower()
 
-    with get_connection() as db:
-        # Try to find by exact ID match first
-        move = db.execute(
-            """
-            SELECT
-                m.id,
-                m.name,
-                m.type_id,
-                m.category,
-                m.power,
-                m.accuracy,
-                m.max_pp,
-                m.description,
-                t.name as type_name
-            FROM moves m
-            LEFT JOIN pokemon_types t ON t.id = m.type_id
-            WHERE m.id = ?
-            """,
-            (wanted,),
-        ).fetchone()
+    try:
+        with get_connection() as db:
+            # Try to find by exact ID match first
+            move = db.execute(
+                """
+                SELECT
+                    m.id,
+                    m.name,
+                    m.type_id,
+                    m.category,
+                    m.power,
+                    m.accuracy,
+                    m.max_pp,
+                    m.description,
+                    t.name as type_name
+                FROM moves m
+                LEFT JOIN pokemon_types t ON t.id = m.type_id
+                WHERE m.id = ?
+                """,
+                (wanted,),
+            ).fetchone()
 
-        if move:
-            return dict(move)
+            if move:
+                return dict(move)
 
-        # Try to find by name
-        move = db.execute(
-            """
-            SELECT
-                m.id,
-                m.name,
-                m.type_id,
-                m.category,
-                m.power,
-                m.accuracy,
-                m.max_pp,
-                m.description,
-                t.name as type_name
-            FROM moves m
-            LEFT JOIN pokemon_types t ON t.id = m.type_id
-            WHERE LOWER(m.name) = ?
-            """,
-            (wanted,),
-        ).fetchone()
+            # Try to find by name
+            move = db.execute(
+                """
+                SELECT
+                    m.id,
+                    m.name,
+                    m.type_id,
+                    m.category,
+                    m.power,
+                    m.accuracy,
+                    m.max_pp,
+                    m.description,
+                    t.name as type_name
+                FROM moves m
+                LEFT JOIN pokemon_types t ON t.id = m.type_id
+                WHERE LOWER(m.name) = ?
+                """,
+                (wanted,),
+            ).fetchone()
 
-        if move:
-            return dict(move)
+            if move:
+                return dict(move)
 
-        return None
+    except sqlite3.OperationalError:
+        pass
+
+    # Fallback to Data/moves.json
+    import json
+    from pathlib import Path
+    json_path = Path(__file__).resolve().parent.parent / "Data" / "moves.json"
+    if json_path.exists():
+        try:
+            with open(json_path, "r", encoding="utf-8") as f:
+                all_moves = json.load(f)
+            for m in all_moves:
+                if str(m.get("id")).lower() == wanted or str(m.get("name", "")).lower() == wanted:
+                    return {
+                        "id": str(m["id"]),
+                        "name": m.get("name", str(m["id"]).title()),
+                        "type_id": m.get("type", "normal"),
+                        "category": m.get("category", "physical"),
+                        "power": m.get("power", 40),
+                        "accuracy": m.get("accuracy", 100),
+                        "max_pp": m.get("pp", 35),
+                        "pp": m.get("pp", 35),
+                        "description": m.get("description", ""),
+                    }
+        except Exception:
+            pass
+
+    return {
+        "id": wanted,
+        "name": wanted.title(),
+        "type_id": "normal",
+        "category": "physical",
+        "power": 40,
+        "accuracy": 100,
+        "max_pp": 35,
+        "pp": 35,
+        "description": "",
+    }
 
 
 # ============================================================

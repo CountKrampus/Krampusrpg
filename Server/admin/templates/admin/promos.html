@@ -2,32 +2,100 @@
 
 {% block title %}Daily Promos{% endblock %}
 
+{% block page_heading %}Daily Pokémon Promos{% endblock %}
+
 {% block content %}
 <div class="admin-page-header">
     <div>
-        <h1>Daily Promos</h1>
+        <h1>Daily Pokémon Promotions</h1>
         <p class="admin-subtitle">
-            Manage limited-time Pokémon promotions and daily claims.
+            Manage limited-time promotional Pokémon and daily claims for players.
         </p>
     </div>
 
+    {% if current_user_has_permission('admin.promos.edit') %}
     <div class="admin-page-actions">
-        <a
+        <button
+            type="button"
             class="admin-button admin-button-primary"
-            href="{{ url_for('admin.promos_edit') }}"
+            onclick="const s = document.getElementById('createPromoSection'); s.style.display = s.style.display === 'none' ? 'block' : 'none';"
         >
-            Create Promo
-        </a>
+            + Create New Promo
+        </button>
     </div>
+    {% endif %}
 </div>
 
+<!-- CREATE PROMO SECTION -->
+{% if current_user_has_permission('admin.promos.edit') %}
+<section class="admin-section" id="createPromoSection" style="display: none;">
+    <div class="admin-section-header">
+        <div>
+            <h2>Create Daily Promotion</h2>
+            <p>Define a special Pokémon reward for players to claim.</p>
+        </div>
+    </div>
+
+    <form class="admin-form" method="POST" action="{{ url_for('admin.promos_create') }}">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+            <div class="admin-form-group">
+                <label class="admin-form-label" for="promoSpecies">Species</label>
+                <select class="admin-form-select" id="promoSpecies" name="species_id" required>
+                    <option value="">-- Select Species --</option>
+                    {% for s in species_list %}
+                    <option value="{{ s.id }}">{{ s.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="admin-form-group">
+                <label class="admin-form-label" for="promoVariant">Variant</label>
+                <select class="admin-form-select" id="promoVariant" name="variant">
+                    {% for v in variants %}
+                    <option value="{{ v.id }}">{{ v.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="admin-form-group">
+                <label class="admin-form-label" for="promoLevel">Level</label>
+                <input
+                    type="number"
+                    class="admin-form-input"
+                    id="promoLevel"
+                    name="level"
+                    value="15"
+                    min="1"
+                    max="100"
+                    required
+                >
+            </div>
+
+            <div class="admin-form-group" style="display: flex; flex-direction: column; justify-content: center;">
+                <label class="admin-form-label">Initial Status</label>
+                <label class="admin-form-checkbox" style="cursor: pointer; margin-top: 6px;">
+                    <input type="checkbox" name="active" value="1" checked>
+                    <strong>Activate Immediately</strong>
+                </label>
+            </div>
+        </div>
+
+        <div class="admin-form-actions" style="margin-top: 15px;">
+            <button type="submit" class="admin-button admin-button-primary">
+                Save Daily Promo
+            </button>
+        </div>
+    </form>
+</section>
+{% endif %}
+
+<!-- PROMOTIONS TABLE -->
 <section class="admin-section">
     <div class="admin-section-header">
         <div>
-            <h2>Promotions</h2>
+            <h2>Configured Promotions ({{ promos|length }})</h2>
             <p>
-                Create special Pokémon offers that players can claim during
-                a defined 24-hour period.
+                Active promos are available for eligible players to claim once during their window.
             </p>
         </div>
     </div>
@@ -38,13 +106,12 @@
             <thead>
                 <tr>
                     <th>ID</th>
-                    <th>Pokémon</th>
+                    <th>Pokémon Species</th>
                     <th>Variant</th>
                     <th>Level</th>
-                    <th>Starts</th>
-                    <th>Ends</th>
+                    <th>Total Claims</th>
                     <th>Status</th>
-                    <th>Claims</th>
+                    <th>Created</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -52,14 +119,10 @@
             <tbody>
                 {% for promo in promos %}
                 <tr>
-                    <td>
-                        {{ promo.id|default("—") }}
-                    </td>
+                    <td>#{{ promo.id }}</td>
 
                     <td>
-                        <strong>
-                            {{ promo.species_name|default(promo.species_id|default("—")) }}
-                        </strong>
+                        <strong>{{ promo.species_id|title }}</strong>
                     </td>
 
                     <td>
@@ -67,40 +130,35 @@
                     </td>
 
                     <td>
-                        {{ promo.level|default(1) }}
+                        Lv. {{ promo.level|default(1) }}
                     </td>
 
                     <td>
-                        {{ promo.starts_at|default("—") }}
-                    </td>
-
-                    <td>
-                        {{ promo.ends_at|default("—") }}
+                        <strong>{{ promo.claim_count|default(0) }}</strong> claims
                     </td>
 
                     <td>
                         {% if promo.active %}
-                            <span class="admin-status-badge status-success">
-                                Active
-                            </span>
+                            <span class="admin-status-badge status-success">Active</span>
                         {% else %}
-                            <span class="admin-status-badge">
-                                Inactive
-                            </span>
+                            <span class="admin-status-badge">Inactive</span>
                         {% endif %}
                     </td>
 
-                    <td>
-                        {{ promo.claim_count|default(0) }}
+                    <td style="color: var(--admin-text-dark); font-size: 11px;">
+                        {{ promo.created_at|default("—") }}
                     </td>
 
                     <td>
-                        <a
-                            class="admin-button admin-button-small"
-                            href="{{ url_for('admin.promos_edit', promo_id=promo.id) }}"
-                        >
-                            Edit
-                        </a>
+                        {% if current_user_has_permission('admin.promos.edit') %}
+                        <form method="POST" action="{{ url_for('admin.promos_toggle', promo_id=promo.id) }}" style="display: inline;">
+                            <button type="submit" class="admin-button admin-button-small">
+                                {% if promo.active %}Deactivate{% else %}Activate{% endif %}
+                            </button>
+                        </form>
+                        {% else %}
+                        —
+                        {% endif %}
                     </td>
                 </tr>
                 {% endfor %}
@@ -110,17 +168,8 @@
 
     {% else %}
     <div class="admin-empty-state">
-        <h3>No Daily Promos</h3>
-        <p>
-            No daily Pokémon promotions have been created yet.
-        </p>
-
-        <a
-            class="admin-button admin-button-primary"
-            href="{{ url_for('admin.promos_edit') }}"
-        >
-            Create Your First Promo
-        </a>
+        <h3>No Daily Promos Found</h3>
+        <p>No promotional Pokémon offers have been created yet.</p>
     </div>
     {% endif %}
 </section>

@@ -2,22 +2,143 @@
 
 {% block title %}Pokémon{% endblock %}
 
+{% block page_heading %}Pokémon Management{% endblock %}
+
 {% block content %}
 <div class="admin-page-header">
     <div>
-        <h1>Pokémon</h1>
+        <h1>Pokémon Management</h1>
         <p class="admin-subtitle">
-            View and manage Pokémon owned by players.
+            Inspect, manage, and directly assign Pokémon to players.
         </p>
     </div>
+
+    {% if current_user_has_permission('admin.pokemon.edit') %}
+    <div class="admin-page-actions">
+        <button
+            type="button"
+            class="admin-button admin-button-primary"
+            onclick="document.getElementById('assignModal').scrollIntoView({behavior: 'smooth'}); document.getElementById('assignPlayerSelect').focus();"
+        >
+            ⚡ Assign Pokémon Directly
+        </button>
+    </div>
+    {% endif %}
 </div>
 
+<!-- DIRECT POKÉMON ASSIGNMENT SECTION -->
+{% if current_user_has_permission('admin.pokemon.edit') %}
+<section class="admin-section" id="assignModal">
+    <div class="admin-section-header">
+        <div>
+            <h2>Assign Pokémon Directly</h2>
+            <p>
+                Grant a Pokémon directly to any player account. Stored automatically in their Party or PC Box.
+            </p>
+        </div>
+    </div>
+
+    <form
+        class="admin-form"
+        method="POST"
+        action="{{ url_for('admin.pokemon_assign') }}"
+        data-prevent-double-submit
+        style="margin-bottom: 24px;"
+    >
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px;">
+            <!-- Player Recipient -->
+            <div class="admin-form-group">
+                <label class="admin-form-label" for="assignPlayerSelect">Recipient Player</label>
+                <select class="admin-form-select" id="assignPlayerSelect" name="player_id" required>
+                    <option value="">-- Choose Player --</option>
+                    {% for p in players %}
+                    <option value="{{ p.id }}" {% if preselect_player_id|string == p.id|string %}selected{% endif %}>
+                        {{ p.username }} (ID #{{ p.id }}){% if p.display_name and p.display_name != p.username %} - {{ p.display_name }}{% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+                <span class="admin-form-help">Select the player who will receive this Pokémon.</span>
+            </div>
+
+            <!-- Species -->
+            <div class="admin-form-group">
+                <label class="admin-form-label" for="assignSpeciesSelect">Pokémon Species</label>
+                <select class="admin-form-select" id="assignSpeciesSelect" name="species_id" required>
+                    <option value="">-- Choose Species --</option>
+                    {% for s in species_list %}
+                    <option value="{{ s.id }}">{{ s.name }} ({{ s.id }})</option>
+                    {% endfor %}
+                </select>
+                <span class="admin-form-help">Official species catalog.</span>
+            </div>
+
+            <!-- Level -->
+            <div class="admin-form-group">
+                <label class="admin-form-label" for="assignLevel">Level (1 - 100)</label>
+                <input
+                    type="number"
+                    class="admin-form-input"
+                    id="assignLevel"
+                    name="level"
+                    value="5"
+                    min="1"
+                    max="100"
+                    required
+                >
+                <span class="admin-form-help">Stats calculate automatically based on species base stats.</span>
+            </div>
+
+            <!-- Variant -->
+            <div class="admin-form-group">
+                <label class="admin-form-label" for="assignVariant">Variant</label>
+                <select class="admin-form-select" id="assignVariant" name="variant">
+                    {% for v in variants %}
+                    <option value="{{ v.id }}">{{ v.name }}</option>
+                    {% endfor %}
+                </select>
+                <span class="admin-form-help">Color / elemental palette variant.</span>
+            </div>
+
+            <!-- Nickname -->
+            <div class="admin-form-group">
+                <label class="admin-form-label" for="assignNickname">Nickname (Optional)</label>
+                <input
+                    type="text"
+                    class="admin-form-input"
+                    id="assignNickname"
+                    name="nickname"
+                    placeholder="Leave blank for species name"
+                    maxlength="30"
+                >
+                <span class="admin-form-help">Custom nickname for this Pokémon.</span>
+            </div>
+
+            <!-- Shiny Toggle -->
+            <div class="admin-form-group" style="display: flex; flex-direction: column; justify-content: center;">
+                <label class="admin-form-label">Special Properties</label>
+                <label class="admin-form-checkbox" style="cursor: pointer; margin-top: 6px;">
+                    <input type="checkbox" name="shiny" value="1">
+                    <strong style="color: #fde047;">✨ Shiny Pokémon</strong>
+                </label>
+            </div>
+        </div>
+
+        <div class="admin-form-actions" style="margin-top: 15px;">
+            <button type="submit" class="admin-button admin-button-primary">
+                ⚡ Give Pokémon to Player
+            </button>
+        </div>
+    </form>
+</section>
+{% endif %}
+
+<!-- POKÉMON DATABASE TABLE -->
 <section class="admin-section">
     <div class="admin-section-header">
         <div>
-            <h2>Pokémon Database</h2>
+            <h2>Registered Pokémon</h2>
             <p>
-                Inspect Pokémon, levels, variants, ownership, and current status.
+                Browse existing Pokémon records, level progression, and current storage status.
             </p>
         </div>
     </div>
@@ -28,7 +149,6 @@
             <thead>
                 <tr>
                     <th>ID</th>
-                    <th>Unique ID</th>
                     <th>Species</th>
                     <th>Nickname</th>
                     <th>Owner</th>
@@ -36,8 +156,8 @@
                     <th>Variant</th>
                     <th>Shiny</th>
                     <th>HP</th>
-                    <th>Location</th>
-                    <th>Actions</th>
+                    <th>Storage Location</th>
+                    <th>Unique ID</th>
                 </tr>
             </thead>
 
@@ -47,13 +167,7 @@
                     <td>{{ mon.id }}</td>
 
                     <td>
-                        <code>{{ mon.unique_id }}</code>
-                    </td>
-
-                    <td>
-                        <strong>
-                            {{ mon.species_name|default(mon.species_id) }}
-                        </strong>
+                        <strong>{{ mon.species_id|title }}</strong>
                     </td>
 
                     <td>
@@ -61,11 +175,17 @@
                     </td>
 
                     <td>
-                        {{ mon.username|default(mon.owner_id|default("—")) }}
+                        {% if mon.owner_id %}
+                        <a href="{{ url_for('admin.player_detail', player_id=mon.owner_id) }}" style="color: var(--admin-info); font-weight: 600;">
+                            {{ mon.username|default("Player #" ~ mon.owner_id) }}
+                        </a>
+                        {% else %}
+                        —
+                        {% endif %}
                     </td>
 
                     <td>
-                        {{ mon.level|default(1) }}
+                        <span style="font-weight: 700;">Lv. {{ mon.level|default(1) }}</span>
                     </td>
 
                     <td>
@@ -74,43 +194,36 @@
 
                     <td>
                         {% if mon.shiny %}
-                            <span class="admin-status-badge status-success">
-                                Yes
+                            <span class="admin-status-badge status-warning">
+                                ✨ Shiny
                             </span>
                         {% else %}
-                            No
+                            <span style="color: var(--admin-text-dark);">Normal</span>
                         {% endif %}
                     </td>
 
                     <td>
-                        {{ mon.current_hp|default(0) }}
-                        /
-                        {{ mon.max_hp|default(0) }}
+                        {{ mon.current_hp|default(0) }} / {{ mon.max_hp|default(0) }}
                     </td>
 
                     <td>
                         {% if mon.in_party %}
                             <span class="admin-status-badge status-success">
-                                Party (Slot {{ mon.party_slot }})
+                                🎒 Party (Slot {{ mon.party_slot }})
                             </span>
                         {% elif mon.in_pc %}
                             <span class="admin-status-badge status-info">
-                                PC (Box {{ mon.pc_page }}, Slot {{ mon.pc_slot }})
+                                💻 PC (Box {{ mon.pc_page }}, Slot {{ mon.pc_slot }})
                             </span>
                         {% else %}
                             <span class="admin-status-badge">
-                                Unstored
+                                Unassigned
                             </span>
                         {% endif %}
                     </td>
 
                     <td>
-                        <a
-                            class="admin-button admin-button-small"
-                            href="{{ url_for('admin.pokemon_edit', pokemon_id=mon.id) }}"
-                        >
-                            Edit
-                        </a>
+                        <code>{{ mon.unique_id }}</code>
                     </td>
                 </tr>
                 {% endfor %}
@@ -122,7 +235,7 @@
     <div class="admin-empty-state">
         <h3>No Pokémon Found</h3>
         <p>
-            There are currently no Pokémon to display.
+            There are currently no Pokémon records in the database.
         </p>
     </div>
     {% endif %}

@@ -1,0 +1,176 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Player #{{ player.id }} - {{ player.username }}{% endblock %}
+
+{% block page_heading %}Player Profile{% endblock %}
+
+{% block content %}
+<div class="admin-page-header">
+    <div>
+        <a href="{{ url_for('admin.players') }}" style="color: var(--admin-text-muted); font-size: 12px; margin-bottom: 6px; display: inline-block;">
+            &larr; Return to Player Directory
+        </a>
+        <h1>{{ player.display_name }} <span style="font-size: 18px; color: var(--admin-text-muted);">(@{{ player.username }})</span></h1>
+        <p class="admin-subtitle">
+            Account ID: #{{ player.id }} &bull; Role: <span class="admin-role-badge role-{{ player.role_name|default('player') }}">{{ player.role_name|default("player")|replace("_", " ")|title }}</span>
+        </p>
+    </div>
+
+    <div class="admin-page-actions">
+        {% if current_user_has_permission('admin.pokemon.edit') %}
+        <a class="admin-button admin-button-primary" href="{{ url_for('admin.pokemon', player_id=player.id) }}#assignModal">
+            ⚡ Assign Pokémon
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- PLAYER PROGRESS & STATS -->
+<div class="admin-stats-grid">
+    <div class="admin-stat-card">
+        <div class="admin-stat-icon">💰</div>
+        <div class="admin-stat-content">
+            <div class="admin-stat-label">PokéDollars</div>
+            <div class="admin-stat-value">${{ '{:,}'.format(player.progress.money|default(0)) }}</div>
+            <div class="admin-stat-description">Current player balance</div>
+        </div>
+    </div>
+
+    <div class="admin-stat-card">
+        <div class="admin-stat-icon">🎖️</div>
+        <div class="admin-stat-content">
+            <div class="admin-stat-label">Gym Badges</div>
+            <div class="admin-stat-value">{{ player.progress.badges|default(0) }}</div>
+            <div class="admin-stat-description">Earned region badges</div>
+        </div>
+    </div>
+
+    <div class="admin-stat-card">
+        <div class="admin-stat-icon">🎒</div>
+        <div class="admin-stat-content">
+            <div class="admin-stat-label">Party Pokémon</div>
+            <div class="admin-stat-value">{{ player.party_count|default(0) }} / 6</div>
+            <div class="admin-stat-description">Active battle team</div>
+        </div>
+    </div>
+
+    <div class="admin-stat-card">
+        <div class="admin-stat-icon">💻</div>
+        <div class="admin-stat-content">
+            <div class="admin-stat-label">PC Box Storage</div>
+            <div class="admin-stat-value">{{ player.pc_count|default(0) }}</div>
+            <div class="admin-stat-description">Stored in PC boxes</div>
+        </div>
+    </div>
+</div>
+
+<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px; margin-bottom: 30px;">
+    <!-- ACTIVE PARTY TEAM -->
+    <section class="admin-section" style="margin-bottom: 0;">
+        <div class="admin-section-header">
+            <div>
+                <h2>Active Party ({{ player.party|length }} / 6)</h2>
+                <p>Current team carrying into battle.</p>
+            </div>
+        </div>
+
+        {% if player.party %}
+        <div class="admin-table-container">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Slot</th>
+                        <th>Species</th>
+                        <th>Nickname</th>
+                        <th>Level</th>
+                        <th>Variant</th>
+                        <th>Shiny</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for mon in player.party %}
+                    <tr>
+                        <td><strong>#{{ mon.slot }}</strong></td>
+                        <td>{{ mon.species_id|title }}</td>
+                        <td>{{ mon.nickname|default("—") }}</td>
+                        <td>Lv. {{ mon.level }}</td>
+                        <td>{{ mon.variant|replace('_', ' ')|title }}</td>
+                        <td>
+                            {% if mon.shiny %}
+                            <span class="admin-status-badge status-warning">✨ Shiny</span>
+                            {% else %}
+                            <span style="color: var(--admin-text-dark);">No</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="admin-empty-state">
+            <h3>No Pokémon in Party</h3>
+            <p>This player does not currently have any Pokémon in their active party.</p>
+            {% if current_user_has_permission('admin.pokemon.edit') %}
+            <a class="admin-button admin-button-primary" href="{{ url_for('admin.pokemon', player_id=player.id) }}#assignModal">
+                ⚡ Give Pokémon
+            </a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </section>
+
+    <!-- ACCOUNT & ROLE MANAGEMENT -->
+    <section class="admin-section" style="margin-bottom: 0;">
+        <div class="admin-section-header">
+            <div>
+                <h2>Account Controls</h2>
+                <p>Manage permissions and role hierarchy.</p>
+            </div>
+        </div>
+
+        <div class="admin-card" style="padding: 20px;">
+            <div class="admin-info-list" style="margin-top: 0; margin-bottom: 20px;">
+                <div>
+                    <span>Current Region</span>
+                    <strong>{{ player.progress.current_region|title }}</strong>
+                </div>
+                <div>
+                    <span>Current Location</span>
+                    <strong>{{ player.progress.current_area|replace('_', ' ')|title }}</strong>
+                </div>
+                <div>
+                    <span>Registered Date</span>
+                    <strong>{{ player.created_at|default('—') }}</strong>
+                </div>
+                <div>
+                    <span>Last Login</span>
+                    <strong>{{ player.last_login|default('Never') }}</strong>
+                </div>
+            </div>
+
+            {% if current_user_has_permission('admin.roles') or current_user_has_permission('admin.players.edit') %}
+            <h3 style="margin: 15px 0 10px; font-size: 14px;">Change Staff Role</h3>
+            <form
+                method="POST"
+                action="{{ url_for('admin.player_set_role', player_id=player.id) }}"
+                data-confirm-submit="Are you sure you want to change the role for this account?"
+            >
+                <div class="admin-form-group">
+                    <select class="admin-form-select" name="role_id" required>
+                        {% for r in roles %}
+                        <option value="{{ r.id }}" {% if player.role_id == r.id %}selected{% endif %}>
+                            {{ r.name|replace('_', ' ')|title }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="admin-button admin-button-primary" style="width: 100%;">
+                    Update Role
+                </button>
+            </form>
+            {% endif %}
+        </div>
+    </section>
+</div>
+{% endblock %}

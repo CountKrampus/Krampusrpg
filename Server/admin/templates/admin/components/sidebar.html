@@ -1,147 +1,116 @@
 <aside class="admin-sidebar">
-
     <div class="admin-brand">
-        <div class="admin-brand-title">
-            Krampus RPG
-        </div>
-
-        <div class="admin-brand-subtitle">
-            Staff Control Panel
-        </div>
+        <div class="admin-brand-title">Krampus RPG</div>
+        <div class="admin-brand-subtitle">Staff Control Panel</div>
     </div>
 
     <nav class="admin-navigation">
-
         <div class="admin-nav-section">
-            <div class="admin-nav-heading">
-                Overview
-            </div>
-
-            <a
-                href="{{ url_for('admin.dashboard') }}"
-                class="admin-nav-link {% if request.endpoint == 'admin.dashboard' %}active{% endif %}"
-            >
-                Dashboard
+            <div class="admin-nav-heading">Overview</div>
+            <a href="{{ url_for('admin.dashboard') }}" class="admin-nav-link {% if request.endpoint == 'admin.dashboard' %}active{% endif %}">
+                <span>Dashboard</span>
             </a>
         </div>
 
-
+        {% if current_user_has_permission('admin.players.view') or current_user_has_permission('admin.pokemon.view') or current_user_has_permission('admin.items.view') or current_user_has_permission('admin.quests.view') %}
         <div class="admin-nav-section">
-            <div class="admin-nav-heading">
-                Management
-            </div>
-
-            <a
-                href="{{ url_for('admin.players') }}"
-                class="admin-nav-link {% if request.endpoint in ['admin.players', 'admin.players_edit'] %}active{% endif %}"
-            >
-                Players
+            <div class="admin-nav-heading">Management</div>
+            {% if current_user_has_permission('admin.players.view') %}
+            <a href="{{ url_for('admin.players') }}" class="admin-nav-link {% if request.endpoint in ['admin.players', 'admin.players_edit', 'admin.player_detail'] %}active{% endif %}">
+                <span>Players</span>
             </a>
+            {% endif %}
 
-            <a
-                href="{{ url_for('admin.pokemon') }}"
-                class="admin-nav-link {% if request.endpoint in ['admin.pokemon', 'admin.pokemon_edit'] %}active{% endif %}"
-            >
-                Pokémon
+            {% if current_user_has_permission('admin.pokemon.view') %}
+            <a href="{{ url_for('admin.pokemon') }}" class="admin-nav-link {% if request.endpoint in ['admin.pokemon', 'admin.pokemon_edit'] %}active{% endif %}">
+                <span>Pokémon</span>
             </a>
+            {% endif %}
 
-            <a
-                href="{{ url_for('admin.items') }}"
-                class="admin-nav-link {% if request.endpoint in ['admin.items', 'admin.items_edit'] %}active{% endif %}"
-            >
-                Items
+            {% if current_user_has_permission('admin.items.view') %}
+            <a href="{{ url_for('admin.items') }}" class="admin-nav-link {% if request.endpoint in ['admin.items', 'admin.items_edit'] %}active{% endif %}">
+                <span>Items</span>
             </a>
+            {% endif %}
 
-            <a
-                href="{{ url_for('admin.quests') }}"
-                class="admin-nav-link {% if request.endpoint in ['admin.quests', 'admin.quests_edit'] %}active{% endif %}"
-            >
-                Quests
+            {% if current_user_has_permission('admin.quests.view') %}
+            <a href="{{ url_for('admin.quests') }}" class="admin-nav-link {% if request.endpoint in ['admin.quests', 'admin.quests_edit'] %}active{% endif %}">
+                <span>Quests</span>
+            </a>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {% if current_user_has_permission('admin.promos.view') or current_user_has_permission('admin.events.view') %}
+        <div class="admin-nav-section">
+            <div class="admin-nav-heading">Events</div>
+            {% if current_user_has_permission('admin.promos.view') %}
+            <a href="{{ url_for('admin.promos') }}" class="admin-nav-link {% if request.endpoint in ['admin.promos', 'admin.promos_edit'] %}active{% endif %}">
+                <span>Daily Promos</span>
+            </a>
+            {% endif %}
+
+            {% if current_user_has_permission('admin.events.view') %}
+            <a href="{{ url_for('admin.events') }}" class="admin-nav-link {% if request.endpoint in ['admin.events', 'admin.events_edit'] %}active{% endif %}">
+                <span>Events</span>
+            </a>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {% if current_user_is_webmaster() %}
+        <div class="admin-nav-section">
+            <div class="admin-nav-heading">Webmaster</div>
+            <a href="{{ url_for('admin.news') }}" class="admin-nav-link {% if request.endpoint in ['admin.news', 'admin.news_create', 'admin.news_edit'] %}active{% endif %}">
+                <span>News Management</span>
             </a>
         </div>
+        {% endif %}
 
-
+        {% if current_user_has_permission('admin.reports.view') or current_user_has_permission('admin.audit_log') %}
         <div class="admin-nav-section">
-            <div class="admin-nav-heading">
-                Events
-            </div>
-
-            <a
-                href="{{ url_for('admin.promos') }}"
-                class="admin-nav-link {% if request.endpoint in ['admin.promos', 'admin.promos_edit'] %}active{% endif %}"
-            >
-                Daily Promos
+            <div class="admin-nav-heading">Moderation</div>
+            {% if current_user_has_permission('admin.reports.view') %}
+            <a href="{{ url_for('admin.reports') }}" class="admin-nav-link {% if request.endpoint == 'admin.reports' %}active{% endif %}">
+                <span>Reports</span>
             </a>
+            {% endif %}
 
-            <a
-                href="{{ url_for('admin.events') }}"
-                class="admin-nav-link {% if request.endpoint in ['admin.events', 'admin.events_edit'] %}active{% endif %}"
-            >
-                Events
+            {% if current_user_has_permission('admin.audit_log') %}
+            <a href="{{ url_for('admin.audit_log') }}" class="admin-nav-link {% if request.endpoint == 'admin.audit_log' %}active{% endif %}">
+                <span>Audit Log</span>
             </a>
+            {% endif %}
         </div>
+        {% endif %}
 
-
+        {% if current_user_has_permission('admin.roles') or current_user_has_permission('admin.settings') or current_user_has_permission('admin.database') %}
         <div class="admin-nav-section">
-            <div class="admin-nav-heading">
-                Moderation
-            </div>
-
-            <a
-                href="{{ url_for('admin.reports') }}"
-                class="admin-nav-link {% if request.endpoint == 'admin.reports' %}active{% endif %}"
-            >
-                Reports
+            <div class="admin-nav-heading">System</div>
+            {% if current_user_has_permission('admin.roles') %}
+            <a href="{{ url_for('admin.roles') }}" class="admin-nav-link {% if request.endpoint == 'admin.roles' %}active{% endif %}">
+                <span>Roles &amp; Permissions</span>
             </a>
+            {% endif %}
 
-            <a
-                href="{{ url_for('admin.audit_log') }}"
-                class="admin-nav-link {% if request.endpoint == 'admin.audit_log' %}active{% endif %}"
-            >
-                Audit Log
+            {% if current_user_has_permission('admin.settings') %}
+            <a href="{{ url_for('admin.settings') }}" class="admin-nav-link {% if request.endpoint == 'admin.settings' %}active{% endif %}">
+                <span>Settings</span>
             </a>
+            {% endif %}
+
+            {% if current_user_has_permission('admin.database') %}
+            <a href="{{ url_for('admin.database') }}" class="admin-nav-link {% if request.endpoint == 'admin.database' %}active{% endif %}">
+                <span>Database</span>
+            </a>
+            {% endif %}
         </div>
-
-
-        <div class="admin-nav-section">
-            <div class="admin-nav-heading">
-                System
-            </div>
-
-            <a
-                href="{{ url_for('admin.roles') }}"
-                class="admin-nav-link {% if request.endpoint == 'admin.roles' %}active{% endif %}"
-            >
-                Roles & Permissions
-            </a>
-
-            <a
-                href="{{ url_for('admin.settings') }}"
-                class="admin-nav-link {% if request.endpoint == 'admin.settings' %}active{% endif %}"
-            >
-                Settings
-            </a>
-
-            <a
-                href="{{ url_for('admin.database') }}"
-                class="admin-nav-link {% if request.endpoint == 'admin.database' %}active{% endif %}"
-            >
-                Database
-            </a>
-        </div>
-
+        {% endif %}
     </nav>
 
-
     <div class="admin-sidebar-footer">
-
-        <a
-            href="{{ url_for('dashboard') }}"
-            class="admin-nav-link"
-        >
+        <a href="{{ url_for('dashboard') }}" class="admin-nav-link">
             ← Return to Game
         </a>
-
     </div>
-
 </aside>

@@ -2,22 +2,25 @@
 
 {% block title %}Roles & Permissions{% endblock %}
 
+{% block page_heading %}Roles &amp; Permissions{% endblock %}
+
 {% block content %}
 <div class="admin-page-header">
     <div>
-        <h1>Roles & Permissions</h1>
+        <h1>Roles &amp; Permissions</h1>
         <p class="admin-subtitle">
-            Manage staff roles and control what each role can access.
+            Configure staff hierarchy, role privileges, and available administrative permissions.
         </p>
     </div>
 </div>
 
+<!-- ROLES TABLE -->
 <section class="admin-section">
     <div class="admin-section-header">
         <div>
-            <h2>Roles</h2>
+            <h2>Configured Roles ({{ roles|length }})</h2>
             <p>
-                Roles determine which administrative permissions an account receives.
+                Each role grants a distinct permission set. Webmaster has automatic full superuser access.
             </p>
         </div>
     </div>
@@ -31,61 +34,63 @@
                     <th>Role</th>
                     <th>Description</th>
                     <th>Permissions</th>
-                    <th>Actions</th>
+                    <th>Privilege Level</th>
                 </tr>
             </thead>
 
             <tbody>
                 {% for role in roles %}
                 <tr>
-                    <td>
-                        {{ role.id }}
-                    </td>
+                    <td>{{ role.id }}</td>
 
                     <td>
-                        <strong>
+                        <span class="admin-role-badge role-{{ role.name }}">
                             {{ role.name|replace("_", " ")|title }}
-                        </strong>
+                        </span>
                     </td>
 
-                    <td>
+                    <td style="color: var(--admin-text-muted);">
                         {{ role.description|default("—") }}
                     </td>
 
                     <td>
-                        {{ role.permission_count|default(0) }}
+                        {% if role.name == 'webmaster' %}
+                            <strong style="color: #fca5a5;">All (Global Superuser Bypass)</strong>
+                        {% elif role.name == 'player' %}
+                            <span style="color: var(--admin-text-dark);">0 (Standard Player)</span>
+                        {% else %}
+                            <strong>{{ role.permission_count|default(0) }}</strong> permissions assigned
+                        {% endif %}
                     </td>
 
                     <td>
-                        <a
-                            class="admin-button admin-button-small"
-                            href="#role-{{ role.id }}"
-                        >
-                            Manage Permissions
-                        </a>
+                        {% if role.name == 'webmaster' %}
+                            <span class="admin-status-badge role-webmaster">Tier 1: Global Webmaster</span>
+                        {% elif role.name == 'admin' %}
+                            <span class="admin-status-badge role-admin">Tier 2: Administrator</span>
+                        {% elif role.name == 'moderator' %}
+                            <span class="admin-status-badge role-moderator">Tier 3: Moderator</span>
+                        {% elif role.name == 'event_staff' %}
+                            <span class="admin-status-badge role-event-staff">Tier 3: Event Staff</span>
+                        {% else %}
+                            <span class="admin-status-badge">Tier 4: Player</span>
+                        {% endif %}
                     </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
-
-    {% else %}
-    <div class="admin-empty-state">
-        <h3>No Roles Found</h3>
-        <p>
-            The role system has not been initialized yet.
-        </p>
-    </div>
     {% endif %}
 </section>
 
+<!-- ALL AVAILABLE PERMISSIONS -->
 <section class="admin-section">
     <div class="admin-section-header">
         <div>
-            <h2>Available Permissions</h2>
+            <h2>System Permissions ({{ permissions|length }})</h2>
             <p>
-                These permissions can be assigned to roles.
+                Granular capabilities recognized and enforced across the Krampus RPG admin dashboard.
             </p>
         </div>
     </div>
@@ -95,7 +100,7 @@
         {% for permission in permissions %}
         <div class="admin-permission-card">
             <div class="admin-permission-name">
-                {{ permission.name }}
+                {{ permission.permission_name }}
             </div>
 
             <div class="admin-permission-description">
@@ -103,14 +108,6 @@
             </div>
         </div>
         {% endfor %}
-    </div>
-
-    {% else %}
-    <div class="admin-empty-state">
-        <h3>No Permissions Found</h3>
-        <p>
-            The permission system has not been initialized yet.
-        </p>
     </div>
     {% endif %}
 </section>

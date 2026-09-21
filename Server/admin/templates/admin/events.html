@@ -2,32 +2,97 @@
 
 {% block title %}Events{% endblock %}
 
+{% block page_heading %}Events Management{% endblock %}
+
 {% block content %}
 <div class="admin-page-header">
     <div>
-        <h1>Events</h1>
+        <h1>Game Events</h1>
         <p class="admin-subtitle">
-            Manage special events, activities, rewards, and promotions.
+            Schedule and configure seasonal tournaments, drop multipliers, and limited-time events.
         </p>
     </div>
 
+    {% if current_user_has_permission('admin.events.edit') %}
     <div class="admin-page-actions">
-        <a
+        <button
+            type="button"
             class="admin-button admin-button-primary"
-            href="{{ url_for('admin.events_edit') }}"
+            onclick="const s = document.getElementById('createEventSection'); s.style.display = s.style.display === 'none' ? 'block' : 'none';"
         >
-            Create Event
-        </a>
+            + Create New Event
+        </button>
     </div>
+    {% endif %}
 </div>
 
+<!-- CREATE EVENT FORM -->
+{% if current_user_has_permission('admin.events.edit') %}
+<section class="admin-section" id="createEventSection" style="display: none;">
+    <div class="admin-section-header">
+        <div>
+            <h2>Create Game Event</h2>
+            <p>Define event timing, descriptions, and rules.</p>
+        </div>
+    </div>
+
+    <form class="admin-form" method="POST" action="{{ url_for('admin.events_create') }}">
+        <div class="admin-form-group">
+            <label class="admin-form-label" for="eventName">Event Name</label>
+            <input
+                type="text"
+                class="admin-form-input"
+                id="eventName"
+                name="name"
+                placeholder="e.g. Krampus Winter Solstice Festival"
+                required
+            >
+        </div>
+
+        <div class="admin-form-group">
+            <label class="admin-form-label" for="eventDesc">Description &amp; Perks</label>
+            <textarea
+                class="admin-form-textarea"
+                id="eventDesc"
+                name="description"
+                placeholder="Describe special spawns, XP bonuses, or event objectives..."
+                style="min-height: 80px;"
+            ></textarea>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
+            <div class="admin-form-group">
+                <label class="admin-form-label" for="startsAt">Start Date (Optional)</label>
+                <input type="text" class="admin-form-input" id="startsAt" name="starts_at" placeholder="YYYY-MM-DD">
+            </div>
+
+            <div class="admin-form-group">
+                <label class="admin-form-label" for="endsAt">End Date (Optional)</label>
+                <input type="text" class="admin-form-input" id="endsAt" name="ends_at" placeholder="YYYY-MM-DD">
+            </div>
+
+            <div class="admin-form-group" style="display: flex; flex-direction: column; justify-content: center;">
+                <label class="admin-form-label">Status</label>
+                <label class="admin-form-checkbox" style="cursor: pointer; margin-top: 6px;">
+                    <input type="checkbox" name="active" value="1" checked>
+                    <strong>Activate Immediately</strong>
+                </label>
+            </div>
+        </div>
+
+        <div class="admin-form-actions" style="margin-top: 15px;">
+            <button type="submit" class="admin-button admin-button-primary">Create Event</button>
+        </div>
+    </form>
+</section>
+{% endif %}
+
+<!-- EVENTS TABLE -->
 <section class="admin-section">
     <div class="admin-section-header">
         <div>
-            <h2>Game Events</h2>
-            <p>
-                Create and manage limited-time events throughout Krampus RPG.
-            </p>
+            <h2>Scheduled Events ({{ events|length }})</h2>
+            <p>View all active and past special in-game events.</p>
         </div>
     </div>
 
@@ -37,59 +102,58 @@
             <thead>
                 <tr>
                     <th>ID</th>
-                    <th>Name</th>
+                    <th>Event Name</th>
                     <th>Description</th>
-                    <th>Starts</th>
-                    <th>Ends</th>
+                    <th>Schedule</th>
                     <th>Status</th>
+                    <th>Created</th>
                     <th>Actions</th>
                 </tr>
             </thead>
 
             <tbody>
-                {% for event in events %}
+                {% for ev in events %}
                 <tr>
-                    <td>
-                        {{ event.id|default("—") }}
-                    </td>
+                    <td>#{{ ev.id }}</td>
 
                     <td>
-                        <strong>
-                            {{ event.name|default("Unnamed Event") }}
-                        </strong>
+                        <strong>{{ ev.name }}</strong>
                     </td>
 
-                    <td>
-                        {{ event.description|default("—") }}
+                    <td style="max-width: 300px; color: var(--admin-text-muted);">
+                        {{ ev.description|default("No description provided.") }}
                     </td>
 
-                    <td>
-                        {{ event.starts_at|default("—") }}
-                    </td>
-
-                    <td>
-                        {{ event.ends_at|default("—") }}
-                    </td>
-
-                    <td>
-                        {% if event.active|default(event.is_active|default(false)) %}
-                            <span class="admin-status-badge status-success">
-                                Active
-                            </span>
+                    <td style="font-size: 11px;">
+                        {% if ev.starts_at or ev.ends_at %}
+                            {{ ev.starts_at|default("Now") }} &rarr; {{ ev.ends_at|default("Ongoing") }}
                         {% else %}
-                            <span class="admin-status-badge">
-                                Inactive
-                            </span>
+                            <span style="color: var(--admin-text-dark);">Manual Toggle</span>
                         {% endif %}
                     </td>
 
                     <td>
-                        <a
-                            class="admin-button admin-button-small"
-                            href="{{ url_for('admin.events_edit', event_id=event.id) }}"
-                        >
-                            Edit
-                        </a>
+                        {% if ev.active %}
+                            <span class="admin-status-badge status-success">Active</span>
+                        {% else %}
+                            <span class="admin-status-badge">Inactive</span>
+                        {% endif %}
+                    </td>
+
+                    <td style="color: var(--admin-text-dark); font-size: 11px;">
+                        {{ ev.created_at|default("—") }}
+                    </td>
+
+                    <td>
+                        {% if current_user_has_permission('admin.events.edit') %}
+                        <form method="POST" action="{{ url_for('admin.events_toggle', event_id=ev.id) }}" style="display: inline;">
+                            <button type="submit" class="admin-button admin-button-small">
+                                {% if ev.active %}Deactivate{% else %}Activate{% endif %}
+                            </button>
+                        </form>
+                        {% else %}
+                        —
+                        {% endif %}
                     </td>
                 </tr>
                 {% endfor %}
@@ -100,16 +164,7 @@
     {% else %}
     <div class="admin-empty-state">
         <h3>No Events Found</h3>
-        <p>
-            There are currently no events configured.
-        </p>
-
-        <a
-            class="admin-button admin-button-primary"
-            href="{{ url_for('admin.events_edit') }}"
-        >
-            Create Your First Event
-        </a>
+        <p>There are currently no events configured.</p>
     </div>
     {% endif %}
 </section>

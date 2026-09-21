@@ -2,22 +2,65 @@
 
 {% block title %}Players{% endblock %}
 
+{% block page_heading %}Player Directory{% endblock %}
+
 {% block content %}
 <div class="admin-page-header">
     <div>
-        <h1>Players</h1>
+        <h1>Player Directory</h1>
         <p class="admin-subtitle">
-            Manage player accounts and staff roles.
+            Search player accounts, inspect profiles, and manage staff roles.
         </p>
     </div>
 </div>
 
+<!-- SEARCH & FILTERS -->
+<section class="admin-section">
+    <form class="admin-form" method="GET" action="{{ url_for('admin.players') }}" style="display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; padding: 14px 18px; margin-bottom: 20px;">
+        <div style="flex: 2; min-width: 200px;">
+            <label class="admin-form-label" for="playerSearchInput">Search Username / Display Name</label>
+            <input
+                type="text"
+                class="admin-form-input"
+                id="playerSearchInput"
+                name="q"
+                value="{{ search_query }}"
+                placeholder="Type to search..."
+            >
+        </div>
+
+        <div style="flex: 1; min-width: 160px;">
+            <label class="admin-form-label" for="roleFilterSelect">Role Filter</label>
+            <select class="admin-form-select" id="roleFilterSelect" name="role">
+                <option value="">All Roles</option>
+                {% for r in roles %}
+                <option value="{{ r.name }}" {% if selected_role == r.name %}selected{% endif %}>
+                    {{ r.name|replace('_', ' ')|title }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div>
+            <button type="submit" class="admin-button admin-button-primary">
+                Search
+            </button>
+            {% if search_query or selected_role %}
+            <a href="{{ url_for('admin.players') }}" class="admin-button">
+                Clear
+            </a>
+            {% endif %}
+        </div>
+    </form>
+</section>
+
+<!-- PLAYERS TABLE -->
 <section class="admin-section">
     <div class="admin-section-header">
         <div>
-            <h2>Player Accounts</h2>
+            <h2>Accounts ({{ players|length }})</h2>
             <p>
-                View registered players and manage account roles.
+                Staff access and in-game privileges are governed by assigned roles.
             </p>
         </div>
     </div>
@@ -29,9 +72,10 @@
                 <tr>
                     <th>ID</th>
                     <th>Username</th>
-                    <th>Email</th>
-                    <th>Role</th>
-                    <th>Created</th>
+                    <th>Display Name</th>
+                    <th>Assigned Role</th>
+                    <th>Registered</th>
+                    <th>Last Active</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -42,11 +86,13 @@
                     <td>{{ player.id }}</td>
 
                     <td>
-                        <strong>{{ player.username }}</strong>
+                        <a href="{{ url_for('admin.player_detail', player_id=player.id) }}" style="color: #f1f3f5; font-weight: 700;">
+                            {{ player.username }}
+                        </a>
                     </td>
 
                     <td>
-                        {{ player.email|default("—") }}
+                        {{ player.display_name|default(player.username) }}
                     </td>
 
                     <td>
@@ -60,12 +106,28 @@
                     </td>
 
                     <td>
-                        <a
-                            class="admin-button admin-button-small"
-                            href="{{ url_for('admin.players_edit', player_id=player.id) }}"
-                        >
-                            Edit
-                        </a>
+                        {{ player.last_login|default("Never") }}
+                    </td>
+
+                    <td>
+                        <div style="display: flex; gap: 6px; align-items: center;">
+                            <a
+                                class="admin-button admin-button-small"
+                                href="{{ url_for('admin.player_detail', player_id=player.id) }}"
+                            >
+                                Details
+                            </a>
+
+                            {% if current_user_has_permission('admin.pokemon.edit') %}
+                            <a
+                                class="admin-button admin-button-small admin-button-primary"
+                                href="{{ url_for('admin.pokemon', player_id=player.id) }}#assignModal"
+                                title="Assign Pokémon to this player"
+                            >
+                                ⚡ Assign
+                            </a>
+                            {% endif %}
+                        </div>
                     </td>
                 </tr>
                 {% endfor %}
@@ -77,7 +139,7 @@
     <div class="admin-empty-state">
         <h3>No Players Found</h3>
         <p>
-            There are currently no player accounts to display.
+            No accounts matched your search criteria.
         </p>
     </div>
     {% endif %}

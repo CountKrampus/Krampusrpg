@@ -1,13 +1,15 @@
 {% extends "admin/base.html" %}
 
-{% block title %}Settings{% endblock %}
+{% block title %}Site Settings{% endblock %}
+
+{% block page_heading %}Site Settings{% endblock %}
 
 {% block content %}
 <div class="admin-page-header">
     <div>
-        <h1>Settings</h1>
+        <h1>Site Settings</h1>
         <p class="admin-subtitle">
-            Manage Krampus RPG server and game configuration.
+            Configure Krampus RPG server rules, multipliers, and player availability.
         </p>
     </div>
 </div>
@@ -15,64 +17,57 @@
 <section class="admin-section">
     <div class="admin-section-header">
         <div>
-            <h2>System Settings</h2>
+            <h2>Game &amp; Server Configuration</h2>
             <p>
-                Changes made here can affect the behavior of the game server.
+                Modifications here immediately influence game logic and player access.
             </p>
         </div>
     </div>
 
     {% if settings %}
-    <div class="admin-table-container">
-        <table class="admin-table">
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>Value</th>
-                    <th>Description</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
+    <form class="admin-form" method="POST" action="{{ url_for('admin.settings_save') }}" data-prevent-double-submit>
+        {% for setting in settings %}
+        <div class="admin-form-group" style="padding-bottom: 15px; border-bottom: 1px solid var(--admin-border);">
+            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px;">
+                <label class="admin-form-label" for="setting_{{ setting.name }}" style="margin-bottom: 0;">
+                    <code>{{ setting.name }}</code>
+                </label>
+                <span style="font-size: 11px; color: var(--admin-text-dark);">System Key</span>
+            </div>
 
-            <tbody>
-                {% for setting in settings %}
-                <tr>
-                    <td>
-                        <strong>
-                            {{ setting.name }}
-                        </strong>
-                    </td>
+            <p style="margin: 0 0 8px; font-size: 12px; color: var(--admin-text-muted);">
+                {{ setting.description }}
+            </p>
 
-                    <td>
-                        <code>
-                            {{ setting.value|default("") }}
-                        </code>
-                    </td>
+            {% if setting.name in ['maintenance_mode', 'registration_enabled', 'daily_promo_enabled'] %}
+            <select class="admin-form-select" id="setting_{{ setting.name }}" name="setting_{{ setting.name }}">
+                <option value="1" {% if setting.value == '1' %}selected{% endif %}>Enabled (1)</option>
+                <option value="0" {% if setting.value == '0' %}selected{% endif %}>Disabled (0)</option>
+            </select>
+            {% else %}
+            <input
+                type="text"
+                class="admin-form-input"
+                id="setting_{{ setting.name }}"
+                name="setting_{{ setting.name }}"
+                value="{{ setting.value }}"
+                required
+            >
+            {% endif %}
+        </div>
+        {% endfor %}
 
-                    <td>
-                        {{ setting.description|default("—") }}
-                    </td>
-
-                    <td>
-                        <a
-                            class="admin-button admin-button-small"
-                            href="#setting-{{ setting.name }}"
-                        >
-                            Edit
-                        </a>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+        <div class="admin-form-actions">
+            <button type="submit" class="admin-button admin-button-primary">
+                Save Site Settings
+            </button>
+        </div>
+    </form>
 
     {% else %}
     <div class="admin-empty-state">
         <h3>No Settings Found</h3>
-        <p>
-            No configurable settings have been added yet.
-        </p>
+        <p>No configurable site settings were detected in the database.</p>
     </div>
     {% endif %}
 </section>

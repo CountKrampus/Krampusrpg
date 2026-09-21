@@ -6,348 +6,229 @@
 
 {% block content %}
 
-<div class="admin-page-header"><div>
-    <h1>Admin Dashboard</h1>
-    <p class="admin-subtitle">
-        Krampus RPG staff control panel and game administration.
-    </p>
-</div>
-
-</div><!-- DATABASE OVERVIEW --><section class="admin-section"><div class="admin-section-header">
-
+<div class="admin-page-header">
     <div>
-        <h2>Database Overview</h2>
-        <p>
-            Current statistics from the Krampus RPG database.
+        {% set profile = current_user_profile() %}
+        <h1>Welcome, {{ profile.display_name }}</h1>
+        <p class="admin-subtitle">
+            Krampus RPG Staff Control Panel &bull; Role: <span class="admin-role-badge role-{{ profile.role }}">{{ profile.role|replace('_', ' ')|title }}</span>
         </p>
     </div>
 
-</div>
-
-
-<div class="admin-table-container">
-
-    <table class="admin-table">
-
-        <thead>
-            <tr>
-                <th>System</th>
-                <th>Total</th>
-                <th>Management</th>
-            </tr>
-        </thead>
-
-        <tbody>
-
-            <tr>
-                <td>
-                    <strong>Players</strong>
-                </td>
-
-                <td>
-                    {{ stats.players|default(0) }}
-                </td>
-
-                <td>
-                    <a
-                        class="admin-button admin-button-small"
-                        href="{{ url_for('admin.players') }}"
-                    >
-                        Manage Players
-                    </a>
-                </td>
-            </tr>
-
-
-            <tr>
-                <td>
-                    <strong>Pokémon</strong>
-                </td>
-
-                <td>
-                    {{ stats.pokemon|default(0) }}
-                </td>
-
-                <td>
-                    <a
-                        class="admin-button admin-button-small"
-                        href="{{ url_for('admin.pokemon') }}"
-                    >
-                        Manage Pokémon
-                    </a>
-                </td>
-            </tr>
-
-
-            <tr>
-                <td>
-                    <strong>Player Inventory Records</strong>
-                </td>
-
-                <td>
-                    {{ stats.items|default(0) }}
-                </td>
-
-                <td>
-                    <a
-                        class="admin-button admin-button-small"
-                        href="{{ url_for('admin.items') }}"
-                    >
-                        Manage Items
-                    </a>
-                </td>
-            </tr>
-
-
-            <tr>
-                <td>
-                    <strong>Quests</strong>
-                </td>
-
-                <td>
-                    {{ stats.quests|default(0) }}
-                </td>
-
-                <td>
-                    <a
-                        class="admin-button admin-button-small"
-                        href="{{ url_for('admin.quests') }}"
-                    >
-                        Manage Quests
-                    </a>
-                </td>
-            </tr>
-
-        </tbody>
-
-    </table>
-
-</div>
-
-</section><!-- GAME MANAGEMENT --><section class="admin-section"><div class="admin-section-header">
-
-    <div>
-        <h2>Game Management</h2>
-        <p>
-            Manage live game content and player-facing systems.
-        </p>
+    <div class="admin-page-actions">
+        {% if current_user_has_permission('admin.pokemon.edit') %}
+        <a class="admin-button admin-button-primary" href="{{ url_for('admin.pokemon') }}#assignModal">
+            ⚡ Assign Pokémon
+        </a>
+        {% endif %}
+        {% if current_user_has_permission('admin.promos.edit') %}
+        <a class="admin-button" href="{{ url_for('admin.promos') }}">
+            🎁 Daily Promo
+        </a>
+        {% endif %}
     </div>
-
 </div>
 
-
-<div class="admin-table-container">
-
-    <table class="admin-table">
-
-        <thead>
-            <tr>
-                <th>System</th>
-                <th>Description</th>
-                <th>Action</th>
-            </tr>
-        </thead>
-
-        <tbody>
-
-            <tr>
-                <td>
-                    <strong>Daily Promos</strong>
-                </td>
-
-                <td>
-                    Manage limited-time Pokémon promotions and daily claims.
-                </td>
-
-                <td>
-                    <a
-                        class="admin-button admin-button-small"
-                        href="{{ url_for('admin.promos') }}"
-                    >
-                        Open
-                    </a>
-                </td>
-            </tr>
-
-
-            <tr>
-                <td>
-                    <strong>Events</strong>
-                </td>
-
-                <td>
-                    Manage special events and temporary game content.
-                </td>
-
-                <td>
-                    <a
-                        class="admin-button admin-button-small"
-                        href="{{ url_for('admin.events') }}"
-                    >
-                        Open
-                    </a>
-                </td>
-            </tr>
-
-
-            <tr>
-                <td>
-                    <strong>Reports</strong>
-                </td>
-
-                <td>
-                    Review player and moderation reports.
-                </td>
-
-                <td>
-                    <a
-                        class="admin-button admin-button-small"
-                        href="{{ url_for('admin.reports') }}"
-                    >
-                        Open
-                    </a>
-                </td>
-            </tr>
-
-
-            <tr>
-                <td>
-                    <strong>Audit Log</strong>
-                </td>
-
-                <td>
-                    Review administrative actions and system changes.
-                </td>
-
-                <td>
-                    <a
-                        class="admin-button admin-button-small"
-                        href="{{ url_for('admin.audit_log') }}"
-                    >
-                        Open
-                    </a>
-                </td>
-            </tr>
-
-        </tbody>
-
-    </table>
-
-</div>
-
-</section><!-- SYSTEM ADMINISTRATION --><section class="admin-section"><div class="admin-section-header">
-
+{% if stats.open_reports > 0 and current_user_has_permission('admin.reports.view') %}
+<div class="admin-warning" style="display: flex; align-items: center; justify-content: space-between;">
     <div>
-        <h2>System Administration</h2>
-        <p>
-            Configure staff access and core administrative settings.
-        </p>
+        <strong>Pending Moderation Reports</strong>
+        <p>There are currently {{ stats.open_reports }} unresolved player reports waiting for staff review.</p>
     </div>
-
+    <a class="admin-button admin-button-small admin-button-primary" href="{{ url_for('admin.reports', status='open') }}">
+        Review Reports ({{ stats.open_reports }})
+    </a>
 </div>
+{% endif %}
 
-
-<div class="admin-table-container">
-
-    <table class="admin-table">
-
-        <thead>
-            <tr>
-                <th>System</th>
-                <th>Description</th>
-                <th>Action</th>
-            </tr>
-        </thead>
-
-        <tbody>
-
-            <tr>
-                <td>
-                    <strong>Roles &amp; Permissions</strong>
-                </td>
-
-                <td>
-                    Manage administrative roles and permissions.
-                </td>
-
-                <td>
-                    <a
-                        class="admin-button admin-button-small"
-                        href="{{ url_for('admin.roles') }}"
-                    >
-                        Open
-                    </a>
-                </td>
-            </tr>
-
-
-            <tr>
-                <td>
-                    <strong>Site Settings</strong>
-                </td>
-
-                <td>
-                    Configure Krampus RPG administrative settings.
-                </td>
-
-                <td>
-                    <a
-                        class="admin-button admin-button-small"
-                        href="{{ url_for('admin.settings') }}"
-                    >
-                        Open
-                    </a>
-                </td>
-            </tr>
-
-
-            <tr>
-                <td>
-                    <strong>Database</strong>
-                </td>
-
-                <td>
-                    Access database administration tools.
-                </td>
-
-                <td>
-                    <a
-                        class="admin-button admin-button-small"
-                        href="{{ url_for('admin.database') }}"
-                    >
-                        Open
-                    </a>
-                </td>
-            </tr>
-
-
-            {% if current_user_is_webmaster() %}
-
-            <tr>
-                <td>
-                    <strong>News Management</strong>
-                </td>
-
-                <td>
-                    Create, edit, publish, and delete Krampus RPG news.
-                </td>
-
-                <td>
-                    <a
-                        class="admin-button admin-button-small"
-                        href="{{ url_for('admin.news') }}"
-                    >
-                        Open
-                    </a>
-                </td>
-            </tr>
-
+<!-- KEY STATISTICS GRID -->
+<div class="admin-stats-grid">
+    <div class="admin-stat-card">
+        <div class="admin-stat-icon">👥</div>
+        <div class="admin-stat-content">
+            <div class="admin-stat-label">Total Players</div>
+            <div class="admin-stat-value">{{ stats.players|default(0) }}</div>
+            <div class="admin-stat-description">Registered player accounts</div>
+            {% if current_user_has_permission('admin.players.view') %}
+            <a href="{{ url_for('admin.players') }}">Manage Players &rarr;</a>
             {% endif %}
+        </div>
+    </div>
 
-        </tbody>
+    <div class="admin-stat-card">
+        <div class="admin-stat-icon">🐾</div>
+        <div class="admin-stat-content">
+            <div class="admin-stat-label">Total Pokémon</div>
+            <div class="admin-stat-value">{{ stats.pokemon|default(0) }}</div>
+            <div class="admin-stat-description">{{ stats.party_pokemon|default(0) }} Party &bull; {{ stats.pc_pokemon|default(0) }} PC Box</div>
+            {% if current_user_has_permission('admin.pokemon.view') %}
+            <a href="{{ url_for('admin.pokemon') }}">Inspect Database &rarr;</a>
+            {% endif %}
+        </div>
+    </div>
 
-    </table>
+    <div class="admin-stat-card">
+        <div class="admin-stat-icon">💰</div>
+        <div class="admin-stat-content">
+            <div class="admin-stat-label">Economy Circulation</div>
+            <div class="admin-stat-value">${{ '{:,}'.format(stats.total_money|default(0)) }}</div>
+            <div class="admin-stat-description">Total player PokéDollars</div>
+            {% if current_user_has_permission('admin.items.view') %}
+            <a href="{{ url_for('admin.items') }}">{{ stats.items|default(0) }} Inventory Items &rarr;</a>
+            {% endif %}
+        </div>
+    </div>
 
+    <div class="admin-stat-card">
+        <div class="admin-stat-icon">🎯</div>
+        <div class="admin-stat-content">
+            <div class="admin-stat-label">Live Content</div>
+            <div class="admin-stat-value">{{ stats.active_promos|default(0) + stats.active_events|default(0) }}</div>
+            <div class="admin-stat-description">{{ stats.active_promos|default(0) }} Promos &bull; {{ stats.active_events|default(0) }} Events</div>
+            {% if current_user_has_permission('admin.promos.view') %}
+            <a href="{{ url_for('admin.promos') }}">Manage Promos &rarr;</a>
+            {% endif %}
+        </div>
+    </div>
 </div>
 
-</section>{% endblock %}
+<!-- QUICK ACTION HUB -->
+<section class="admin-section">
+    <div class="admin-section-header">
+        <div>
+            <h2>Quick Actions</h2>
+            <p>Common tasks and tools available for your staff role.</p>
+        </div>
+    </div>
+
+    <div class="admin-card-grid">
+        {% if current_user_has_permission('admin.pokemon.edit') %}
+        <a class="admin-card" href="{{ url_for('admin.pokemon') }}#assignModal">
+            <h3>⚡ Assign Pokémon</h3>
+            <p>Directly give a Pokémon of any species, variant, or level to a player.</p>
+        </a>
+        {% endif %}
+
+        {% if current_user_has_permission('admin.players.view') %}
+        <a class="admin-card" href="{{ url_for('admin.players') }}">
+            <h3>👥 Player Directory</h3>
+            <p>Search accounts, view progress, and manage assigned staff roles.</p>
+        </a>
+        {% endif %}
+
+        {% if current_user_has_permission('admin.reports.view') %}
+        <a class="admin-card" href="{{ url_for('admin.reports', status='open') }}">
+            <h3>🛡️ Reports Triage</h3>
+            <p>Review and resolve moderation complaints and player reports.</p>
+        </a>
+        {% endif %}
+
+        {% if current_user_has_permission('admin.promos.view') %}
+        <a class="admin-card" href="{{ url_for('admin.promos') }}">
+            <h3>🎁 Daily Promos</h3>
+            <p>Create and manage 24-hour Pokémon claim offers.</p>
+        </a>
+        {% endif %}
+
+        {% if current_user_has_permission('admin.events.view') %}
+        <a class="admin-card" href="{{ url_for('admin.events') }}">
+            <h3>🎪 Game Events</h3>
+            <p>Schedule seasonal events and limited-time content.</p>
+        </a>
+        {% endif %}
+
+        {% if current_user_has_permission('admin.audit_log') %}
+        <a class="admin-card" href="{{ url_for('admin.audit_log') }}">
+            <h3>📜 Staff Audit Log</h3>
+            <p>Inspect administrative changes, grants, and moderation actions.</p>
+        </a>
+        {% endif %}
+
+        {% if current_user_has_permission('admin.settings') %}
+        <a class="admin-card" href="{{ url_for('admin.settings') }}">
+            <h3>⚙️ Site Settings</h3>
+            <p>Configure maintenance mode, registration, rates, and server rules.</p>
+        </a>
+        {% endif %}
+
+        {% if current_user_has_permission('admin.database') %}
+        <a class="admin-card" href="{{ url_for('admin.database') }}">
+            <h3>💾 Database Administration</h3>
+            <p>Perform diagnostic integrity checks and generate backups.</p>
+        </a>
+        {% endif %}
+
+        {% if current_user_is_webmaster() %}
+        <a class="admin-card" href="{{ url_for('admin.news') }}">
+            <h3>📰 News Management</h3>
+            <p>Publish, draft, and edit public news posts for players.</p>
+        </a>
+        {% endif %}
+    </div>
+</section>
+
+<!-- RECENT STAFF ACTIVITY -->
+{% if current_user_has_permission('admin.audit_log') %}
+<section class="admin-section">
+    <div class="admin-section-header">
+        <div>
+            <h2>Recent Staff Activity</h2>
+            <p>Real-time audit log stream of administrative actions.</p>
+        </div>
+        <a href="{{ url_for('admin.audit_log') }}" class="admin-button admin-button-small">
+            Full History &rarr;
+        </a>
+    </div>
+
+    {% if recent_logs %}
+    <div class="admin-table-container">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Staff</th>
+                    <th>Action</th>
+                    <th>Target</th>
+                    <th>Target ID</th>
+                    <th>Details</th>
+                    <th>Timestamp</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in recent_logs %}
+                <tr>
+                    <td><strong>{{ log.username|default(log.player_id|default('System')) }}</strong></td>
+                    <td>
+                        {% set action = log.action|default('unknown') %}
+                        <span class="admin-action-badge action-{{ action|lower|replace('_', '-') }}">
+                            {{ action|replace('_', ' ')|title }}
+                        </span>
+                    </td>
+                    <td>{{ log.target_type|default('—')|replace('_', ' ')|title }}</td>
+                    <td><code>{{ log.target_id|default('—') }}</code></td>
+                    <td>
+                        {% if log.details %}
+                        <span style="font-size: 11px; color: var(--admin-text-muted);">
+                            {{ log.details|tojson }}
+                        </span>
+                        {% else %}
+                        —
+                        {% endif %}
+                    </td>
+                    <td style="color: var(--admin-text-dark); font-size: 11px;">
+                        {{ log.created_at|default('—') }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="admin-empty-state">
+        <h3>No Recent Staff Activity</h3>
+        <p>No administrative actions have been recorded yet.</p>
+    </div>
+    {% endif %}
+</section>
+{% endif %}
+
+{% endblock %}
