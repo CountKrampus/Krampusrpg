@@ -176,6 +176,19 @@ CREATE TABLE IF NOT EXISTS player_items (
     CHECK (quantity >= 0)
 );
 
+CREATE TABLE IF NOT EXISTS items (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL,
+    price INTEGER NOT NULL DEFAULT 0,
+    sell_price INTEGER NOT NULL DEFAULT 0,
+    heal INTEGER,
+    effect TEXT,
+    custom INTEGER NOT NULL DEFAULT 0,
+    description TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS quests (
     id TEXT PRIMARY KEY,
 

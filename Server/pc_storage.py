@@ -1041,7 +1041,26 @@ def get_page(
             slot = int(data["slot"])
 
             if 1 <= slot <= SLOTS_PER_PAGE:
-                slots[slot - 1] = data
+                # Structure the data to match what the JavaScript expects
+                pokemon_data = {
+                    "pokemon_id": data["pokemon_id"],
+                    "unique_id": data["unique_id"],
+                    "species_id": data["species_id"],
+                    "nickname": data["nickname"],
+                    "level": data["level"],
+                    "experience": data["experience"],
+                    "gender": data["gender"],
+                    "shiny": data["shiny"],
+                    "variant": data["variant"],
+                    "current_hp": data["current_hp"],
+                    "max_hp": data["max_hp"],
+                    "created_at": data["created_at"],
+                }
+
+                slots[slot - 1] = {
+                    "slot": slot,
+                    "pokemon": pokemon_data,
+                }
 
         count_row = db.execute(
             """

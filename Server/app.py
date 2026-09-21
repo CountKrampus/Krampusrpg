@@ -175,6 +175,194 @@ def create_app() -> Flask:
         )
 
     # ========================================================
+    # COMING SOON PAGES
+    # ========================================================
+
+    @app.get("/coming-soon")
+    def coming_soon():
+        """
+        Generic coming soon page for unimplemented features.
+        """
+        return render_template("coming_soon.html")
+
+    # Add catch-all routes for common navigation links
+    @app.get("/pokedex")
+    def pokedex():
+        return redirect(url_for("coming_soon"))
+
+    @app.get("/trades")
+    def trades():
+        return redirect(url_for("coming_soon"))
+
+    @app.get("/friends")
+    def friends():
+        return redirect(url_for("coming_soon"))
+
+    @app.get("/staff")
+    def staff():
+        return redirect(url_for("coming_soon"))
+
+    @app.get("/rules")
+    def rules():
+        return redirect(url_for("coming_soon"))
+
+    @app.get("/forums")
+    def forums():
+        return redirect(url_for("coming_soon"))
+
+    @app.get("/change-image")
+    def change_image():
+        return redirect(url_for("coming_soon"))
+
+    @app.get("/applications")
+    def applications():
+        return redirect(url_for("coming_soon"))
+
+    @app.get("/records")
+    def records():
+        return redirect(url_for("coming_soon"))
+
+    @app.get("/awards")
+    def awards():
+        return redirect(url_for("coming_soon"))
+
+    @app.get("/referral")
+    def referral():
+        return redirect(url_for("coming_soon"))
+
+    @app.get("/music-shop")
+    def music_shop():
+        return redirect(url_for("coming_soon"))
+
+    @app.get("/battle-arena")
+    def battle_arena():
+        return redirect(url_for("coming_soon"))
+
+    @app.get("/story-adventure")
+    def story_adventure():
+        return redirect(url_for("coming_soon"))
+
+    @app.get("/world-exploration")
+    def world_exploration():
+        return redirect(url_for("coming_soon"))
+
+    @app.get("/mines")
+    def mines():
+        return redirect(url_for("coming_soon"))
+
+    @app.get("/pokemon-center")
+    def pokemon_center():
+        return redirect(url_for("coming_soon"))
+
+    @app.get("/minigame-center")
+    def minigame_center():
+        return redirect(url_for("coming_soon"))
+
+    @app.get("/research-center")
+    def research_center():
+        return redirect(url_for("coming_soon"))
+
+    @app.get("/rock-exchange")
+    def rock_exchange():
+        return redirect(url_for("coming_soon"))
+
+    @app.get("/my-party")
+    def my_party():
+        return redirect(url_for("pc.pc"))
+
+    @app.get("/krampus-pc")
+    def krampus_pc():
+        return redirect(url_for("pc.pc"))
+
+    @app.get("/pokemon-items")
+    def pokemon_items():
+        return redirect(url_for("coming_soon"))
+
+    @app.get("/training")
+    def training():
+        return redirect(url_for("coming_soon"))
+
+    @app.get("/main-plaza")
+    def main_plaza():
+        return redirect(url_for("coming_soon"))
+
+    @app.get("/plaza-trades")
+    def plaza_trades():
+        return redirect(url_for("coming_soon"))
+
+    @app.get("/plaza-market")
+    def plaza_market():
+        return redirect(url_for("coming_soon"))
+
+    @app.get("/pokemon-trades")
+    def pokemon_trades():
+        return redirect(url_for("coming_soon"))
+
+    @app.get("/locations")
+    def locations():
+        return redirect(url_for("coming_soon"))
+
+    @app.get("/special-areas")
+    def special_areas():
+        return redirect(url_for("coming_soon"))
+
+    @app.get("/events")
+    def events():
+        return redirect(url_for("coming_soon"))
+
+    @app.get("/inventory")
+    def inventory():
+        return redirect(url_for("coming_soon"))
+
+    @app.get("/account-data")
+    def account_data():
+        return redirect(url_for("coming_soon"))
+
+    @app.get("/settings")
+    def settings():
+        return redirect(url_for("coming_soon"))
+
+    @app.get("/daily-reward")
+    def daily_reward():
+        return redirect(url_for("coming_soon"))
+
+    @app.get("/daily-bonus")
+    def daily_bonus():
+        return redirect(url_for("coming_soon"))
+
+    @app.get("/event-reward")
+    def event_reward():
+        return redirect(url_for("coming_soon"))
+
+    @app.get("/rank-pokemon")
+    def rank_pokemon():
+        return redirect(url_for("coming_soon"))
+
+    @app.get("/rank-money")
+    def rank_money():
+        return redirect(url_for("coming_soon"))
+
+    @app.get("/rank-battles")
+    def rank_battles():
+        return redirect(url_for("coming_soon"))
+
+    @app.get("/rank-collection")
+    def rank_collection():
+        return redirect(url_for("coming_soon"))
+
+    @app.get("/item-shop")
+    def item_shop():
+        return redirect(url_for("coming_soon"))
+
+    @app.get("/pokemon-market")
+    def pokemon_market():
+        return redirect(url_for("coming_soon"))
+
+    @app.get("/trading")
+    def trading():
+        return redirect(url_for("coming_soon"))
+
+    # ========================================================
     # REGISTRATION
     # ========================================================
 

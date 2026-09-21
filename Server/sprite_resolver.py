@@ -17,22 +17,71 @@ def resolve_sprite(
 
     Args:
         species_id: The Pokémon species identifier
-        variant: The variant (normal, mega, gmax, etc.)
+        variant: The variant (normal, mega, gmax, ruby, sapphire, etc.)
         shiny: Whether the Pokémon is shiny
         form: Alternative form (e.g., "alola", "galar", "hisui")
 
     Returns:
         Relative path to the sprite file
     """
-    # Build base filename
+    from .config import STATIC_DIR
+    import os
+
+    # Check for Krampus variant sprites first (in variants subdirectory)
+    krampus_variants = ["ruby", "sapphire", "emerald", "gold", "silver", "undead", "azure"]
+    # Additional color variants that exist in the sprite directory
+    additional_variants = ["amethyst", "copper", "crimson", "frost", "lime", "midnight", "obsidian", "pearl", "rose", "toxic", "violet", "inferno"]
+    all_variants = krampus_variants + additional_variants
+
+    if variant and variant.lower() in all_variants:
+        # Get the variant data to check sprite suffix
+        from .database import get_connection
+        with get_connection() as db:
+            variant_data = db.execute(
+                "SELECT sprite_suffix FROM pokemon_variants WHERE id = ?",
+                (variant.lower(),)
+            ).fetchone()
+            sprite_suffix = variant_data["sprite_suffix"] if variant_data else ""
+
+        # Try different naming conventions
+        naming_conventions = []
+
+        # Convention 1: species-variant.png (e.g., chansey-ruby.png)
+        if sprite_suffix:
+            naming_conventions.append(f"{species_id.lower()}{sprite_suffix}")
+        else:
+            naming_conventions.append(f"{species_id.lower()}-{variant.lower()}")
+
+        # Convention 2: base_sprite_variant.png (e.g., base_sprite_ruby.png)
+        naming_conventions.append(f"base_sprite_{variant.lower()}")
+
+        # Convention 3: Just variant name if base_sprite prefix is used
+        naming_conventions.append(f"{variant.lower()}")
+
+        for filename in naming_conventions:
+            if shiny:
+                filename = f"{filename}-shiny"
+            filename = f"{filename}.png"
+
+            # Check in variants subdirectory
+            variant_path = f"/static/sprites/variants/{species_id.lower()}/{filename}"
+            full_path = STATIC_DIR / "sprites" / "variants" / species_id.lower() / filename
+            if full_path.exists():
+                return variant_path
+
+        # If no variant sprite found, fall back to normal sprite
+        # This handles cases where variant sprites don't exist for certain Pokemon
+        return f"/static/sprites/{species_id.lower()}.png"
+
+    # Build base filename for standard sprites
     base_name = species_id.lower()
 
     # Add form if present
     if form:
         base_name = f"{base_name}-{form.lower()}"
 
-    # Add variant if not normal
-    if variant and variant.lower() != "normal":
+    # Add variant if not normal and not a Krampus variant
+    if variant and variant.lower() != "normal" and variant.lower() not in krampus_variants:
         base_name = f"{base_name}-{variant.lower()}"
 
     # Add shiny suffix
@@ -76,9 +125,9 @@ def get_pokemon_sprite_data(
     form = pokemon.get("form")
 
     return {
-        "normal": resolve_sprite_url(species_id, variant, False, form),
-        "shiny": resolve_sprite_url(species_id, variant, True, form),
-        "current": resolve_sprite_url(species_id, variant, shiny, form),
+        "normal": resolve_sprite(species_id, variant, False, form),
+        "shiny": resolve_sprite(species_id, variant, True, form),
+        "current": resolve_sprite(species_id, variant, shiny, form),
     }
 
 

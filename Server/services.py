@@ -239,50 +239,150 @@ def create_player(
 # ============================================================
 
 def get_all_species() -> list[dict[str, Any]]:
-    """Return all Pokémon species."""
-    data = load_data("pokemon.json")
+    """Return all Pokémon species from database."""
+    from .database import get_connection
 
-    return _as_list(
-        data,
-        (
-            "pokemon",
-            "species",
-            "items",
-        ),
-    )
+    with get_connection() as db:
+        species = db.execute(
+            """
+            SELECT
+                id,
+                national_dex,
+                name,
+                category,
+                generation,
+                description,
+                base_hp,
+                base_attack,
+                base_defense,
+                base_sp_attack,
+                base_sp_defense,
+                base_speed,
+                gender_rate,
+                is_fakemon,
+                is_active
+            FROM pokemon_species
+            WHERE is_active = 1
+            ORDER BY national_dex
+            """
+        ).fetchall()
+
+        result = []
+        for row in species:
+            species_dict = dict(row)
+            # Get types
+            types = db.execute(
+                """
+                SELECT t.name FROM pokemon_types t
+                JOIN pokemon_species_types pst ON pst.type_id = t.id
+                WHERE pst.species_id = ?
+                ORDER BY pst.slot
+                """,
+                (row["id"],),
+            ).fetchall()
+
+            species_dict["type"] = [t[0] for t in types]
+            species_dict["base_stats"] = {
+                "hp": row["base_hp"],
+                "attack": row["base_attack"],
+                "defense": row["base_defense"],
+                "sp_attack": row["base_sp_attack"],
+                "sp_defense": row["base_sp_defense"],
+                "speed": row["base_speed"],
+            }
+
+            result.append(species_dict)
+
+        return result
 
 
 def get_species(
     species_id: int | str,
 ) -> dict[str, Any] | None:
-    """Find a Pokémon species by ID, slug, or name."""
-    wanted = str(species_id)
+    """Find a Pokémon species by ID, slug, or name from database."""
+    from .database import get_connection
 
-    for species in get_all_species():
-        current_id = species.get("id")
+    wanted = str(species_id).lower()
 
-        if (
-            current_id is not None
-            and str(current_id) == wanted
-        ):
-            return species
+    with get_connection() as db:
+        # Try exact ID match first
+        species = db.execute(
+            """
+            SELECT
+                id,
+                national_dex,
+                name,
+                category,
+                generation,
+                description,
+                base_hp,
+                base_attack,
+                base_defense,
+                base_sp_attack,
+                base_sp_defense,
+                base_speed,
+                gender_rate,
+                is_fakemon,
+                is_active
+            FROM pokemon_species
+            WHERE id = ? AND is_active = 1
+            """,
+            (wanted,),
+        ).fetchone()
 
-        if str(
-            species.get("species_id", "")
-        ) == wanted:
-            return species
+        if not species:
+            # Try name match
+            species = db.execute(
+                """
+                SELECT
+                    id,
+                    national_dex,
+                    name,
+                    category,
+                    generation,
+                    description,
+                    base_hp,
+                    base_attack,
+                    base_defense,
+                    base_sp_attack,
+                    base_sp_defense,
+                    base_speed,
+                    gender_rate,
+                    is_fakemon,
+                    is_active
+                FROM pokemon_species
+                WHERE LOWER(name) = ? AND is_active = 1
+                """,
+                (wanted,),
+            ).fetchone()
 
-        if str(
-            species.get("slug", "")
-        ).lower() == wanted.lower():
-            return species
+        if not species:
+            return None
 
-        if str(
-            species.get("name", "")
-        ).lower() == wanted.lower():
-            return species
+        species_dict = dict(species)
 
-    return None
+        # Get types
+        types = db.execute(
+            """
+            SELECT t.name FROM pokemon_types t
+            JOIN pokemon_species_types pst ON pst.type_id = t.id
+            WHERE pst.species_id = ?
+            ORDER BY pst.slot
+            """,
+            (species_dict["id"],),
+        ).fetchall()
+
+        species_dict["type"] = [t[0] for t in types]
+        species_dict["base_stats"] = {
+            "hp": species_dict["base_hp"],
+            "attack": species_dict["base_attack"],
+            "defense": species_dict["base_defense"],
+            "sp_attack": species_dict["base_sp_attack"],
+            "sp_defense": species_dict["base_sp_defense"],
+            "speed": species_dict["base_speed"],
+        }
+
+        return species_dict
 
 
 # ============================================================
@@ -290,49 +390,87 @@ def get_species(
 # ============================================================
 
 def get_all_moves() -> list[dict[str, Any]]:
-    """Return all moves."""
-    data = load_data("moves.json")
+    """Return all moves from the database."""
+    from .database import get_connection
 
-    return _as_list(
-        data,
-        (
-            "moves",
-            "items",
-        ),
-    )
+    with get_connection() as db:
+        moves = db.execute(
+            """
+            SELECT
+                m.id,
+                m.name,
+                m.type_id,
+                m.category,
+                m.power,
+                m.accuracy,
+                m.max_pp,
+                m.description,
+                t.name as type_name
+            FROM moves m
+            LEFT JOIN pokemon_types t ON t.id = m.type_id
+            ORDER BY m.name
+            """
+        ).fetchall()
+
+        return [dict(row) for row in moves]
 
 
 def get_move(
     move_id: int | str,
 ) -> dict[str, Any] | None:
     """Find a move by ID, slug, or name."""
-    wanted = str(move_id)
+    from .database import get_connection
 
-    for move in get_all_moves():
-        current_id = move.get("id")
+    wanted = str(move_id).lower()
 
-        if (
-            current_id is not None
-            and str(current_id) == wanted
-        ):
-            return move
+    with get_connection() as db:
+        # Try to find by exact ID match first
+        move = db.execute(
+            """
+            SELECT
+                m.id,
+                m.name,
+                m.type_id,
+                m.category,
+                m.power,
+                m.accuracy,
+                m.max_pp,
+                m.description,
+                t.name as type_name
+            FROM moves m
+            LEFT JOIN pokemon_types t ON t.id = m.type_id
+            WHERE m.id = ?
+            """,
+            (wanted,),
+        ).fetchone()
 
-        if str(
-            move.get("move_id", "")
-        ) == wanted:
-            return move
+        if move:
+            return dict(move)
 
-        if str(
-            move.get("slug", "")
-        ).lower() == wanted.lower():
-            return move
+        # Try to find by name
+        move = db.execute(
+            """
+            SELECT
+                m.id,
+                m.name,
+                m.type_id,
+                m.category,
+                m.power,
+                m.accuracy,
+                m.max_pp,
+                m.description,
+                t.name as type_name
+            FROM moves m
+            LEFT JOIN pokemon_types t ON t.id = m.type_id
+            WHERE LOWER(m.name) = ?
+            """,
+            (wanted,),
+        ).fetchone()
 
-        if str(
-            move.get("name", "")
-        ).lower() == wanted.lower():
-            return move
+        if move:
+            return dict(move)
 
-    return None
+        return None
 
 
 # ============================================================
@@ -377,42 +515,57 @@ def get_ability(
 # ============================================================
 
 def get_all_variants() -> list[dict[str, Any]]:
-    """Return all custom Krampus Pokémon variants."""
-    data = load_data("variants.json")
+    """Return all custom Krampus Pokémon variants from database."""
+    from .database import get_connection
 
-    return _as_list(
-        data,
-        (
-            "variants",
-            "items",
-        ),
-    )
+    with get_connection() as db:
+        variants = db.execute(
+            """
+            SELECT
+                id,
+                name,
+                sprite_suffix,
+                description,
+                is_custom,
+                is_active
+            FROM pokemon_variants
+            WHERE is_active = 1
+            ORDER BY name
+            """
+        ).fetchall()
+
+        return [dict(row) for row in variants]
 
 
 def get_variant(
     variant_id: str | None,
 ) -> dict[str, Any] | None:
-    """Find a custom Krampus variant."""
+    """Find a custom Krampus variant from database."""
+    from .database import get_connection
+
     if not variant_id:
         return None
 
     wanted = str(variant_id).lower()
 
-    for variant in get_all_variants():
-        for key in (
-            "id",
-            "slug",
-            "name",
-        ):
-            value = variant.get(key)
+    with get_connection() as db:
+        variant = db.execute(
+            """
+            SELECT
+                id,
+                name,
+                sprite_suffix,
+                description,
+                is_custom,
+                is_active
+            FROM pokemon_variants
+            WHERE id = ? OR LOWER(name) = ?
+            LIMIT 1
+            """,
+            (wanted, wanted),
+        ).fetchone()
 
-            if (
-                value is not None
-                and str(value).lower() == wanted
-            ):
-                return variant
-
-    return None
+        return dict(variant) if variant else None
 
 
 # ============================================================

@@ -40,5 +40,15 @@
         "sell_price": 350,
         "heal": 60,
         "description": "Restores a moderate amount of HP."
+    },
+    {
+        "id": "krampus_charm",
+        "name": "Krampus Charm",
+        "type": "held_item",
+        "price": 5000,
+        "sell_price": 2500,
+        "description": "A mystical charm from Krampus himself. Doubles experience gained in battle.",
+        "effect": "double_exp",
+        "custom": true
     }
 ]

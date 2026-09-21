@@ -271,30 +271,46 @@
             .toLowerCase()
             .replace(/\s+/g, "-");
 
+        const shiny = pokemon.shiny === true ||
+                      pokemon.shiny === 1 ||
+                      pokemon.shiny === "1";
+
         const base = "/static/sprites/";
 
-        if (
-            variant &&
-            variant !== "normal"
-        ) {
-            return (
-                base +
-                encodeURIComponent(
-                    species +
-                    "-" +
-                    variant +
-                    ".png"
-                )
-            );
+        // Krampus variants use the variants subdirectory structure
+        const krampusVariants = ["ruby", "sapphire", "emerald", "gold", "silver", "undead", "azure",
+                                "amethyst", "copper", "crimson", "frost", "lime", "midnight", "obsidian",
+                                "pearl", "rose", "toxic", "violet", "inferno"];
+
+        if (variant && variant !== "normal" && krampusVariants.includes(variant)) {
+            // Try species-variant.png format first (e.g., chansey-ruby.png)
+            let spritePath = `variants/${species}/${species}-${variant}`;
+            if (shiny) {
+                spritePath += "-shiny";
+            }
+            spritePath += ".png";
+
+            return base + spritePath;
         }
 
-        return (
-            base +
-            encodeURIComponent(
-                species +
-                ".png"
-            )
-        );
+        // Shiny sprites are in the shiny/ subdirectory
+        if (shiny) {
+            return base + "shiny/" + species + ".png";
+        }
+
+        // Standard variant handling (mega, gmax, etc.)
+        if (variant && variant !== "normal") {
+            let spritePath = species + "-" + variant;
+            spritePath += ".png";
+
+            return base + encodeURIComponent(spritePath);
+        }
+
+        // Normal sprites
+        let spritePath = species;
+        spritePath += ".png";
+
+        return base + encodeURIComponent(spritePath);
     }
 
 

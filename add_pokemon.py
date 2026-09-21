@@ -86,7 +86,7 @@ def find_species(
             LIMIT 1
             """,
             (
-                number,
+                str(number),
                 number,
             ),
         ).fetchone()
@@ -227,7 +227,7 @@ def create_pokemon(
                 f"Pokémon species '{species_value}' was not found."
             )
 
-        species_id = int(
+        species_id = str(
             species["id"]
         )
 
@@ -316,9 +316,7 @@ def create_pokemon(
             ),
         )
 
-        pokemon_id = int(
-            cursor.lastrowid
-        )
+        pokemon_id = cursor.lastrowid
 
         db.commit()
 
