@@ -845,6 +845,39 @@ def migrate_catalog_schema(
 # SCHEMA INITIALIZATION
 # =============================================================================
 
+def _split_schema_statements(
+    schema: str,
+) -> tuple[list[str], list[str]]:
+    """
+    Split a schema script into (table_statements, index_statements).
+
+    CATALOG_SCHEMA only ever contains CREATE TABLE and CREATE INDEX
+    statements (interleaved, one table followed by its indexes), so this
+    is a safe, exhaustive split rather than a heuristic.
+    """
+
+    table_statements: list[str] = []
+    index_statements: list[str] = []
+
+    for raw_statement in schema.split(";"):
+        statement = raw_statement.strip()
+
+        if not statement:
+            continue
+
+        if statement.upper().startswith("CREATE TABLE"):
+            table_statements.append(statement)
+        elif statement.upper().startswith("CREATE INDEX"):
+            index_statements.append(statement)
+        else:
+            # Defensive: if CATALOG_SCHEMA ever grows a new statement
+            # type, don't silently drop it — run it with the tables so
+            # nothing is lost, since tables run before migration anyway.
+            table_statements.append(statement)
+
+    return table_statements, index_statements
+
+
 def ensure_catalog_schema(
     db: sqlite3.Connection,
 ) -> None:
@@ -852,19 +885,41 @@ def ensure_catalog_schema(
     Create or upgrade the complete Pokémon catalog.
 
     This function is safe to call during application startup.
+
+    Ordering matters here: CREATE TABLE IF NOT EXISTS is a no-op against a
+    table that already exists on disk (e.g. from before a column like
+    form_identifier was added), so previously this function ran the
+    *entire* CATALOG_SCHEMA — tables AND indexes — before
+    migrate_catalog_schema() got a chance to backfill missing columns.
+    Against a legacy database that would fail immediately with something
+    like "no such column: form_identifier" the moment it hit that
+    column's index, before migration ever ran. Tables now run first,
+    then migration backfills any missing columns, and only then do the
+    indexes get created — by which point every column they reference is
+    guaranteed to exist.
     """
 
     db.execute(
         "PRAGMA foreign_keys = ON"
     )
 
-    db.executescript(
+    table_statements, index_statements = _split_schema_statements(
         CATALOG_SCHEMA
     )
+
+    for statement in table_statements:
+        db.execute(
+            statement
+        )
 
     migrate_catalog_schema(
         db
     )
+
+    for statement in index_statements:
+        db.execute(
+            statement
+        )
 
     ensure_default_variants(
         db

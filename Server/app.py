@@ -268,11 +268,11 @@ def create_app() -> Flask:
 
     @app.get("/my-party")
     def my_party():
-        return redirect(url_for("pc.pc"))
+        return redirect(url_for("pc.pc_page"))
 
     @app.get("/krampus-pc")
     def krampus_pc():
-        return redirect(url_for("pc.pc"))
+        return redirect(url_for("pc.pc_page"))
 
     @app.get("/pokemon-items")
     def pokemon_items():
