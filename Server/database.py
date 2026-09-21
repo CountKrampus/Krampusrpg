@@ -490,6 +490,122 @@ ON pc_storage(pokemon_id);
 
 
 # =============================================================================
+# POKEMON VARIANTS
+# =============================================================================
+# Server/services.py:get_variant() looks these up from the live game
+# database, but until now only Server/pokemon_catalog.py's separate catalog
+# schema defined a pokemon_variants table — which init_db() never creates,
+# since the catalog and the live game still use different schemas. That left
+# every call to get_variant() (and therefore get_pokemon(), and therefore
+# nearly every page that touches a Pokémon) crashing with
+# "no such table: pokemon_variants". This table gives the live database its
+# own copy, matching the same 7 variants pokemon_catalog.py defines.
+
+VARIANT_SCHEMA = """
+CREATE TABLE IF NOT EXISTS pokemon_variants (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    sprite_suffix TEXT NOT NULL DEFAULT '',
+    description TEXT NOT NULL DEFAULT '',
+    is_custom INTEGER NOT NULL DEFAULT 1,
+    is_active INTEGER NOT NULL DEFAULT 1
+);
+"""
+
+DEFAULT_VARIANTS = [
+    (
+        "normal",
+        "Normal",
+        "",
+        "Standard Pokémon coloration.",
+        0,
+    ),
+    (
+        "ruby",
+        "Ruby",
+        "-ruby",
+        "Ruby custom coloration.",
+        1,
+    ),
+    (
+        "sapphire",
+        "Sapphire",
+        "-sapphire",
+        "Sapphire custom coloration.",
+        1,
+    ),
+    (
+        "emerald",
+        "Emerald",
+        "-emerald",
+        "Emerald custom coloration.",
+        1,
+    ),
+    (
+        "gold",
+        "Gold",
+        "-gold",
+        "Gold custom coloration.",
+        1,
+    ),
+    (
+        "silver",
+        "Silver",
+        "-silver",
+        "Silver custom coloration.",
+        1,
+    ),
+    (
+        "undead",
+        "Undead",
+        "-undead",
+        "Undead custom coloration.",
+        1,
+    ),
+]
+
+
+def _ensure_variants_schema(
+    db: sqlite3.Connection,
+) -> None:
+    db.executescript(
+        VARIANT_SCHEMA
+    )
+
+    for (
+        variant_id,
+        name,
+        sprite_suffix,
+        description,
+        is_custom,
+    ) in DEFAULT_VARIANTS:
+        db.execute(
+            """
+            INSERT INTO pokemon_variants (
+                id,
+                name,
+                sprite_suffix,
+                description,
+                is_custom
+            )
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                name = excluded.name,
+                sprite_suffix = excluded.sprite_suffix,
+                description = excluded.description,
+                is_custom = excluded.is_custom
+            """,
+            (
+                variant_id,
+                name,
+                sprite_suffix,
+                description,
+                is_custom,
+            ),
+        )
+
+
+# =============================================================================
 # ROLES
 # =============================================================================
 
@@ -1957,6 +2073,14 @@ def init_db() -> None:
         # ---------------------------------------------------------------------
 
         _ensure_storage_schema(
+            db
+        )
+
+        # ---------------------------------------------------------------------
+        # Pokémon variants (Ruby/Sapphire/Emerald/Gold/Silver/Undead/Normal).
+        # ---------------------------------------------------------------------
+
+        _ensure_variants_schema(
             db
         )
 

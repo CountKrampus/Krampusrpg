@@ -300,16 +300,22 @@ class TestStorageIntegrity(BaseTestCase):
         self.assertEqual(get_pc_count(self.player1_id), 31)
 
         page1 = get_page(self.player1_id, page=1)
-        self.assertEqual(len(page1["pokemon"]), 30)
+        # page1["pokemon"] is a fixed 30-entry list; each occupied slot is
+        # {"slot": N, "pokemon": {...}}, empty slots are None.
+        self.assertEqual(
+            len([p for p in page1["pokemon"] if p is not None]),
+            30,
+        )
 
         page2 = get_page(self.player1_id, page=2)
-        # page2["pokemon"] contains 30 slots (some None), so count non-None
         page2_pokemon = [p for p in page2["pokemon"] if p is not None]
         self.assertEqual(len(page2_pokemon), 1)
         # Check that the last pokemon is in page 2 (we don't check exact ID since ordering may vary)
         self.assertIsNotNone(page2_pokemon[0])
         self.assertEqual(page2_pokemon[0]["slot"], 1)
-        self.assertEqual(page2_pokemon[0]["page"], 2)
+        # get_page() reports the page number once, at the top level of its
+        # return value — not per slot.
+        self.assertEqual(page2["page"], 2)
 
     def test_pc_move_and_swap(self) -> None:
         # Fill party
@@ -322,13 +328,21 @@ class TestStorageIntegrity(BaseTestCase):
         # Move mon_a to slot 15
         move_pokemon(self.player1_id, mon_a["id"], 1, 15)
         page1 = get_page(self.player1_id, page=1)
-        pokemon_by_id = {p["pokemon_id"]: p for p in page1["pokemon"] if p is not None}
+        pokemon_by_id = {
+            p["pokemon"]["pokemon_id"]: p
+            for p in page1["pokemon"]
+            if p is not None
+        }
         self.assertEqual(pokemon_by_id[mon_a["id"]]["slot"], 15)
 
         # Move mon_b to slot 20
         move_pokemon(self.player1_id, mon_b["id"], 1, 20)
         page1_after = get_page(self.player1_id, page=1)
-        after_by_id = {p["pokemon_id"]: p for p in page1_after["pokemon"] if p is not None}
+        after_by_id = {
+            p["pokemon"]["pokemon_id"]: p
+            for p in page1_after["pokemon"]
+            if p is not None
+        }
         self.assertEqual(after_by_id[mon_b["id"]]["slot"], 20)
 
 
