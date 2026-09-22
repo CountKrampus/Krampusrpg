@@ -955,7 +955,34 @@ def get_available_species() -> list[dict[str, Any]]:
 def get_available_variants() -> list[dict[str, str]]:
     """
     Return available Pokémon variants.
+
+    Reads from the live pokemon_variants table (the same table
+    Server/services.py:get_variant() resolves against when a Pokémon is
+    actually created) rather than Data/variants.json, which is a
+    separate, disconnected file that only ever had the original 7
+    variants and had drifted out of sync with the 13 additional
+    colors (amethyst, azure, copper, crimson, frost, inferno, lime,
+    midnight, obsidian, pearl, rose, toxic, violet) that already have
+    full sprite art and are registered in the database. Falls back to
+    Data/variants.json, then a hardcoded list, only if the database is
+    somehow unavailable.
     """
+    try:
+        from ..services import get_all_variants
+
+        db_variants = get_all_variants()
+
+        if db_variants:
+            return [
+                {
+                    "id": v["id"],
+                    "name": v.get("name", str(v["id"]).title()),
+                }
+                for v in db_variants
+            ]
+    except Exception:
+        pass
+
     json_path = DATA_DIR / "variants.json"
     if json_path.exists():
         try:

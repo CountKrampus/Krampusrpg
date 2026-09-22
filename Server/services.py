@@ -1044,6 +1044,35 @@ def create_pokemon(
             f"Data/pokemon.json."
         )
 
+    # Resolve the requested variant against the database instead of
+    # storing whatever string was passed. Previously this function
+    # stored `variant or "normal"` directly with no validation at all —
+    # reachable not just from admin tooling but from any authenticated
+    # player via POST /api/pokemon/create, which forwards a client-
+    # supplied "variant" field straight through. An invalid value would
+    # silently persist as an unresolvable Pokémon that get_variant()
+    # could never look back up. Resolved here the same way
+    # add_pokemon.py's find_variant() resolves it: by id or
+    # case-insensitive name, active only.
+    resolved_variant = get_variant(
+        variant or "normal"
+    )
+
+    if resolved_variant is None:
+        valid_ids = ", ".join(
+            sorted(
+                v["id"]
+                for v in get_all_variants()
+            )
+        )
+
+        raise ValueError(
+            f"Unknown variant '{variant}'. "
+            f"Valid variants: {valid_ids}"
+        )
+
+    variant = resolved_variant["id"]
+
     level = max(
         1,
         min(100, int(level)),
