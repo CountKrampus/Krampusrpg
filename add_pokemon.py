@@ -106,6 +106,36 @@ def find_species(
     ).fetchone()
 
 
+def find_variant(
+    db: sqlite3.Connection,
+    value: str,
+) -> sqlite3.Row | None:
+    """
+    Find a Krampus variant by id or name (case-insensitive), active only.
+
+    Mirrors find_species() above. Added because create_pokemon()
+    previously accepted *any* string as a variant and stored it
+    directly — a typo like "rby" instead of "ruby" would silently
+    create a Pokémon with a nonexistent variant that sprite_resolver.py
+    and get_variant() would never be able to look up. Now variants are
+    resolved against pokemon_variants the same way species already are.
+    """
+
+    return db.execute(
+        """
+        SELECT *
+        FROM pokemon_variants
+        WHERE (id = ? OR LOWER(name) = LOWER(?))
+        AND is_active = 1
+        LIMIT 1
+        """,
+        (
+            value,
+            value,
+        ),
+    ).fetchone()
+
+
 def get_base_hp(
     species: sqlite3.Row,
 ) -> int:
@@ -212,6 +242,37 @@ def create_pokemon(
         player_id = int(
             player["id"]
         )
+
+        # ---------------------------------------------------------------------
+        # Variant
+        # ---------------------------------------------------------------------
+
+        variant_row = find_variant(
+            db,
+            variant,
+        )
+
+        if variant_row is None:
+            valid = db.execute(
+                """
+                SELECT id
+                FROM pokemon_variants
+                WHERE is_active = 1
+                ORDER BY id
+                """
+            ).fetchall()
+
+            valid_ids = ", ".join(
+                row["id"]
+                for row in valid
+            )
+
+            raise ValueError(
+                f"Unknown variant '{variant}'. "
+                f"Valid variants: {valid_ids}"
+            )
+
+        variant = variant_row["id"]
 
         # ---------------------------------------------------------------------
         # Species
