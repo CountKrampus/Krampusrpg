@@ -87,6 +87,9 @@ from .admin.routes import (
     admin_bp,
 )
 
+from .profile_ribbons import (
+    get_player_ribbons,
+)
 
 # ============================================================
 # APPLICATION FACTORY
@@ -637,7 +640,7 @@ def create_app() -> Flask:
             news_posts=news_posts,
         )
 
-    # ========================================================
+        # ========================================================
     # PROFILE
     # ========================================================
 
@@ -645,6 +648,11 @@ def create_app() -> Flask:
     def profile():
         """
         Player profile page.
+
+        Profile ribbons are loaded from the existing role and
+        badge systems.
+
+        Ribbons are visual only and do not grant permissions.
         """
 
         player_id = current_player_id()
@@ -716,6 +724,30 @@ def create_app() -> Flask:
                 ),
             ).fetchone()["count"]
 
+            # ------------------------------------------------
+            # PROFILE RIBBONS
+            # ------------------------------------------------
+            #
+            # This uses the existing role and badges tables.
+            #
+            # Role ribbons:
+            #   moderator
+            #   administration
+            #   webmaster
+            #
+            # Award ribbons:
+            #   beta_tester
+            #   sponsor
+            #   artist
+            #
+            # Multiple ribbons are supported.
+            # ------------------------------------------------
+
+            profile_ribbons = get_player_ribbons(
+                db,
+                player_id,
+            )
+
         pokemon = get_player_pokemon(
             player_id
         )
@@ -736,6 +768,7 @@ def create_app() -> Flask:
             party=party,
             pokemon_count=pokemon_count,
             party_count=party_count,
+            profile_ribbons=profile_ribbons,
         )
 
     # ========================================================

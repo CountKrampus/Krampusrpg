@@ -4,30 +4,216 @@
 
 {% block content %}
 
+<style>
+
+    /* ========================================================
+       PROFILE RIBBONS
+       ======================================================== */
+
+    .profile-ribbons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+        align-items: center;
+        margin-top: 20px;
+    }
+
+
+    .profile-ribbon {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+
+        max-width: 100%;
+        min-height: 58px;
+
+        border-radius: 6px;
+
+        overflow: hidden;
+
+        background: rgba(0, 0, 0, 0.18);
+
+        box-shadow:
+            0 4px 12px rgba(0, 0, 0, 0.20);
+
+        transition:
+            transform 0.15s ease,
+            box-shadow 0.15s ease;
+    }
+
+
+    .profile-ribbon:hover {
+        transform: translateY(-2px);
+
+        box-shadow:
+            0 7px 16px rgba(0, 0, 0, 0.28);
+    }
+
+
+    .profile-ribbon-image {
+        display: block;
+
+        width: auto;
+        max-width: min(260px, 42vw);
+        height: 58px;
+
+        object-fit: contain;
+    }
+
+
+    .profile-ribbon-label {
+        position: absolute;
+
+        left: -9999px;
+        top: auto;
+
+        width: 1px;
+        height: 1px;
+
+        overflow: hidden;
+    }
+
+
+    .profile-ribbons-empty {
+        margin-top: 16px;
+
+        color: var(--muted, #888);
+
+        font-size: 0.9rem;
+    }
+
+
+    /* ========================================================
+       PROFILE HEADER
+       ======================================================== */
+
+    .profile-header-content {
+        display: flex;
+
+        align-items: flex-start;
+        justify-content: space-between;
+
+        gap: 24px;
+    }
+
+
+    .profile-header-text {
+        min-width: 0;
+    }
+
+
+    @media (max-width: 700px) {
+
+        .profile-ribbons {
+            gap: 10px;
+        }
+
+
+        .profile-ribbon {
+            min-height: 48px;
+        }
+
+
+        .profile-ribbon-image {
+            height: 48px;
+            max-width: 80vw;
+        }
+
+    }
+
+</style>
+
+
 <div class="dashboard-page">
 
-    <!-- PROFILE HEADER -->
+
+    <!-- ====================================================
+         PROFILE HEADER
+         ==================================================== -->
+
     <section class="card">
 
         <div class="card-header">
 
-            <div>
-                <span class="section-kicker">PLAYER PROFILE</span>
+            <div class="profile-header-content">
 
-                <h1>
-                    {{ player.display_name }}
-                    <span class="muted">
-                        (#{{ player.id }})
+                <div class="profile-header-text">
+
+                    <span class="section-kicker">
+                        PLAYER PROFILE
                     </span>
-                </h1>
+
+                    <h1>
+
+                        {{ player.display_name }}
+
+                        <span class="muted">
+                            (#{{ player.id }})
+                        </span>
+
+                    </h1>
+
+                    <p class="muted">
+                        {{ player.username }}
+                    </p>
+
+                </div>
+
             </div>
 
         </div>
 
+
+        <!-- =================================================
+             PROFILE RIBBONS
+             ================================================= -->
+
+        {% if profile_ribbons %}
+
+        <div
+            class="profile-ribbons"
+            aria-label="Profile ribbons"
+        >
+
+            {% for ribbon in profile_ribbons %}
+
+            <div
+                class="profile-ribbon"
+                title="{{ ribbon.name }}"
+            >
+
+                <img
+                    class="profile-ribbon-image"
+                    src="{{ url_for('static', filename=ribbon.static_path) }}"
+                    alt="{{ ribbon.name }}"
+                    loading="lazy"
+                >
+
+                <span class="profile-ribbon-label">
+                    {{ ribbon.name }}
+                </span>
+
+            </div>
+
+            {% endfor %}
+
+        </div>
+
+        {% else %}
+
+        <p class="profile-ribbons-empty">
+            No profile ribbons have been earned yet.
+        </p>
+
+        {% endif %}
+
+
         <div class="adventure-content">
 
             <p class="muted">
-                {{ player.username }}
+                Profile ribbons represent player roles,
+                accomplishments, and special status.
             </p>
 
         </div>
@@ -35,59 +221,119 @@
     </section>
 
 
-    <!-- PLAYER INFORMATION -->
+    <!-- ====================================================
+         PLAYER INFORMATION
+         ==================================================== -->
+
     <section class="card">
 
         <div class="card-header">
 
             <div>
-                <span class="section-kicker">ACCOUNT</span>
-                <h2>Player Information</h2>
+
+                <span class="section-kicker">
+                    ACCOUNT
+                </span>
+
+                <h2>
+                    Player Information
+                </h2>
+
             </div>
 
         </div>
 
+
         <div class="info-list">
 
             <div>
-                <span>Player ID</span>
-                <strong>#{{ player.id }}</strong>
+
+                <span>
+                    Player ID
+                </span>
+
+                <strong>
+                    #{{ player.id }}
+                </strong>
+
             </div>
 
-            <div>
-                <span>Username</span>
-                <strong>{{ player.username }}</strong>
-            </div>
 
             <div>
-                <span>Display Name</span>
-                <strong>{{ player.display_name }}</strong>
+
+                <span>
+                    Username
+                </span>
+
+                <strong>
+                    {{ player.username }}
+                </strong>
+
             </div>
 
-            <div>
-                <span>Joined</span>
-                <strong>{{ player.created_at }}</strong>
-            </div>
 
             <div>
-                <span>Last Login</span>
+
+                <span>
+                    Display Name
+                </span>
+
+                <strong>
+                    {{ player.display_name }}
+                </strong>
+
+            </div>
+
+
+            <div>
+
+                <span>
+                    Joined
+                </span>
+
+                <strong>
+                    {{ player.created_at }}
+                </strong>
+
+            </div>
+
+
+            <div>
+
+                <span>
+                    Last Login
+                </span>
+
                 <strong>
                     {{ player.last_login or "Never" }}
                 </strong>
+
             </div>
 
+
             <div>
-                <span>Money</span>
+
+                <span>
+                    Money
+                </span>
+
                 <strong>
                     💰 {{ progress.money if progress else 0 }}
                 </strong>
+
             </div>
 
+
             <div>
-                <span>Badges</span>
+
+                <span>
+                    Badges
+                </span>
+
                 <strong>
                     🏅 {{ progress.badges if progress else 0 }}
                 </strong>
+
             </div>
 
         </div>
@@ -95,31 +341,58 @@
     </section>
 
 
-    <!-- COLLECTION -->
+    <!-- ====================================================
+         COLLECTION
+         ==================================================== -->
+
     <section class="card">
 
         <div class="card-header">
 
             <div>
-                <span class="section-kicker">COLLECTION</span>
-                <h2>Pokémon</h2>
+
+                <span class="section-kicker">
+                    COLLECTION
+                </span>
+
+                <h2>
+                    Pokémon
+                </h2>
+
             </div>
 
         </div>
+
 
         <div class="info-list">
 
             <div>
-                <span>Pokémon Owned</span>
-                <strong>{{ pokemon_count }}</strong>
+
+                <span>
+                    Pokémon Owned
+                </span>
+
+                <strong>
+                    {{ pokemon_count }}
+                </strong>
+
             </div>
 
+
             <div>
-                <span>Party Pokémon</span>
-                <strong>{{ party_count }} / 6</strong>
+
+                <span>
+                    Party Pokémon
+                </span>
+
+                <strong>
+                    {{ party_count }} / 6
+                </strong>
+
             </div>
 
         </div>
+
 
         <div class="adventure-actions">
 
@@ -129,6 +402,7 @@
             >
                 View My Pokémon
             </a>
+
 
             <a
                 href="#"
@@ -142,17 +416,28 @@
     </section>
 
 
-    <!-- TRAINING -->
+    <!-- ====================================================
+         TRAINING
+         ==================================================== -->
+
     <section class="card">
 
         <div class="card-header">
 
             <div>
-                <span class="section-kicker">TRAINING</span>
-                <h2>Training Battles</h2>
+
+                <span class="section-kicker">
+                    TRAINING
+                </span>
+
+                <h2>
+                    Training Battles
+                </h2>
+
             </div>
 
         </div>
+
 
         <div class="adventure-content">
 
@@ -160,10 +445,12 @@
                 Battle your own Pokémon to train your team.
             </p>
 
+
             <p class="muted">
                 Choose between a one-on-one battle or a full-team
                 training battle.
             </p>
+
 
             <div class="adventure-actions">
 
@@ -173,6 +460,7 @@
                 >
                     1 Pokémon
                 </a>
+
 
                 <a
                     href="#"
@@ -188,67 +476,94 @@
     </section>
 
 
-    <!-- CURRENT PARTY -->
+    <!-- ====================================================
+         CURRENT PARTY
+         ==================================================== -->
+
     <section class="card">
 
         <div class="card-header">
 
             <div>
-                <span class="section-kicker">YOUR TEAM</span>
-                <h2>Current Party</h2>
+
+                <span class="section-kicker">
+                    YOUR TEAM
+                </span>
+
+                <h2>
+                    Current Party
+                </h2>
+
             </div>
 
         </div>
 
+
         {% if party %}
 
-            <div class="pokemon-grid">
+        <div class="pokemon-grid">
 
-                {% for mon in party %}
+            {% for mon in party %}
 
-                    <article class="pokemon-card">
+            <article class="pokemon-card">
 
-                        <h3>
-                            {{ mon.nickname or mon.species_id|title }}
-                        </h3>
+                <h3>
 
-                        <p>
-                            Level {{ mon.level }}
-                        </p>
+                    {{ mon.nickname or mon.species_id|title }}
 
-                        <p>
-                            HP:
-                            {{ mon.current_hp }}
-                            /
-                            {{ mon.max_hp }}
-                        </p>
+                </h3>
 
-                        <p class="muted">
-                            {{ mon.variant|title }}
-                            {% if mon.shiny %}
-                                · Shiny
-                            {% endif %}
-                        </p>
 
-                    </article>
+                <p>
+                    Level {{ mon.level }}
+                </p>
 
-                {% endfor %}
 
-            </div>
+                <p>
+
+                    HP:
+
+                    {{ mon.current_hp }}
+
+                    /
+
+                    {{ mon.max_hp }}
+
+                </p>
+
+
+                <p class="muted">
+
+                    {{ mon.variant|title }}
+
+                    {% if mon.shiny %}
+
+                        · Shiny
+
+                    {% endif %}
+
+                </p>
+
+            </article>
+
+            {% endfor %}
+
+        </div>
 
         {% else %}
 
-            <div class="adventure-content">
+        <div class="adventure-content">
 
-                <p class="muted">
-                    You don't have any Pokémon in your party yet.
-                </p>
+            <p class="muted">
+                You don't have any Pokémon in your party yet.
+            </p>
 
-            </div>
+        </div>
 
         {% endif %}
 
     </section>
+
 
 </div>
 
