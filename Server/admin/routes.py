@@ -407,9 +407,18 @@ def pokemon():
 
 @admin_bp.post("/pokemon/assign")
 @pokemon_edit_required
+@webmaster_required
 def pokemon_assign():
     """
     Directly assign a Pokémon to a player.
+
+    Webmaster-only: PERMISSION_POKEMON_EDIT (the underlying permission
+    this route also requires) is granted to both the admin and
+    webmaster roles, since it covers routine Pokémon edits generally.
+    Manually creating new Pokémon out of thin air is a bigger power
+    than editing an existing one, so this route specifically -- not
+    the pokemon.edit permission itself -- is additionally locked to
+    Webmaster, the same way News management is.
     """
     staff_id = session.get("player_id")
 

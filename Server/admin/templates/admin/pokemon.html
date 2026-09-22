@@ -13,7 +13,7 @@
         </p>
     </div>
 
-    {% if current_user_has_permission('admin.pokemon.edit') %}
+    {% if current_user_has_permission('admin.pokemon.edit') and current_user_is_webmaster() %}
     <div class="admin-page-actions">
         <button
             type="button"
@@ -27,7 +27,7 @@
 </div>
 
 <!-- DIRECT POKÉMON ASSIGNMENT SECTION -->
-{% if current_user_has_permission('admin.pokemon.edit') %}
+{% if current_user_has_permission('admin.pokemon.edit') and current_user_is_webmaster() %}
 <section class="admin-section" id="assignModal">
     <div class="admin-section-header">
         <div>
