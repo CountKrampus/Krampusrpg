@@ -3,6 +3,7 @@ from __future__ import annotations
 from flask import Blueprint, jsonify, render_template, request
 
 from .auth import current_player_id
+from .evolution import get_evolution_options
 from .party_storage import (
     MAX_PARTY_SIZE,
     add_to_party,
@@ -23,6 +24,8 @@ from .pc_storage import (
     swap_pokemon,
     withdraw_pokemon,
 )
+from .services import get_pokemon
+from .sprite_resolver import get_pokemon_sprite_data
 
 
 pc_bp = Blueprint(
@@ -732,6 +735,170 @@ def pc_pokemon_location(
         {
             "success": True,
             "location": location,
+        }
+    )
+
+
+# =============================================================================
+# POKÉMON DETAILS
+# =============================================================================
+
+@pc_bp.get("/api/pc/pokemon/<int:pokemon_id>/details")
+def pc_pokemon_details(
+    pokemon_id: int,
+):
+    """
+    Return full details for one of the player's Pokémon: species, types,
+    current moves, stats, sprite URLs, evolution options, and current
+    storage location (Party or PC). (Abilities are intentionally left
+    out for now -- see the note below.)
+
+    Backs the Pokémon details panel (Sprint 2 / roadmap Phase 3): click a
+    Pokémon in Party or PC to see everything about it in one place.
+    """
+    try:
+        player_id = _require_player()
+    except PermissionError as exc:
+        return _error_response(
+            str(exc),
+            401,
+        )
+
+    pokemon = get_pokemon(
+        player_id,
+        pokemon_id,
+    )
+
+    if pokemon is None:
+        return _error_response(
+            "Pokémon not found.",
+            404,
+        )
+
+    species = pokemon.get(
+        "species"
+    ) or {}
+
+    # NOTE: abilities are intentionally not surfaced here yet (not a
+    # priority right now) -- get_species() currently only selects
+    # catalog-shaped columns (base stats, category, etc.) from
+    # pokemon_species and doesn't carry the "abilities" list through
+    # from Data/pokemon.json, so there's nothing real to resolve.
+    # Revisit once that's wired up.
+    pokemon["types"] = species.get(
+        "type",
+        [],
+    )
+
+    # Sprite URLs (normal/shiny/current, resolved for this Pokémon's
+    # actual variant + shiny status).
+    try:
+        pokemon["sprites"] = (
+            get_pokemon_sprite_data(
+                pokemon
+            )
+        )
+    except Exception:
+        pokemon["sprites"] = {}
+
+    # Evolution options this Pokémon currently qualifies for.
+    try:
+        pokemon["evolution_options"] = (
+            get_evolution_options(
+                pokemon
+            )
+        )
+    except Exception:
+        pokemon["evolution_options"] = []
+
+    # Where it currently lives (Party vs PC page/slot).
+    try:
+        pokemon["location"] = (
+            get_pokemon_location(
+                pokemon_id
+            )
+        )
+    except Exception:
+        pokemon["location"] = None
+
+    return jsonify(
+        {
+            "success": True,
+            "pokemon": pokemon,
+        }
+    )
+
+
+# =============================================================================
+# NICKNAME
+# =============================================================================
+
+@pc_bp.post("/api/pc/pokemon/<int:pokemon_id>/nickname")
+def pc_pokemon_nickname(
+    pokemon_id: int,
+):
+    """
+    Rename (or clear the nickname of) one of the player's Pokémon.
+    """
+    try:
+        player_id = _require_player()
+    except PermissionError as exc:
+        return _error_response(
+            str(exc),
+            401,
+        )
+
+    # Ownership check: get_pokemon() only returns a row when
+    # owner_id == player_id, so a None result here also covers
+    # "this Pokémon belongs to someone else" without leaking that
+    # distinction to the caller.
+    pokemon = get_pokemon(
+        player_id,
+        pokemon_id,
+    )
+
+    if pokemon is None:
+        return _error_response(
+            "Pokémon not found.",
+            404,
+        )
+
+    data = _get_json()
+
+    nickname = data.get(
+        "nickname"
+    )
+
+    if nickname is not None:
+        nickname = str(
+            nickname
+        ).strip()[:32]
+
+        if not nickname:
+            nickname = None
+
+    from .database import get_connection
+
+    with get_connection() as db:
+        db.execute(
+            """
+            UPDATE pokemon
+            SET nickname = ?
+            WHERE id = ?
+              AND owner_id = ?
+            """,
+            (
+                nickname,
+                pokemon_id,
+                player_id,
+            ),
+        )
+        db.commit()
+
+    return jsonify(
+        {
+            "success": True,
+            "nickname": nickname,
         }
     )
 
