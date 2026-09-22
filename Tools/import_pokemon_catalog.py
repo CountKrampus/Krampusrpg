@@ -2932,6 +2932,13 @@ def validate_catalog(
         "missing_types": missing_types,
     }
 
+    warning_count = (
+        missing_forms
+        + missing_types
+    )
+
+    result["warnings"] = warning_count
+
     result["complete"] = (
         official_species
         == NATIONAL_DEX_LIMIT
@@ -2939,22 +2946,69 @@ def validate_catalog(
         and missing_types == 0
     )
 
+    # Labeled final report instead of a raw dict dump -- this is the
+    # summary a webmaster should be able to glance at and immediately
+    # know whether the catalog is actually ready to build on, per
+    # Sprint 1 item F. Note "warnings" here means real, checkable
+    # database-state gaps (species missing a default form / types),
+    # not a running exception counter -- none of the individual
+    # import_* functions currently track/return per-item errors, so
+    # there is no "Errors: N" this can honestly report; the exit code
+    # (see main()) is what actually fails loudly on incompleteness.
     print()
     print(
         "========================================"
     )
     print(
-        "KRAMPUS RPG POKÉMON CATALOG VALIDATION"
+        "KRAMPUS RPG POKÉMON CATALOG - FINAL REPORT"
     )
     print(
         "========================================"
     )
-
-    for key, value in result.items():
-        print(
-            f"{key}: {value}"
+    print(
+        f"Species imported:    {official_species} "
+        f"/ {NATIONAL_DEX_LIMIT} expected"
+    )
+    print(
+        f"Types imported:      {result['types']}"
+    )
+    print(
+        f"Abilities imported:  {result['abilities']}"
+    )
+    print(
+        f"Forms imported:      {result['forms']}"
+    )
+    print(
+        f"Variants:            {result['variants']}"
+    )
+    print(
+        f"Moves imported:      {result['moves']}"
+    )
+    print(
+        f"Learnsets imported:  {result['learnsets']}"
+    )
+    print(
+        f"Evolution rules:     {result['evolutions']}"
+    )
+    print(
+        f"Sprites indexed:     {result['sprites']}"
+    )
+    print(
+        f"Warnings:            {warning_count} "
+        f"(missing default form: {missing_forms}, "
+        f"missing types: {missing_types})"
+    )
+    print(
+        "----------------------------------------"
+    )
+    print(
+        "STATUS: "
+        + (
+            "COMPLETE"
+            if result["complete"]
+            else "REVIEW REQUIRED"
         )
-
+    )
     print(
         "========================================"
     )
@@ -2966,8 +3020,36 @@ def validate_catalog(
 # DATABASE CONNECTION
 # =============================================================================
 
-def open_database() -> sqlite3.Connection:
-    connection = get_connection()
+def open_database(
+    database_path: Path | None = None,
+) -> sqlite3.Connection:
+    """
+    Open a catalog database connection.
+
+    Previously this always called get_connection(), which hardcodes
+    Server.config.DATABASE_PATH -- so the --database CLI argument was
+    completely dead: it got printed in the startup banner but never
+    actually affected which file got opened. Running
+    `--database /tmp/scratch.db --validate-only` looked like it was
+    safely inspecting a throwaway file but was silently validating
+    (and, without --validate-only, would have been silently
+    modifying) the real production database instead. Now opens
+    database_path directly when one is given, and only falls back to
+    get_connection()'s production path when it isn't.
+    """
+
+    if database_path is not None:
+        connection = sqlite3.connect(
+            database_path,
+            timeout=30,
+        )
+
+        connection.execute(
+            "PRAGMA foreign_keys = ON"
+        )
+
+    else:
+        connection = get_connection()
 
     connection.row_factory = sqlite3.Row
 
@@ -3394,7 +3476,9 @@ def main() -> int:
             f"Sprites:  {args.sprites}"
         )
 
-    connection = open_database()
+    connection = open_database(
+        args.database
+    )
 
     try:
 
@@ -3408,11 +3492,22 @@ def main() -> int:
 
         if args.validate_only:
 
-            validate_catalog(
+            result = validate_catalog(
                 connection
             )
 
-            return 0
+            # Previously this unconditionally returned 0, so
+            # --validate-only could never actually "fail loudly" --
+            # running it against a catalog missing hundreds of species
+            # still reported success to the shell. Now mirrors the same
+            # results.get("complete") check the normal import path
+            # already uses below.
+            if result.get(
+                "complete"
+            ):
+                return 0
+
+            return 1
 
         datasets = download_all_csvs()
 
