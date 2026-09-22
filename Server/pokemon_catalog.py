@@ -106,6 +106,97 @@ DEFAULT_VARIANTS: list[tuple[str, str, str, str, int]] = [
         "A custom undead Krampus RPG variant.",
         1,
     ),
+    (
+        "amethyst",
+        "Amethyst",
+        "-amethyst",
+        "A custom amethyst-colored Krampus RPG variant.",
+        1,
+    ),
+    (
+        "azure",
+        "Azure",
+        "-azure",
+        "A custom azure-colored Krampus RPG variant.",
+        1,
+    ),
+    (
+        "copper",
+        "Copper",
+        "-copper",
+        "A custom copper-colored Krampus RPG variant.",
+        1,
+    ),
+    (
+        "crimson",
+        "Crimson",
+        "-crimson",
+        "A custom crimson-colored Krampus RPG variant.",
+        1,
+    ),
+    (
+        "frost",
+        "Frost",
+        "-frost",
+        "A custom frost-colored Krampus RPG variant.",
+        1,
+    ),
+    (
+        "inferno",
+        "Inferno",
+        "-inferno",
+        "A custom inferno-colored Krampus RPG variant.",
+        1,
+    ),
+    (
+        "lime",
+        "Lime",
+        "-lime",
+        "A custom lime-colored Krampus RPG variant.",
+        1,
+    ),
+    (
+        "midnight",
+        "Midnight",
+        "-midnight",
+        "A custom midnight-colored Krampus RPG variant.",
+        1,
+    ),
+    (
+        "obsidian",
+        "Obsidian",
+        "-obsidian",
+        "A custom obsidian-colored Krampus RPG variant.",
+        1,
+    ),
+    (
+        "pearl",
+        "Pearl",
+        "-pearl",
+        "A custom pearl-colored Krampus RPG variant.",
+        1,
+    ),
+    (
+        "rose",
+        "Rose",
+        "-rose",
+        "A custom rose-colored Krampus RPG variant.",
+        1,
+    ),
+    (
+        "toxic",
+        "Toxic",
+        "-toxic",
+        "A custom toxic-colored Krampus RPG variant.",
+        1,
+    ),
+    (
+        "violet",
+        "Violet",
+        "-violet",
+        "A custom violet-colored Krampus RPG variant.",
+        1,
+    ),
 ]
 
 
@@ -937,6 +1028,25 @@ def ensure_catalog_schema(
 def ensure_default_variants(
     db: sqlite3.Connection,
 ) -> None:
+    """
+    Insert/refresh the default variant roster.
+
+    Previously this always INSERTed against the canonical id with
+    `ON CONFLICT(id) DO UPDATE`, which only resolves a collision on id.
+    If a row already existed with the same *name* (case-insensitive) but
+    a different id — e.g. a variant that got manually added, or a
+    canonical id that changes in a future update — that INSERT would
+    still hit pokemon_variants.name's UNIQUE constraint and raise
+    sqlite3.IntegrityError, uncaught, which would take down catalog
+    startup entirely. This now looks the row up by id OR
+    case-insensitive name first: if a row already exists under either
+    key, its *existing* id is treated as authoritative and its other
+    columns are refreshed in place, rather than churning the id (which
+    would orphan anything already referencing it as a foreign key, e.g.
+    pokemon.variant or pokemon_sprite_inventory.variant_id). Only a
+    genuinely new variant gets INSERTed under its canonical id.
+    """
+
     for (
         variant_id,
         name,
@@ -945,34 +1055,61 @@ def ensure_default_variants(
         is_custom,
     ) in DEFAULT_VARIANTS:
 
-        db.execute(
+        existing = db.execute(
             """
-            INSERT INTO pokemon_variants (
-                id,
-                name,
-                sprite_suffix,
-                description,
-                is_custom,
-                is_active
-            )
-            VALUES (?, ?, ?, ?, ?, 1)
-
-            ON CONFLICT(id)
-            DO UPDATE SET
-                name = excluded.name,
-                sprite_suffix = excluded.sprite_suffix,
-                description = excluded.description,
-                is_custom = excluded.is_custom,
-                is_active = 1
+            SELECT id
+            FROM pokemon_variants
+            WHERE id = ?
+            OR LOWER(name) = LOWER(?)
+            LIMIT 1
             """,
             (
                 variant_id,
                 name,
-                sprite_suffix,
-                description,
-                is_custom,
             ),
-        )
+        ).fetchone()
+
+        if existing is None:
+            db.execute(
+                """
+                INSERT INTO pokemon_variants (
+                    id,
+                    name,
+                    sprite_suffix,
+                    description,
+                    is_custom,
+                    is_active
+                )
+                VALUES (?, ?, ?, ?, ?, 1)
+                """,
+                (
+                    variant_id,
+                    name,
+                    sprite_suffix,
+                    description,
+                    is_custom,
+                ),
+            )
+        else:
+            db.execute(
+                """
+                UPDATE pokemon_variants
+                SET
+                    name = ?,
+                    sprite_suffix = ?,
+                    description = ?,
+                    is_custom = ?,
+                    is_active = 1
+                WHERE id = ?
+                """,
+                (
+                    name,
+                    sprite_suffix,
+                    description,
+                    is_custom,
+                    existing["id"],
+                ),
+            )
 
     db.commit()
 

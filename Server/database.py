@@ -562,6 +562,97 @@ DEFAULT_VARIANTS = [
         "Undead custom coloration.",
         1,
     ),
+    (
+        "amethyst",
+        "Amethyst",
+        "-amethyst",
+        "Amethyst custom coloration.",
+        1,
+    ),
+    (
+        "azure",
+        "Azure",
+        "-azure",
+        "Azure custom coloration.",
+        1,
+    ),
+    (
+        "copper",
+        "Copper",
+        "-copper",
+        "Copper custom coloration.",
+        1,
+    ),
+    (
+        "crimson",
+        "Crimson",
+        "-crimson",
+        "Crimson custom coloration.",
+        1,
+    ),
+    (
+        "frost",
+        "Frost",
+        "-frost",
+        "Frost custom coloration.",
+        1,
+    ),
+    (
+        "inferno",
+        "Inferno",
+        "-inferno",
+        "Inferno custom coloration.",
+        1,
+    ),
+    (
+        "lime",
+        "Lime",
+        "-lime",
+        "Lime custom coloration.",
+        1,
+    ),
+    (
+        "midnight",
+        "Midnight",
+        "-midnight",
+        "Midnight custom coloration.",
+        1,
+    ),
+    (
+        "obsidian",
+        "Obsidian",
+        "-obsidian",
+        "Obsidian custom coloration.",
+        1,
+    ),
+    (
+        "pearl",
+        "Pearl",
+        "-pearl",
+        "Pearl custom coloration.",
+        1,
+    ),
+    (
+        "rose",
+        "Rose",
+        "-rose",
+        "Rose custom coloration.",
+        1,
+    ),
+    (
+        "toxic",
+        "Toxic",
+        "-toxic",
+        "Toxic custom coloration.",
+        1,
+    ),
+    (
+        "violet",
+        "Violet",
+        "-violet",
+        "Violet custom coloration.",
+        1,
+    ),
 ]
 
 
@@ -572,6 +663,11 @@ def _ensure_variants_schema(
         VARIANT_SCHEMA
     )
 
+    # Reconcile by id OR case-insensitive name (not just id) before
+    # deciding insert vs. update, so a pre-existing row with a matching
+    # name but a different id doesn't crash this on pokemon_variants.name's
+    # UNIQUE constraint. See the matching fix + longer explanation on
+    # Server/pokemon_catalog.py:ensure_default_variants.
     for (
         variant_id,
         name,
@@ -579,30 +675,59 @@ def _ensure_variants_schema(
         description,
         is_custom,
     ) in DEFAULT_VARIANTS:
-        db.execute(
+        existing = db.execute(
             """
-            INSERT INTO pokemon_variants (
-                id,
-                name,
-                sprite_suffix,
-                description,
-                is_custom
-            )
-            VALUES (?, ?, ?, ?, ?)
-            ON CONFLICT(id) DO UPDATE SET
-                name = excluded.name,
-                sprite_suffix = excluded.sprite_suffix,
-                description = excluded.description,
-                is_custom = excluded.is_custom
+            SELECT id
+            FROM pokemon_variants
+            WHERE id = ?
+            OR LOWER(name) = LOWER(?)
+            LIMIT 1
             """,
             (
                 variant_id,
                 name,
-                sprite_suffix,
-                description,
-                is_custom,
             ),
-        )
+        ).fetchone()
+
+        if existing is None:
+            db.execute(
+                """
+                INSERT INTO pokemon_variants (
+                    id,
+                    name,
+                    sprite_suffix,
+                    description,
+                    is_custom
+                )
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    variant_id,
+                    name,
+                    sprite_suffix,
+                    description,
+                    is_custom,
+                ),
+            )
+        else:
+            db.execute(
+                """
+                UPDATE pokemon_variants
+                SET
+                    name = ?,
+                    sprite_suffix = ?,
+                    description = ?,
+                    is_custom = ?
+                WHERE id = ?
+                """,
+                (
+                    name,
+                    sprite_suffix,
+                    description,
+                    is_custom,
+                    existing["id"],
+                ),
+            )
 
 
 # =============================================================================
