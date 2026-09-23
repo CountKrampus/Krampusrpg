@@ -38,6 +38,12 @@
                     </a>
                     {% endif %}
 
+                    {% if current_user_has_permission('admin.pokemon.view') %}
+                    <a href="{{ url_for('admin.moves') }}" class="admin-nav-link {% if request.endpoint == 'admin.moves' %}active{% endif %}">
+                        <span>Moves</span>
+                    </a>
+                    {% endif %}
+
                     {% if current_user_has_permission('admin.items.view') %}
                     <a href="{{ url_for('admin.items') }}" class="admin-nav-link {% if request.endpoint in ['admin.items', 'admin.items_edit'] %}active{% endif %}">
                         <span>Items</span>

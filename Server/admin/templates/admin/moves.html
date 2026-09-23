@@ -1,0 +1,84 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Moves{% endblock %}
+
+{% block content %}
+<div class="admin-page-header">
+    <div>
+        <h1>Moves</h1>
+        <p class="admin-subtitle">
+            The move database battles and learnsets will be built on.
+        </p>
+    </div>
+</div>
+
+<section class="admin-section">
+    <div class="admin-section-header">
+        <div>
+            <h2>All Moves</h2>
+            <p>
+                {{ moves|length }} move{{ "s" if moves|length != 1 else "" }} currently defined.
+            </p>
+        </div>
+    </div>
+
+    {% if moves %}
+    <div class="admin-table-container">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Type</th>
+                    <th>Category</th>
+                    <th>Power</th>
+                    <th>Accuracy</th>
+                    <th>PP</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for move in moves %}
+                <tr>
+                    <td>{{ move.id|default("—") }}</td>
+
+                    <td>
+                        <strong>
+                            {{ move.name|default(move.id|default("—")) }}
+                        </strong>
+                    </td>
+
+                    <td>
+                        {{ (move.type_name or move.type_id or "—")|title }}
+                    </td>
+
+                    <td>
+                        {{ (move.category or "—")|title }}
+                    </td>
+
+                    <td>{{ move.power if move.power is not none else "—" }}</td>
+
+                    <td>{{ move.accuracy if move.accuracy is not none else "—" }}</td>
+
+                    <td>{{ move.max_pp if move.max_pp is not none else "—" }}</td>
+
+                    <td>
+                        {{ move.description|default("") }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% else %}
+    <div class="admin-empty-state">
+        <h3>No Moves Found</h3>
+        <p>
+            There are currently no moves defined in Data/moves.json.
+        </p>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}

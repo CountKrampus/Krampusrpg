@@ -428,29 +428,102 @@ def get_species(
 # ============================================================
 
 def get_all_moves() -> list[dict[str, Any]]:
-    """Return all moves from the database."""
+    """
+    Return all moves from the database.
+
+    Falls back to Data/moves.json when the live database has no
+    "moves" table (it doesn't, currently -- that table only exists in
+    the separate catalog schema). Previously this had no fallback at
+    all, unlike get_move() just below it, which already handled this
+    exact case -- so this crashed with "no such table: moves" the
+    moment anything called it (nothing did yet, which is exactly how
+    it went unnoticed).
+    """
     from .database import get_connection
 
-    with get_connection() as db:
-        moves = db.execute(
-            """
-            SELECT
-                m.id,
-                m.name,
-                m.type_id,
-                m.category,
-                m.power,
-                m.accuracy,
-                m.max_pp,
-                m.description,
-                t.name as type_name
-            FROM moves m
-            LEFT JOIN pokemon_types t ON t.id = m.type_id
-            ORDER BY m.name
-            """
-        ).fetchall()
+    try:
+        with get_connection() as db:
+            moves = db.execute(
+                """
+                SELECT
+                    m.id,
+                    m.name,
+                    m.type_id,
+                    m.category,
+                    m.power,
+                    m.accuracy,
+                    m.max_pp,
+                    m.description,
+                    t.name as type_name
+                FROM moves m
+                LEFT JOIN pokemon_types t ON t.id = m.type_id
+                ORDER BY m.name
+                """
+            ).fetchall()
 
-        return [dict(row) for row in moves]
+            return [dict(row) for row in moves]
+
+    except sqlite3.OperationalError:
+        pass
+
+    data = load_data("moves.json")
+
+    raw_moves = _as_list(
+        data,
+        (
+            "moves",
+            "items",
+        ),
+    )
+
+    # Normalize to the same shape get_move()'s fallback already
+    # produces (type_id/max_pp instead of the raw JSON's type/pp) so
+    # callers get a consistent shape regardless of which path served
+    # the data.
+    return [
+        {
+            "id": str(
+                m.get(
+                    "id",
+                    "",
+                )
+            ),
+            "name": m.get(
+                "name",
+                str(
+                    m.get(
+                        "id",
+                        "",
+                    )
+                ).title(),
+            ),
+            "type_id": m.get(
+                "type",
+                "normal",
+            ),
+            "category": m.get(
+                "category",
+                "physical",
+            ),
+            "power": m.get(
+                "power",
+                40,
+            ),
+            "accuracy": m.get(
+                "accuracy",
+                100,
+            ),
+            "max_pp": m.get(
+                "pp",
+                35,
+            ),
+            "description": m.get(
+                "description",
+                "",
+            ),
+        }
+        for m in raw_moves
+    ]
 
 
 def get_move(

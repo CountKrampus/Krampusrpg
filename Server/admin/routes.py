@@ -28,6 +28,7 @@ from flask import (
 )
 
 from ..database import get_connection
+from ..services import get_all_moves
 
 from ..news import (
     ensure_news_table,
@@ -523,6 +524,39 @@ def items():
 @items_edit_required
 def items_edit():
     return redirect(url_for("admin.items"))
+
+
+# ============================================================
+# MOVES
+# ============================================================
+
+@admin_bp.route("/moves")
+@pokemon_view_required
+def moves():
+    """
+    Browse the move database (Sprint 2 / roadmap Phase 5: "Move
+    database. Every move: ID, Name, Type, Category, Power, Accuracy,
+    PP, Description.").
+
+    Gated by pokemon_view_required rather than a dedicated
+    moves-specific permission -- moves are Pokémon reference data
+    with no destructive actions here (read-only browse), so reusing
+    the existing Pokémon-view permission avoids adding a near-duplicate
+    permission for what's conceptually the same access level.
+
+    Read-only for now: there's no move CREATE/EDIT here because
+    get_all_moves()/get_move() currently source from Data/moves.json
+    (only 3 moves) as a fallback for a live "moves" database table
+    that doesn't exist yet -- editing would need to write back to
+    whichever of those is actually authoritative, which isn't decided.
+    This page exists to make what already exists actually visible.
+    """
+    move_list = get_all_moves()
+
+    return render_template(
+        "admin/moves.html",
+        moves=move_list,
+    )
 
 
 # ============================================================
