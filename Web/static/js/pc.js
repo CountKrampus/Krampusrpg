@@ -121,6 +121,26 @@
             "pc-detail-location"
         ),
 
+        detailNicknameInput: document.getElementById(
+            "pc-detail-nickname-input"
+        ),
+
+        detailNicknameSave: document.getElementById(
+            "pc-detail-nickname-save"
+        ),
+
+        detailMovesList: document.getElementById(
+            "pc-detail-moves-list"
+        ),
+
+        detailEvolution: document.getElementById(
+            "pc-detail-evolution"
+        ),
+
+        detailEvolutionList: document.getElementById(
+            "pc-detail-evolution-list"
+        ),
+
         detailClose: document.getElementById(
             "pc-detail-close"
         ),
@@ -1474,6 +1494,22 @@
 
         updateDetailButtons();
 
+        if (elements.detailNicknameInput) {
+            elements.detailNicknameInput.value =
+                pokemon.nickname ||
+                "";
+        }
+
+        if (elements.detailMovesList) {
+            elements.detailMovesList.innerHTML =
+                "<li>Loading…</li>";
+        }
+
+        if (elements.detailEvolution) {
+            elements.detailEvolution.hidden =
+                true;
+        }
+
         elements.details.hidden =
             false;
 
@@ -1481,6 +1517,214 @@
             behavior: "smooth",
             block: "nearest"
         });
+
+        loadPokemonDetails(
+            pokemon
+        );
+    }
+
+
+    async function loadPokemonDetails(pokemon) {
+        const id =
+            pokemonId(pokemon);
+
+        if (!id) {
+            return;
+        }
+
+        try {
+            const data =
+                await api(
+                    "/api/pc/pokemon/" +
+                    encodeURIComponent(id) +
+                    "/details"
+                );
+
+            // Bail out if the player clicked a different Pokémon (or
+            // closed the panel) while this request was in flight.
+            if (
+                !selectedPokemon ||
+                pokemonId(selectedPokemon) !== id
+            ) {
+                return;
+            }
+
+            const detail =
+                data.pokemon ||
+                {};
+
+            if (elements.detailType) {
+                const types =
+                    Array.isArray(
+                        detail.types
+                    )
+                        ? detail.types
+                        : [];
+
+                elements.detailType.textContent =
+                    types.length
+                        ? types
+                            .map(capitalize)
+                            .join(" / ")
+                        : "—";
+            }
+
+            if (elements.detailLocation && detail.location) {
+                const loc =
+                    detail.location;
+
+                elements.detailLocation.textContent =
+                    loc.location === "party"
+                        ? "Party · Slot " + (loc.slot ?? "?")
+                        : "PC · Page " +
+                          (loc.page ?? "?") +
+                          " · Slot " +
+                          (loc.slot ?? "?");
+            }
+
+            if (elements.detailMovesList) {
+                const moves =
+                    Array.isArray(
+                        detail.moves
+                    )
+                        ? detail.moves
+                        : [];
+
+                elements.detailMovesList.innerHTML =
+                    "";
+
+                if (!moves.length) {
+                    const empty =
+                        document.createElement(
+                            "li"
+                        );
+
+                    empty.textContent =
+                        "No moves learned yet.";
+
+                    elements.detailMovesList.appendChild(
+                        empty
+                    );
+                } else {
+                    moves.forEach(
+                        function (move) {
+                            const item =
+                                document.createElement(
+                                    "li"
+                                );
+
+                            item.textContent =
+                                (move.name || "Unknown move") +
+                                (
+                                    move.type
+                                        ? " (" + capitalize(move.type) + ")"
+                                        : ""
+                                );
+
+                            elements.detailMovesList.appendChild(
+                                item
+                            );
+                        }
+                    );
+                }
+            }
+
+            if (elements.detailEvolution && elements.detailEvolutionList) {
+                const options =
+                    Array.isArray(
+                        detail.evolution_options
+                    )
+                        ? detail.evolution_options
+                        : [];
+
+                if (!options.length) {
+                    elements.detailEvolution.hidden =
+                        true;
+                } else {
+                    elements.detailEvolutionList.innerHTML =
+                        "";
+
+                    options.forEach(
+                        function (option) {
+                            const item =
+                                document.createElement(
+                                    "li"
+                                );
+
+                            item.textContent =
+                                option.description ||
+                                option.to_species ||
+                                "Evolution available";
+
+                            elements.detailEvolutionList.appendChild(
+                                item
+                            );
+                        }
+                    );
+
+                    elements.detailEvolution.hidden =
+                        false;
+                }
+            }
+        } catch (error) {
+            if (elements.detailMovesList) {
+                elements.detailMovesList.innerHTML =
+                    "<li>Couldn't load move data.</li>";
+            }
+        }
+    }
+
+
+    async function saveNickname() {
+        if (!selectedPokemon) {
+            return;
+        }
+
+        const id =
+            pokemonId(
+                selectedPokemon
+            );
+
+        if (!id || !elements.detailNicknameInput) {
+            return;
+        }
+
+        try {
+            const data =
+                await post(
+                    "/api/pc/pokemon/" +
+                    encodeURIComponent(id) +
+                    "/nickname",
+                    {
+                        nickname:
+                            elements.detailNicknameInput.value
+                    }
+                );
+
+            selectedPokemon.nickname =
+                data.nickname;
+
+            if (elements.detailName) {
+                elements.detailName.textContent =
+                    speciesName(
+                        selectedPokemon
+                    );
+            }
+
+            showMessage(
+                "Nickname saved."
+            );
+
+            if (selectedLocation === "party") {
+                loadParty();
+            } else {
+                loadPage(currentPage);
+            }
+        } catch (error) {
+            showMessage(
+                error.message
+            );
+        }
     }
 
 
@@ -1886,6 +2130,13 @@
             elements.moveButton.addEventListener(
                 "click",
                 handleMoveAction
+            );
+        }
+
+        if (elements.detailNicknameSave) {
+            elements.detailNicknameSave.addEventListener(
+                "click",
+                saveNickname
             );
         }
     }
