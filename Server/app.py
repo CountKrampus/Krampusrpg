@@ -26,6 +26,7 @@ Party and PC are database-backed systems.
 from __future__ import annotations
 
 import sqlite3
+from typing import Any
 
 from flask import (
     Flask,
@@ -62,13 +63,27 @@ from .services import (
     create_pokemon,
     get_party,
     get_player_pokemon,
+    get_player_progress,
     get_species,
     remove_from_party,
+)
+
+from .services import (
+    get_all_areas,
+    get_area,
+    update_player_progress,
 )
 
 from .news import (
     ensure_news_table,
     get_published_news,
+)
+
+from .catching import (
+    attempt_catch,
+    calculate_catch_chance,
+    get_player_balls,
+    start_encounter,
 )
 
 from .roadmap import (
@@ -206,6 +221,169 @@ def create_app() -> Flask:
         )
 
     # ========================================================
+    # WILD ENCOUNTER / CATCHING API
+    # ========================================================
+
+    @app.get("/api/world/areas")
+    def api_world_areas():
+        """All explorable areas with their encounter tables."""
+
+        return jsonify(
+            {
+                "success": True,
+                "areas": get_all_areas(),
+            }
+        )
+
+    @app.post("/api/world/encounter")
+    def api_world_encounter():
+        """
+        Search a wild area for a Pokémon.
+
+        Expects JSON: {"area": "frostbite_route"}. Returns a transient
+        encounter description (species, level, shiny, catch rates per
+        ball) that the client must echo back to /api/world/catch.
+        Nothing is stored until the catch succeeds.
+        """
+
+        player_id = current_player_id()
+
+        if player_id is None:
+            return jsonify(
+                {
+                    "success": False,
+                    "error": "Authentication required.",
+                }
+            ), 401
+
+        data = request.get_json(silent=True) or {}
+        area_id = str(data.get("area", "")).strip()
+
+        area = get_area(area_id) if area_id else None
+
+        if area is None:
+            return jsonify(
+                {
+                    "success": False,
+                    "error": "Unknown area.",
+                }
+            ), 400
+
+        encounter = start_encounter(area_id)
+
+        if encounter is None:
+            return jsonify(
+                {
+                    "success": True,
+                    "encounter": None,
+                    "message": "Nothing seems to be around here...",
+                }
+            )
+
+        # Show the player what each of their balls would achieve.
+        ball_chances = [
+            {
+                **ball,
+                "catch_chance": calculate_catch_chance(
+                    encounter,
+                    ball["item_id"],
+                ),
+            }
+            for ball in get_player_balls(player_id)
+            if ball["quantity"] > 0
+        ]
+
+        # Persist the player's current location.
+        update_player_progress(
+            player_id,
+            current_area=area["id"],
+        )
+
+        return jsonify(
+            {
+                "success": True,
+                "encounter": encounter,
+                "balls": ball_chances,
+            }
+        )
+
+    @app.post("/api/world/catch")
+    def api_world_catch():
+        """
+        Throw a Poké Ball at a wild encounter.
+
+        Expects JSON:
+
+            {
+                "encounter": {...exactly what /api/world/encounter
+                              returned...},
+                "ball": "great_ball" (optional; strongest owned ball
+                         is used otherwise)
+            }
+
+        The server re-validates the encounter (species must exist, level
+        in range) and consumes one ball from the bag. On success the
+        wild Pokémon is created into the player's Party/PC.
+        """
+
+        player_id = current_player_id()
+
+        if player_id is None:
+            return jsonify(
+                {
+                    "success": False,
+                    "error": "Authentication required.",
+                }
+            ), 401
+
+        data = request.get_json(silent=True) or {}
+
+        encounter = data.get("encounter")
+
+        if not isinstance(encounter, dict):
+            return jsonify(
+                {
+                    "success": False,
+                    "error": "encounter is required.",
+                }
+            ), 400
+
+        ball = data.get("ball")
+
+        try:
+            result = attempt_catch(
+                player_id,
+                encounter,
+                ball_item_id=(
+                    str(ball).strip()
+                    if ball and str(ball).strip()
+                    else ""
+                ),
+            )
+        except ValueError as exc:
+            return jsonify(
+                {
+                    "success": False,
+                    "error": str(exc),
+                }
+            ), 400
+        except Exception:
+            return jsonify(
+                {
+                    "success": False,
+                    "error": "The catch attempt failed.",
+                }
+            ), 500
+
+        return jsonify(
+            {
+                "success": True,
+                **result,
+                "balls": get_player_balls(player_id),
+            }
+        )
+
+    # ========================================================
     # COMING SOON PAGES
     # ========================================================
 
@@ -273,9 +451,37 @@ def create_app() -> Flask:
     def story_adventure():
         return redirect(url_for("coming_soon"))
 
+    # ========================================================
+    # WORLD EXPLORATION (CATCHING)
+    # ========================================================
+
     @app.get("/world-exploration")
     def world_exploration():
-        return redirect(url_for("coming_soon"))
+        """
+        The wild area explorer: pick an area, search for wild
+        Pokémon, and throw Poké Balls at what shows up.
+        """
+        player_id = current_player_id()
+
+        areas = get_all_areas()
+
+        player_area = None
+        balls: list[dict[str, Any]] = []
+
+        if player_id is not None:
+            progress = get_player_progress(player_id)
+
+            if progress:
+                player_area = progress.get("current_area")
+
+            balls = get_player_balls(player_id)
+
+        return render_template(
+            "world_exploration.html",
+            areas=areas,
+            player_area=player_area,
+            balls=balls,
+        )
 
     @app.get("/mines")
     def mines():

@@ -2,7 +2,10 @@
     {
         "id": "bulbasaur",
         "name": "Bulbasaur",
-        "type": ["grass", "poison"],
+        "type": [
+            "grass",
+            "poison"
+        ],
         "base_stats": {
             "hp": 45,
             "attack": 49,
@@ -11,19 +14,35 @@
             "sp_defense": 65,
             "speed": 45
         },
-        "abilities": ["overgrow"],
-        "starting_moves": ["tackle"],
-        "level_up_moves": [
-            {"move": "vine_whip", "level": 7},
-            {"move": "growl", "level": 4},
-            {"move": "razor_leaf", "level": 20}
+        "abilities": [
+            "overgrow"
         ],
-        "gender_ratio": "mixed"
+        "starting_moves": [
+            "tackle"
+        ],
+        "level_up_moves": [
+            {
+                "move": "vine_whip",
+                "level": 7
+            },
+            {
+                "move": "growl",
+                "level": 4
+            },
+            {
+                "move": "razor_leaf",
+                "level": 20
+            }
+        ],
+        "gender_ratio": "mixed",
+        "catch_rate": 45
     },
     {
         "id": "charmander",
         "name": "Charmander",
-        "type": ["fire"],
+        "type": [
+            "fire"
+        ],
         "base_stats": {
             "hp": 39,
             "attack": 52,
@@ -32,19 +51,35 @@
             "sp_defense": 50,
             "speed": 65
         },
-        "abilities": ["blaze"],
-        "starting_moves": ["scratch"],
-        "level_up_moves": [
-            {"move": "growl", "level": 4},
-            {"move": "ember", "level": 7},
-            {"move": "flamethrower", "level": 24}
+        "abilities": [
+            "blaze"
         ],
-        "gender_ratio": "mixed"
+        "starting_moves": [
+            "scratch"
+        ],
+        "level_up_moves": [
+            {
+                "move": "growl",
+                "level": 4
+            },
+            {
+                "move": "ember",
+                "level": 7
+            },
+            {
+                "move": "flamethrower",
+                "level": 24
+            }
+        ],
+        "gender_ratio": "mixed",
+        "catch_rate": 45
     },
     {
         "id": "squirtle",
         "name": "Squirtle",
-        "type": ["water"],
+        "type": [
+            "water"
+        ],
         "base_stats": {
             "hp": 44,
             "attack": 48,
@@ -53,19 +88,36 @@
             "sp_defense": 64,
             "speed": 43
         },
-        "abilities": ["torrent"],
-        "starting_moves": ["tackle"],
-        "level_up_moves": [
-            {"move": "tail_whip", "level": 4},
-            {"move": "water_gun", "level": 7},
-            {"move": "bubble_beam", "level": 20}
+        "abilities": [
+            "torrent"
         ],
-        "gender_ratio": "mixed"
+        "starting_moves": [
+            "tackle"
+        ],
+        "level_up_moves": [
+            {
+                "move": "tail_whip",
+                "level": 4
+            },
+            {
+                "move": "water_gun",
+                "level": 7
+            },
+            {
+                "move": "bubble_beam",
+                "level": 20
+            }
+        ],
+        "gender_ratio": "mixed",
+        "catch_rate": 45
     },
     {
         "id": "ivysaur",
         "name": "Ivysaur",
-        "type": ["grass", "poison"],
+        "type": [
+            "grass",
+            "poison"
+        ],
         "base_stats": {
             "hp": 60,
             "attack": 62,
@@ -74,18 +126,33 @@
             "sp_defense": 80,
             "speed": 60
         },
-        "abilities": ["overgrow"],
-        "starting_moves": ["tackle", "vine_whip"],
-        "level_up_moves": [
-            {"move": "growl", "level": 1},
-            {"move": "razor_leaf", "level": 20}
+        "abilities": [
+            "overgrow"
         ],
-        "gender_ratio": "mixed"
+        "starting_moves": [
+            "tackle",
+            "vine_whip"
+        ],
+        "level_up_moves": [
+            {
+                "move": "growl",
+                "level": 1
+            },
+            {
+                "move": "razor_leaf",
+                "level": 20
+            }
+        ],
+        "gender_ratio": "mixed",
+        "catch_rate": 20
     },
     {
         "id": "venusaur",
         "name": "Venusaur",
-        "type": ["grass", "poison"],
+        "type": [
+            "grass",
+            "poison"
+        ],
         "base_stats": {
             "hp": 80,
             "attack": 82,
@@ -94,18 +161,32 @@
             "sp_defense": 100,
             "speed": 80
         },
-        "abilities": ["overgrow"],
-        "starting_moves": ["tackle", "razor_leaf"],
-        "level_up_moves": [
-            {"move": "vine_whip", "level": 1},
-            {"move": "growl", "level": 1}
+        "abilities": [
+            "overgrow"
         ],
-        "gender_ratio": "mixed"
+        "starting_moves": [
+            "tackle",
+            "razor_leaf"
+        ],
+        "level_up_moves": [
+            {
+                "move": "vine_whip",
+                "level": 1
+            },
+            {
+                "move": "growl",
+                "level": 1
+            }
+        ],
+        "gender_ratio": "mixed",
+        "catch_rate": 12
     },
     {
         "id": "charmeleon",
         "name": "Charmeleon",
-        "type": ["fire"],
+        "type": [
+            "fire"
+        ],
         "base_stats": {
             "hp": 58,
             "attack": 64,
@@ -114,18 +195,33 @@
             "sp_defense": 65,
             "speed": 80
         },
-        "abilities": ["blaze"],
-        "starting_moves": ["scratch", "ember"],
-        "level_up_moves": [
-            {"move": "growl", "level": 1},
-            {"move": "flamethrower", "level": 24}
+        "abilities": [
+            "blaze"
         ],
-        "gender_ratio": "mixed"
+        "starting_moves": [
+            "scratch",
+            "ember"
+        ],
+        "level_up_moves": [
+            {
+                "move": "growl",
+                "level": 1
+            },
+            {
+                "move": "flamethrower",
+                "level": 24
+            }
+        ],
+        "gender_ratio": "mixed",
+        "catch_rate": 20
     },
     {
         "id": "charizard",
         "name": "Charizard",
-        "type": ["fire", "flying"],
+        "type": [
+            "fire",
+            "flying"
+        ],
         "base_stats": {
             "hp": 78,
             "attack": 84,
@@ -134,19 +230,36 @@
             "sp_defense": 85,
             "speed": 100
         },
-        "abilities": ["blaze"],
-        "starting_moves": ["scratch", "flamethrower"],
-        "level_up_moves": [
-            {"move": "ember", "level": 1},
-            {"move": "growl", "level": 1},
-            {"move": "quick_attack", "level": 26}
+        "abilities": [
+            "blaze"
         ],
-        "gender_ratio": "mixed"
+        "starting_moves": [
+            "scratch",
+            "flamethrower"
+        ],
+        "level_up_moves": [
+            {
+                "move": "ember",
+                "level": 1
+            },
+            {
+                "move": "growl",
+                "level": 1
+            },
+            {
+                "move": "quick_attack",
+                "level": 26
+            }
+        ],
+        "gender_ratio": "mixed",
+        "catch_rate": 12
     },
     {
         "id": "wartortle",
         "name": "Wartortle",
-        "type": ["water"],
+        "type": [
+            "water"
+        ],
         "base_stats": {
             "hp": 59,
             "attack": 63,
@@ -155,18 +268,32 @@
             "sp_defense": 80,
             "speed": 58
         },
-        "abilities": ["torrent"],
-        "starting_moves": ["tackle", "water_gun"],
-        "level_up_moves": [
-            {"move": "tail_whip", "level": 1},
-            {"move": "bubble_beam", "level": 20}
+        "abilities": [
+            "torrent"
         ],
-        "gender_ratio": "mixed"
+        "starting_moves": [
+            "tackle",
+            "water_gun"
+        ],
+        "level_up_moves": [
+            {
+                "move": "tail_whip",
+                "level": 1
+            },
+            {
+                "move": "bubble_beam",
+                "level": 20
+            }
+        ],
+        "gender_ratio": "mixed",
+        "catch_rate": 20
     },
     {
         "id": "blastoise",
         "name": "Blastoise",
-        "type": ["water"],
+        "type": [
+            "water"
+        ],
         "base_stats": {
             "hp": 79,
             "attack": 83,
@@ -175,18 +302,32 @@
             "sp_defense": 105,
             "speed": 78
         },
-        "abilities": ["torrent"],
-        "starting_moves": ["tackle", "bubble_beam"],
-        "level_up_moves": [
-            {"move": "water_gun", "level": 1},
-            {"move": "bite", "level": 24}
+        "abilities": [
+            "torrent"
         ],
-        "gender_ratio": "mixed"
+        "starting_moves": [
+            "tackle",
+            "bubble_beam"
+        ],
+        "level_up_moves": [
+            {
+                "move": "water_gun",
+                "level": 1
+            },
+            {
+                "move": "bite",
+                "level": 24
+            }
+        ],
+        "gender_ratio": "mixed",
+        "catch_rate": 12
     },
     {
         "id": "pikachu",
         "name": "Pikachu",
-        "type": ["electric"],
+        "type": [
+            "electric"
+        ],
         "base_stats": {
             "hp": 35,
             "attack": 55,
@@ -195,20 +336,40 @@
             "sp_defense": 50,
             "speed": 90
         },
-        "abilities": ["static"],
-        "starting_moves": ["tackle", "thundershock"],
-        "level_up_moves": [
-            {"move": "growl", "level": 5},
-            {"move": "quick_attack", "level": 10},
-            {"move": "thunderbolt", "level": 26},
-            {"move": "swift", "level": 32}
+        "abilities": [
+            "static"
         ],
-        "gender_ratio": "mixed"
+        "starting_moves": [
+            "tackle",
+            "thundershock"
+        ],
+        "level_up_moves": [
+            {
+                "move": "growl",
+                "level": 5
+            },
+            {
+                "move": "quick_attack",
+                "level": 10
+            },
+            {
+                "move": "thunderbolt",
+                "level": 26
+            },
+            {
+                "move": "swift",
+                "level": 32
+            }
+        ],
+        "gender_ratio": "mixed",
+        "catch_rate": 60
     },
     {
         "id": "raichu",
         "name": "Raichu",
-        "type": ["electric"],
+        "type": [
+            "electric"
+        ],
         "base_stats": {
             "hp": 60,
             "attack": 90,
@@ -217,18 +378,32 @@
             "sp_defense": 80,
             "speed": 110
         },
-        "abilities": ["static"],
-        "starting_moves": ["tackle", "thunderbolt"],
-        "level_up_moves": [
-            {"move": "quick_attack", "level": 1},
-            {"move": "swift", "level": 1}
+        "abilities": [
+            "static"
         ],
-        "gender_ratio": "mixed"
+        "starting_moves": [
+            "tackle",
+            "thunderbolt"
+        ],
+        "level_up_moves": [
+            {
+                "move": "quick_attack",
+                "level": 1
+            },
+            {
+                "move": "swift",
+                "level": 1
+            }
+        ],
+        "gender_ratio": "mixed",
+        "catch_rate": 30
     },
     {
         "id": "eevee",
         "name": "Eevee",
-        "type": ["normal"],
+        "type": [
+            "normal"
+        ],
         "base_stats": {
             "hp": 55,
             "attack": 55,
@@ -237,20 +412,39 @@
             "sp_defense": 65,
             "speed": 55
         },
-        "abilities": ["run_away"],
-        "starting_moves": ["tackle"],
-        "level_up_moves": [
-            {"move": "tail_whip", "level": 5},
-            {"move": "quick_attack", "level": 10},
-            {"move": "bite", "level": 22},
-            {"move": "swift", "level": 28}
+        "abilities": [
+            "run_away"
         ],
-        "gender_ratio": "mixed"
+        "starting_moves": [
+            "tackle"
+        ],
+        "level_up_moves": [
+            {
+                "move": "tail_whip",
+                "level": 5
+            },
+            {
+                "move": "quick_attack",
+                "level": 10
+            },
+            {
+                "move": "bite",
+                "level": 22
+            },
+            {
+                "move": "swift",
+                "level": 28
+            }
+        ],
+        "gender_ratio": "mixed",
+        "catch_rate": 55
     },
     {
         "id": "flareon",
         "name": "Flareon",
-        "type": ["fire"],
+        "type": [
+            "fire"
+        ],
         "base_stats": {
             "hp": 65,
             "attack": 130,
@@ -259,19 +453,36 @@
             "sp_defense": 110,
             "speed": 65
         },
-        "abilities": ["flash_fire"],
-        "starting_moves": ["scratch", "ember"],
-        "level_up_moves": [
-            {"move": "quick_attack", "level": 1},
-            {"move": "bite", "level": 22},
-            {"move": "flamethrower", "level": 30}
+        "abilities": [
+            "flash_fire"
         ],
-        "gender_ratio": "mixed"
+        "starting_moves": [
+            "scratch",
+            "ember"
+        ],
+        "level_up_moves": [
+            {
+                "move": "quick_attack",
+                "level": 1
+            },
+            {
+                "move": "bite",
+                "level": 22
+            },
+            {
+                "move": "flamethrower",
+                "level": 30
+            }
+        ],
+        "gender_ratio": "mixed",
+        "catch_rate": 25
     },
     {
         "id": "vaporeon",
         "name": "Vaporeon",
-        "type": ["water"],
+        "type": [
+            "water"
+        ],
         "base_stats": {
             "hp": 130,
             "attack": 65,
@@ -280,19 +491,36 @@
             "sp_defense": 95,
             "speed": 65
         },
-        "abilities": ["water_absorb"],
-        "starting_moves": ["tackle", "water_gun"],
-        "level_up_moves": [
-            {"move": "tail_whip", "level": 1},
-            {"move": "quick_attack", "level": 1},
-            {"move": "bubble_beam", "level": 25}
+        "abilities": [
+            "water_absorb"
         ],
-        "gender_ratio": "mixed"
+        "starting_moves": [
+            "tackle",
+            "water_gun"
+        ],
+        "level_up_moves": [
+            {
+                "move": "tail_whip",
+                "level": 1
+            },
+            {
+                "move": "quick_attack",
+                "level": 1
+            },
+            {
+                "move": "bubble_beam",
+                "level": 25
+            }
+        ],
+        "gender_ratio": "mixed",
+        "catch_rate": 25
     },
     {
         "id": "jolteon",
         "name": "Jolteon",
-        "type": ["electric"],
+        "type": [
+            "electric"
+        ],
         "base_stats": {
             "hp": 65,
             "attack": 65,
@@ -301,13 +529,28 @@
             "sp_defense": 95,
             "speed": 130
         },
-        "abilities": ["volt_absorb"],
-        "starting_moves": ["tackle", "thundershock"],
-        "level_up_moves": [
-            {"move": "quick_attack", "level": 1},
-            {"move": "thunderbolt", "level": 25},
-            {"move": "swift", "level": 30}
+        "abilities": [
+            "volt_absorb"
         ],
-        "gender_ratio": "mixed"
+        "starting_moves": [
+            "tackle",
+            "thundershock"
+        ],
+        "level_up_moves": [
+            {
+                "move": "quick_attack",
+                "level": 1
+            },
+            {
+                "move": "thunderbolt",
+                "level": 25
+            },
+            {
+                "move": "swift",
+                "level": 30
+            }
+        ],
+        "gender_ratio": "mixed",
+        "catch_rate": 25
     }
 ]

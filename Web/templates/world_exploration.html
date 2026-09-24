@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+
+{% block title %}World Exploration - Krampus RPG{% endblock %}
+
+{% block content %}
+
+<div class="world-page">
+
+    <section class="card world-header-card">
+
+        <div>
+            <span class="world-kicker">KRAMPUS RPG</span>
+
+            <h1>World Exploration</h1>
+
+            <p>
+                Explore wild areas, search for Pokémon, and catch them
+                with Poké Balls.
+            </p>
+        </div>
+
+        <div class="world-ball-count">
+
+            <span>BALLS</span>
+
+            <strong id="world-ball-total">
+                {{ balls | map(attribute='quantity') | sum }}
+            </strong>
+
+            <small>in bag</small>
+
+        </div>
+
+    </section>
+
+
+    {% if not session.get("player_id") %}
+
+    <section class="card world-login-prompt">
+
+        <h2>Sign in to explore</h2>
+
+        <p>
+            Wild encounters and catching need a trainer account.
+        </p>
+
+        <a class="button" href="{{ url_for('login') }}">
+            Log In
+        </a>
+
+    </section>
+
+    {% else %}
+
+
+    <section class="card world-areas-card">
+
+        <div class="world-section-heading">
+
+            <div>
+                <span class="world-kicker">AREAS</span>
+
+                <h2>Choose a Wild Area</h2>
+            </div>
+
+        </div>
+
+        <div class="world-areas-grid" id="world-areas-grid">
+
+            {% for area in areas %}
+
+            <button
+                type="button"
+                class="world-area-card
+                    {% if area.id == player_area %}world-area-active{% endif %}"
+                data-area="{{ area.id }}"
+                {% if not area.encounters %}disabled
+                    title="No wild Pokémon here"{% endif %}
+            >
+
+                <span class="world-area-type world-area-type-{{ area.type }}">
+                    {{ area.type | capitalize }}
+                </span>
+
+                <h3>{{ area.name }}</h3>
+
+                <p>{{ area.description }}</p>
+
+                <span class="world-area-species">
+                    {% if area.encounters %}
+                        {{ area.encounters | length }} species
+                    {% else %}
+                        No wild Pokémon
+                    {% endif %}
+                </span>
+
+            </button>
+
+            {% endfor %}
+
+        </div>
+
+    </section>
+
+
+    <section
+        id="world-encounter-section"
+        class="card world-encounter-card"
+        hidden
+    >
+
+        <div class="world-section-heading">
+
+            <div>
+                <span class="world-kicker">WILD ENCOUNTER</span>
+
+                <h2 id="world-encounter-title">
+                    A wild Pokémon appeared!
+                </h2>
+            </div>
+
+            <button
+                type="button"
+                id="world-encounter-close"
+                class="button secondary"
+            >
+                Run Away
+            </button>
+
+        </div>
+
+
+        <div class="world-encounter-body">
+
+            <div class="world-encounter-sprite">
+
+                <img
+                    id="world-encounter-image"
+                    src=""
+                    alt="Wild Pokémon"
+                >
+
+                <span
+                    id="world-encounter-shiny"
+                    class="world-shiny-badge"
+                    hidden
+                >
+                    ✨ SHINY
+                </span>
+
+            </div>
+
+
+            <div class="world-encounter-info">
+
+                <div class="world-encounter-stat">
+
+                    <span>Species</span>
+
+                    <strong id="world-encounter-species">
+                        —
+                    </strong>
+
+                </div>
+
+                <div class="world-encounter-stat">
+
+                    <span>Level</span>
+
+                    <strong id="world-encounter-level">
+                        —
+                    </strong>
+
+                </div>
+
+                <div class="world-encounter-stat">
+
+                    <span>Type</span>
+
+                    <strong id="world-encounter-type">
+                        —
+                    </strong>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div class="world-ball-tray">
+
+            <span class="world-kicker">
+                THROW A BALL
+            </span>
+
+            <div id="world-ball-buttons" class="world-ball-buttons">
+            </div>
+
+            <p class="world-ball-hint" id="world-ball-hint" hidden>
+                You're out of Poké Balls. Buy more in the shop.
+            </p>
+
+        </div>
+
+
+        <div
+            id="world-encounter-result"
+            class="world-encounter-result"
+            hidden
+        >
+        </div>
+
+    </section>
+
+
+    <div
+        id="world-message"
+        class="world-message"
+        hidden
+    ></div>
+
+    {% endif %}
+
+</div>
+
+<link
+    rel="stylesheet"
+    href="{{ url_for('static', filename='css/world.css') }}"
+>
+
+<script
+    src="{{ url_for('static', filename='js/world.js') }}"
+    defer
+></script>
+
+{% endblock %}
