@@ -382,6 +382,44 @@ def get_species(
                     "speed": species_dict["base_speed"],
                 }
 
+                # Abilities live in the catalog tables (created by the
+                # catalog importer). They're absent in JSON-only
+                # deployments, where the species JSON fallback below
+                # carries the ability ids instead.
+                species_dict["abilities"] = []
+
+                if _table_exists(
+                    db,
+                    "pokemon_species_abilities",
+                ):
+                    ability_rows = db.execute(
+                        """
+                        SELECT
+                            a.id,
+                            a.name,
+                            a.description,
+                            sa.is_hidden
+                        FROM pokemon_species_abilities sa
+                        JOIN pokemon_abilities a
+                            ON a.id = sa.ability_id
+                        WHERE sa.species_id = ?
+                        ORDER BY sa.slot
+                        """,
+                        (species_dict["id"],),
+                    ).fetchall()
+
+                    species_dict["abilities"] = [
+                        {
+                            "id": row["id"],
+                            "name": row["name"],
+                            "description": row["description"],
+                            "is_hidden": bool(
+                                row["is_hidden"]
+                            ),
+                        }
+                        for row in ability_rows
+                    ]
+
                 return species_dict
     except sqlite3.OperationalError:
         pass
@@ -416,6 +454,7 @@ def get_species(
                         "type": p.get("type", ["normal"]),
                         "base_stats": base_stats,
                         "starting_moves": p.get("starting_moves", ["tackle"]),
+                        "abilities": p.get("abilities", []),
                     }
         except Exception:
             pass
@@ -627,10 +666,47 @@ def get_move(
 # ============================================================
 
 def get_all_abilities() -> list[dict[str, Any]]:
-    """Return all abilities."""
+    """
+    Return all abilities from the database.
+
+    Falls back to Data/abilities.json when the live database has no
+    "pokemon_abilities" table (it only exists in the separate catalog
+    schema, created by Tools/import_pokemon_catalog.py). This mirrors
+    get_all_moves(), which handles the same JSON-only deployment shape,
+    and fixes the same crash class get_all_moves() had before its
+    fallback was added: previously any call to this getter against a
+    database without the catalog tables would have raised -- here it
+    would have been "no such table: pokemon_abilities".
+    """
+    try:
+        with get_connection() as db:
+            if not _table_exists(
+                db,
+                "pokemon_abilities",
+            ):
+                raise sqlite3.OperationalError(
+                    "no such table: pokemon_abilities"
+                )
+
+            abilities = db.execute(
+                """
+                SELECT
+                    a.id,
+                    a.name,
+                    a.description
+                FROM pokemon_abilities a
+                ORDER BY a.name
+                """
+            ).fetchall()
+
+            return [dict(row) for row in abilities]
+
+    except sqlite3.OperationalError:
+        pass
+
     data = load_data("abilities.json")
 
-    return _as_list(
+    raw_abilities = _as_list(
         data,
         (
             "abilities",
@@ -638,17 +714,42 @@ def get_all_abilities() -> list[dict[str, Any]]:
         ),
     )
 
+    return [
+        {
+            "id": str(
+                a.get(
+                    "id",
+                    "",
+                )
+            ),
+            "name": a.get(
+                "name",
+                str(
+                    a.get(
+                        "id",
+                        "",
+                    )
+                ).title(),
+            ),
+            "description": a.get(
+                "description",
+                "",
+            ),
+        }
+        for a in raw_abilities
+    ]
+
 
 def get_ability(
     ability_id: int | str,
 ) -> dict[str, Any] | None:
     """Find an ability by ID or name."""
-    wanted = str(ability_id)
+    wanted = str(ability_id).lower()
 
     for ability in get_all_abilities():
         if str(
             ability.get("id", "")
-        ) == wanted:
+        ).lower() == wanted:
             return ability
 
         if str(
@@ -657,6 +758,239 @@ def get_ability(
             return ability
 
     return None
+
+
+def get_species_abilities(
+    species: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """
+    Return the abilities available to a species.
+
+    Resolution order:
+
+    1. An already-resolved "abilities" list carried on the species
+       dict (e.g. set by a caller that read the catalog tables).
+    2. The catalog tables (pokemon_species_abilities / 
+       pokemon_abilities), when the live database has them.
+    3. The species JSON's "abilities" list (Data/pokemon.json shape:
+       ids like "overgrow"), resolved to full ability records via
+       get_ability(). Unknown ids are kept with their raw id so the UI
+       can still show something instead of silently dropping slots.
+
+    The returned records are normalized to {id, name, description,
+    is_hidden} regardless of which path served them, mirroring how
+    move records are normalized before reaching the UI.
+    """
+    if not isinstance(
+        species,
+        dict,
+    ):
+        return []
+
+    species_id = str(
+        species.get("id", "")
+    )
+
+    # ---- 1. Already-resolved list ------------------------------
+
+    existing = species.get(
+        "abilities",
+    )
+
+    if (
+        isinstance(
+            existing,
+            list,
+        )
+        and existing
+        and all(
+            isinstance(
+                ability,
+                dict,
+            )
+            for ability in existing
+        )
+    ):
+        return [
+            {
+                "id": str(
+                    ability.get(
+                        "id",
+                        "",
+                    )
+                ),
+                "name": str(
+                    ability.get(
+                        "name",
+                        "",
+                    )
+                ),
+                "description": str(
+                    ability.get(
+                        "description",
+                        "",
+                    )
+                ),
+                "is_hidden": bool(
+                    ability.get(
+                        "is_hidden",
+                        False,
+                    )
+                ),
+            }
+            for ability in existing
+            if isinstance(
+                ability,
+                dict,
+            )
+        ]
+
+    # ---- 2. Catalog tables -------------------------------------
+
+    try:
+        with get_connection() as db:
+            if _table_exists(
+                db,
+                "pokemon_species_abilities",
+            ):
+                rows = db.execute(
+                    """
+                    SELECT
+                        a.id,
+                        a.name,
+                        a.description,
+                        sa.is_hidden
+                    FROM pokemon_species_abilities sa
+                    JOIN pokemon_abilities a
+                        ON a.id = sa.ability_id
+                    WHERE sa.species_id = ?
+                    ORDER BY sa.slot
+                    """,
+                    (
+                        species_id.lower(),
+                    ),
+                ).fetchall()
+
+                return [
+                    {
+                        "id": str(
+                            row["id"]
+                        ),
+                        "name": str(
+                            row["name"]
+                        ),
+                        "description": str(
+                            row["description"]
+                        ),
+                        "is_hidden": bool(
+                            row["is_hidden"]
+                        ),
+                    }
+                    for row in rows
+                ]
+
+    except sqlite3.OperationalError:
+        pass
+
+    # ---- 3. Species JSON ids -----------------------------------
+
+    raw_ids = species.get(
+        "abilities",
+    )
+
+    if isinstance(
+        raw_ids,
+        str,
+    ):
+        raw_ids = [
+            raw_ids,
+        ]
+
+    if not isinstance(
+        raw_ids,
+        list,
+    ):
+        return []
+
+    resolved: list[dict[str, Any]] = []
+
+    for raw in raw_ids:
+        if isinstance(
+            raw,
+            dict,
+        ):
+            resolved.append(
+                {
+                    "id": str(
+                        raw.get(
+                            "id",
+                            "",
+                        )
+                    ),
+                    "name": str(
+                        raw.get(
+                            "name",
+                            "",
+                        )
+                    ),
+                    "description": str(
+                        raw.get(
+                            "description",
+                            "",
+                        )
+                    ),
+                    "is_hidden": bool(
+                        raw.get(
+                            "is_hidden",
+                            False,
+                        )
+                    ),
+                }
+            )
+            continue
+
+        ability = get_ability(
+            str(raw)
+        )
+
+        if ability:
+            resolved.append(
+                {
+                    "id": str(
+                        ability.get(
+                            "id",
+                            raw,
+                        )
+                    ),
+                    "name": str(
+                        ability.get(
+                            "name",
+                            raw,
+                        )
+                    ),
+                    "description": str(
+                        ability.get(
+                            "description",
+                            "",
+                        )
+                    ),
+                    "is_hidden": False,
+                }
+            )
+        else:
+            resolved.append(
+                {
+                    "id": str(raw),
+                    "name": str(raw).replace(
+                        "-",
+                        " ",
+                    ).title(),
+                    "description": "",
+                    "is_hidden": False,
+                }
+            )
+
+    return resolved
 
 
 # ============================================================

@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import sqlite3
 from typing import Any
 
 from .database import get_connection
-from .services import get_species
+from .services import get_species, remove_item
 
 
 def get_evolution_rules(
@@ -57,9 +58,16 @@ def get_evolution_chain(species_id: str) -> list[dict[str, Any]]:
 def can_evolve(
     pokemon: dict[str, Any],
     evolution_rule: dict[str, Any],
+    item: str | None = None,
 ) -> tuple[bool, str]:
     """
     Check if a Pokémon can evolve according to a specific evolution rule.
+
+    Args:
+        pokemon: The Pokémon data (needs at least species_id and level)
+        evolution_rule: The evolution rule to evaluate
+        item: Item being used on the Pokémon, if any. Required for
+            "item"-method rules to ever qualify (e.g. "thunder_stone").
 
     Returns:
         (can_evolve: bool, reason: str)
@@ -77,9 +85,17 @@ def can_evolve(
 
     elif method == "item":
         required_item = evolution_rule.get("condition_item")
-        if required_item:
-            return False, f"Requires {required_item}"
-        return False, "Requires specific item"
+        if not required_item:
+            return False, "Requires specific item"
+
+        if (
+            item is not None
+            and str(item).strip().lower()
+            == str(required_item).strip().lower()
+        ):
+            return True, f"Requires {required_item}"
+
+        return False, f"Requires {required_item}"
 
     elif method == "friendship":
         required_friendship = evolution_rule.get("condition_friendship")
@@ -108,11 +124,15 @@ def can_evolve(
     return False, f"Unknown evolution method: {method}"
 
 
-def get_evolution_options(pokemon: dict[str, Any]) -> list[dict[str, Any]]:
+def get_evolution_options(
+    pokemon: dict[str, Any],
+    item: str | None = None,
+) -> list[dict[str, Any]]:
     """
     Get all available evolution options for a Pokémon.
 
     Returns a list of evolution rules that the Pokémon currently satisfies.
+    When `item` is given, item-based rules matching that item also qualify.
     """
     species_id = pokemon.get("species_id", "")
     evolution_chain = get_evolution_chain(species_id)
@@ -120,7 +140,7 @@ def get_evolution_options(pokemon: dict[str, Any]) -> list[dict[str, Any]]:
     available = []
 
     for evo in evolution_chain:
-        can_evo, reason = can_evolve(pokemon, evo)
+        can_evo, reason = can_evolve(pokemon, evo, item=item)
         if can_evo:
             available.append({
                 "rule": evo,
@@ -132,9 +152,51 @@ def get_evolution_options(pokemon: dict[str, Any]) -> list[dict[str, Any]]:
     return available
 
 
+def get_player_evolution_options(
+    pokemon: dict[str, Any],
+    player_id: int,
+) -> list[dict[str, Any]]:
+    """
+    Evolution options a Pokémon currently qualifies for, including
+    item-based rules whose required item is in the player's bag.
+
+    Each option additionally carries "required_item" when it came from
+    an item-based rule, so the UI can tell the player what to use.
+    """
+    from .services import get_player_items
+
+    # Item-less options first (e.g. level-based rules).
+    available = get_evolution_options(pokemon)
+
+    seen = {
+        str(option.get("to_species", "")).lower()
+        for option in available
+    }
+
+    for entry in get_player_items(int(player_id)):
+        item_id = str(entry.get("item_id", "")).strip().lower()
+
+        if not item_id or int(entry.get("quantity", 0)) <= 0:
+            continue
+
+        for option in get_evolution_options(pokemon, item=item_id):
+            target = str(option.get("to_species", "")).lower()
+
+            if target in seen:
+                continue
+
+            seen.add(target)
+            option["required_item"] = item_id
+            available.append(option)
+
+    return available
+
+
 def evolve_pokemon(
     pokemon_id: int,
     to_species: str,
+    player_id: int | None = None,
+    item: str | None = None,
 ) -> dict[str, Any] | None:
     """
     Evolve a Pokémon to a new species.
@@ -144,7 +206,23 @@ def evolve_pokemon(
     - Recalculates stats based on new species
     - Preserves level, experience, moves, and other properties
     - Updates shiny status and variant
+
+    Validation (server-side; never trust the caller):
+    - When player_id is given, the Pokémon must belong to that player
+      (raises PermissionError otherwise).
+    - The target species must be a valid evolution for this Pokémon
+      under a seeded rule the Pokémon currently qualifies for
+      (raises ValueError otherwise).
+    - When `item` is given (e.g. "thunder_stone"), the rule must be an
+      item-based rule matching that item AND the player must own the
+      item, which is consumed on success (raises ValueError otherwise).
+
+    Returns:
+        The updated Pokémon row, or None if the Pokémon or target
+        species does not exist.
     """
+    # Import here to avoid a circular import at module load time.
+    from .services import get_player_items
     with get_connection() as db:
         # Get current Pokémon data
         pokemon_row = db.execute(
@@ -158,13 +236,55 @@ def evolve_pokemon(
             return None
 
         pokemon = dict(pokemon_row)
+
+        # Ownership check (only enforced when a player is supplied).
+        if (
+            player_id is not None
+            and int(pokemon.get("owner_id", -1)) != int(player_id)
+        ):
+            raise PermissionError(
+                "You do not own this Pokémon."
+            )
+
+        # Rule check: the requested target must be one of the
+        # evolution options this Pokémon currently qualifies for.
+        wanted = str(to_species).strip().lower()
+        allowed = {
+            str(option.get("to_species", "")).lower()
+            for option in get_evolution_options(
+                pokemon,
+                item=item,
+            )
+        }
+
+        if wanted not in allowed:
+            raise ValueError(
+                "This Pokémon cannot evolve into "
+                f"{wanted} right now."
+            )
+
+        # Item-based evolution: verify the player actually owns the
+        # stone before mutating anything.
+        if item is not None:
+            item_id = str(item).strip().lower()
+            owned = any(
+                str(entry.get("item_id", "")).lower() == item_id
+                and int(entry.get("quantity", 0)) > 0
+                for entry in get_player_items(int(player_id))
+            )
+
+            if not owned:
+                raise ValueError(
+                    f"You do not have a {item_id.replace('_', ' ')}."
+                )
+
         current_level = int(pokemon.get("level", 1))
         current_experience = int(pokemon.get("experience", 0))
         current_shiny = bool(pokemon.get("shiny", 0))
         current_variant = pokemon.get("variant", "normal")
 
         # Get new species data
-        new_species = get_species(to_species)
+        new_species = get_species(wanted)
         if not new_species:
             return None
 
@@ -182,7 +302,7 @@ def evolve_pokemon(
             WHERE id = ?
             """,
             (
-                str(to_species),
+                wanted,
                 new_stats["hp"],
                 new_stats["hp"],
                 pokemon_id,
@@ -213,6 +333,14 @@ def evolve_pokemon(
         )
 
         db.commit()
+
+        # Consume the evolution stone only after the evolution committed.
+        if item is not None:
+            remove_item(
+                int(player_id),
+                str(item).strip().lower(),
+                1,
+            )
 
         # Return updated Pokémon data
         updated_row = db.execute(
@@ -355,6 +483,7 @@ __all__ = [
     "get_evolution_chain",
     "can_evolve",
     "get_evolution_options",
+    "get_player_evolution_options",
     "evolve_pokemon",
     "check_evolution_trigger",
     "add_evolution_rule",

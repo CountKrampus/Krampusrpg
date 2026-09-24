@@ -18,5 +18,25 @@
         "id": "static",
         "name": "Static",
         "description": "May paralyze an opponent that makes contact."
+    },
+    {
+        "id": "run_away",
+        "name": "Run Away",
+        "description": "Enables a sure getaway from wild Pokémon."
+    },
+    {
+        "id": "flash_fire",
+        "name": "Flash Fire",
+        "description": "Powers up Fire-type moves hit by fire."
+    },
+    {
+        "id": "water_absorb",
+        "name": "Water Absorb",
+        "description": "Restores HP when hit by Water-type moves."
+    },
+    {
+        "id": "volt_absorb",
+        "name": "Volt Absorb",
+        "description": "Restores HP when hit by Electric-type moves."
     }
 ]

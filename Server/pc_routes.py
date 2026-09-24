@@ -3,7 +3,7 @@ from __future__ import annotations
 from flask import Blueprint, jsonify, render_template, request
 
 from .auth import current_player_id
-from .evolution import get_evolution_options
+from .evolution import evolve_pokemon, get_player_evolution_options
 from .party_storage import (
     MAX_PARTY_SIZE,
     add_to_party,
@@ -24,7 +24,7 @@ from .pc_storage import (
     swap_pokemon,
     withdraw_pokemon,
 )
-from .services import get_pokemon
+from .services import get_pokemon, get_player_items, get_species_abilities
 from .sprite_resolver import get_pokemon_sprite_data
 
 
@@ -749,9 +749,8 @@ def pc_pokemon_details(
 ):
     """
     Return full details for one of the player's Pokémon: species, types,
-    current moves, stats, sprite URLs, evolution options, and current
-    storage location (Party or PC). (Abilities are intentionally left
-    out for now -- see the note below.)
+    abilities, current moves, stats, sprite URLs, evolution options, and
+    current storage location (Party or PC).
 
     Backs the Pokémon details panel (Sprint 2 / roadmap Phase 3): click a
     Pokémon in Party or PC to see everything about it in one place.
@@ -779,16 +778,21 @@ def pc_pokemon_details(
         "species"
     ) or {}
 
-    # NOTE: abilities are intentionally not surfaced here yet (not a
-    # priority right now) -- get_species() currently only selects
-    # catalog-shaped columns (base stats, category, etc.) from
-    # pokemon_species and doesn't carry the "abilities" list through
-    # from Data/pokemon.json, so there's nothing real to resolve.
-    # Revisit once that's wired up.
     pokemon["types"] = species.get(
         "type",
         [],
     )
+
+    # Abilities available to this species (from the catalog tables or
+    # the species JSON, resolved by get_species_abilities()).
+    try:
+        pokemon["abilities"] = (
+            get_species_abilities(
+                species
+            )
+        )
+    except Exception:
+        pokemon["abilities"] = []
 
     # Sprite URLs (normal/shiny/current, resolved for this Pokémon's
     # actual variant + shiny status).
@@ -801,11 +805,13 @@ def pc_pokemon_details(
     except Exception:
         pokemon["sprites"] = {}
 
-    # Evolution options this Pokémon currently qualifies for.
+    # Evolution options this Pokémon currently qualifies for, including
+    # stone evolutions whose stone is in the player's bag.
     try:
         pokemon["evolution_options"] = (
-            get_evolution_options(
-                pokemon
+            get_player_evolution_options(
+                pokemon,
+                player_id,
             )
         )
     except Exception:
@@ -825,6 +831,176 @@ def pc_pokemon_details(
         {
             "success": True,
             "pokemon": pokemon,
+        }
+    )
+
+
+# =============================================================================
+# EVOLVE
+# =============================================================================
+
+@pc_bp.post("/api/pc/pokemon/<int:pokemon_id>/evolve")
+def pc_pokemon_evolve(
+    pokemon_id: int,
+):
+    """
+    Evolve one of the player's Pokémon into a target species.
+
+    Expects a JSON body: {"to_species": "ivysaur"}
+
+    All validation happens server-side: the Pokémon must belong to the
+    caller and the target must be one of the evolution options the
+    Pokémon currently qualifies for (from the seeded evolution rules),
+    so a client can never request an arbitrary species.
+    """
+    try:
+        player_id = _require_player()
+    except PermissionError as exc:
+        return _error_response(
+            str(exc),
+            401,
+        )
+
+    # Ownership check: get_pokemon() only returns a row when
+    # owner_id == player_id (same pattern as the nickname route).
+    pokemon = get_pokemon(
+        player_id,
+        pokemon_id,
+    )
+
+    if pokemon is None:
+        return _error_response(
+            "Pokémon not found.",
+            404,
+        )
+
+    data = _get_json()
+
+    to_species = data.get(
+        "to_species"
+    )
+
+    if not to_species or not str(to_species).strip():
+        return _error_response(
+            "to_species is required.",
+            400,
+        )
+
+    item = data.get(
+      "item"
+    )
+
+    try:
+        evolve_pokemon(
+            pokemon_id,
+            str(to_species),
+            player_id=player_id,
+            item=(
+                str(item).strip().lower()
+                if item and str(item).strip()
+                else None
+            ),
+        )
+    except PermissionError as exc:
+        return _error_response(
+            str(exc),
+            403,
+        )
+    except ValueError as exc:
+        return _error_response(
+            str(exc),
+            400,
+        )
+    except Exception:
+        return _error_response(
+            "Evolution failed.",
+            500,
+        )
+
+    # Re-fetch through the normal details path so the response carries
+    # the same shape the details panel expects.
+    updated = get_pokemon(
+        player_id,
+        pokemon_id,
+    )
+
+    if updated is None:
+        return _error_response(
+            "Evolution failed.",
+            500,
+        )
+
+    species = updated.get(
+        "species"
+    ) or {}
+
+    updated["types"] = species.get(
+        "type",
+        [],
+    )
+
+    try:
+        updated["abilities"] = (
+            get_species_abilities(
+                species
+            )
+        )
+    except Exception:
+        updated["abilities"] = []
+
+    try:
+        updated["evolution_options"] = (
+            get_player_evolution_options(
+                updated,
+                player_id,
+            )
+        )
+    except Exception:
+        updated["evolution_options"] = []
+
+    try:
+        updated["location"] = (
+            get_pokemon_location(
+                pokemon_id
+            )
+        )
+    except Exception:
+        updated["location"] = None
+
+    return jsonify(
+        {
+            "success": True,
+            "pokemon": updated,
+        }
+    )
+
+
+# =============================================================================
+# INVENTORY (read-only, backs the evolution stone flow)
+# =============================================================================
+
+@pc_bp.get("/api/pc/inventory")
+def pc_inventory():
+    """
+    Return the player's item inventory (id, name, quantity).
+
+    Read-only; used by the PC panel to decide which item-based
+    evolutions (e.g. stone evolutions) the player can actually perform.
+    """
+    try:
+        player_id = _require_player()
+    except PermissionError as exc:
+        return _error_response(
+            str(exc),
+            401,
+        )
+
+    items = get_player_items(player_id)
+
+    return jsonify(
+        {
+            "success": True,
+            "items": items,
         }
     )
 

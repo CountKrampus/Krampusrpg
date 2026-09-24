@@ -42,6 +42,30 @@
         "description": "Restores a moderate amount of HP."
     },
     {
+        "id": "thunder_stone",
+        "name": "Thunder Stone",
+        "type": "evolution_stone",
+        "price": 2100,
+        "sell_price": 1050,
+        "description": "A peculiar stone that makes certain species of Pokémon evolve. It has a thunderbolt pattern."
+    },
+    {
+        "id": "fire_stone",
+        "name": "Fire Stone",
+        "type": "evolution_stone",
+        "price": 2100,
+        "sell_price": 1050,
+        "description": "A peculiar stone that makes certain species of Pokémon evolve. It has a fiery orange color."
+    },
+    {
+        "id": "water_stone",
+        "name": "Water Stone",
+        "type": "evolution_stone",
+        "price": 2100,
+        "sell_price": 1050,
+        "description": "A peculiar stone that makes certain species of Pokémon evolve. It is a beautiful blue."
+    },
+    {
         "id": "krampus_charm",
         "name": "Krampus Charm",
         "type": "held_item",

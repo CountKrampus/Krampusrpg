@@ -48,6 +48,102 @@
         "gender_ratio": "mixed"
     },
     {
+        "id": "ivysaur",
+        "name": "Ivysaur",
+        "type": ["grass", "poison"],
+        "base_stats": {
+            "hp": 60,
+            "attack": 62,
+            "defense": 63,
+            "sp_attack": 80,
+            "sp_defense": 80,
+            "speed": 60
+        },
+        "abilities": ["overgrow"],
+        "starting_moves": ["tackle"],
+        "gender_ratio": "mixed"
+    },
+    {
+        "id": "venusaur",
+        "name": "Venusaur",
+        "type": ["grass", "poison"],
+        "base_stats": {
+            "hp": 80,
+            "attack": 82,
+            "defense": 83,
+            "sp_attack": 100,
+            "sp_defense": 100,
+            "speed": 80
+        },
+        "abilities": ["overgrow"],
+        "starting_moves": ["tackle"],
+        "gender_ratio": "mixed"
+    },
+    {
+        "id": "charmeleon",
+        "name": "Charmeleon",
+        "type": ["fire"],
+        "base_stats": {
+            "hp": 58,
+            "attack": 64,
+            "defense": 58,
+            "sp_attack": 80,
+            "sp_defense": 65,
+            "speed": 80
+        },
+        "abilities": ["blaze"],
+        "starting_moves": ["scratch"],
+        "gender_ratio": "mixed"
+    },
+    {
+        "id": "charizard",
+        "name": "Charizard",
+        "type": ["fire", "flying"],
+        "base_stats": {
+            "hp": 78,
+            "attack": 84,
+            "defense": 78,
+            "sp_attack": 109,
+            "sp_defense": 85,
+            "speed": 100
+        },
+        "abilities": ["blaze"],
+        "starting_moves": ["scratch"],
+        "gender_ratio": "mixed"
+    },
+    {
+        "id": "wartortle",
+        "name": "Wartortle",
+        "type": ["water"],
+        "base_stats": {
+            "hp": 59,
+            "attack": 63,
+            "defense": 80,
+            "sp_attack": 65,
+            "sp_defense": 80,
+            "speed": 58
+        },
+        "abilities": ["torrent"],
+        "starting_moves": ["tackle"],
+        "gender_ratio": "mixed"
+    },
+    {
+        "id": "blastoise",
+        "name": "Blastoise",
+        "type": ["water"],
+        "base_stats": {
+            "hp": 79,
+            "attack": 83,
+            "defense": 100,
+            "sp_attack": 85,
+            "sp_defense": 105,
+            "speed": 78
+        },
+        "abilities": ["torrent"],
+        "starting_moves": ["tackle"],
+        "gender_ratio": "mixed"
+    },
+    {
         "id": "pikachu",
         "name": "Pikachu",
         "type": ["electric"],
@@ -60,6 +156,86 @@
             "speed": 90
         },
         "abilities": ["static"],
+        "starting_moves": ["tackle", "thundershock"],
+        "gender_ratio": "mixed"
+    },
+    {
+        "id": "raichu",
+        "name": "Raichu",
+        "type": ["electric"],
+        "base_stats": {
+            "hp": 60,
+            "attack": 90,
+            "defense": 55,
+            "sp_attack": 90,
+            "sp_defense": 80,
+            "speed": 110
+        },
+        "abilities": ["static"],
+        "starting_moves": ["tackle", "thundershock"],
+        "gender_ratio": "mixed"
+    },
+    {
+        "id": "eevee",
+        "name": "Eevee",
+        "type": ["normal"],
+        "base_stats": {
+            "hp": 55,
+            "attack": 55,
+            "defense": 50,
+            "sp_attack": 45,
+            "sp_defense": 65,
+            "speed": 55
+        },
+        "abilities": ["run_away"],
+        "starting_moves": ["tackle"],
+        "gender_ratio": "mixed"
+    },
+    {
+        "id": "flareon",
+        "name": "Flareon",
+        "type": ["fire"],
+        "base_stats": {
+            "hp": 65,
+            "attack": 130,
+            "defense": 60,
+            "sp_attack": 95,
+            "sp_defense": 110,
+            "speed": 65
+        },
+        "abilities": ["flash_fire"],
+        "starting_moves": ["scratch"],
+        "gender_ratio": "mixed"
+    },
+    {
+        "id": "vaporeon",
+        "name": "Vaporeon",
+        "type": ["water"],
+        "base_stats": {
+            "hp": 130,
+            "attack": 65,
+            "defense": 60,
+            "sp_attack": 110,
+            "sp_defense": 95,
+            "speed": 65
+        },
+        "abilities": ["water_absorb"],
+        "starting_moves": ["tackle"],
+        "gender_ratio": "mixed"
+    },
+    {
+        "id": "jolteon",
+        "name": "Jolteon",
+        "type": ["electric"],
+        "base_stats": {
+            "hp": 65,
+            "attack": 65,
+            "defense": 60,
+            "sp_attack": 110,
+            "sp_defense": 95,
+            "speed": 130
+        },
+        "abilities": ["volt_absorb"],
         "starting_moves": ["tackle", "thundershock"],
         "gender_ratio": "mixed"
     }

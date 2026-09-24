@@ -38,13 +38,19 @@ from Server.pc_storage import (
     withdraw_pokemon,
 )
 from Server.services import (
+    add_item,
     calculate_hp,
     calculate_pokemon_stats,
     calculate_stat,
     create_player,
     create_pokemon,
-    get_player,
+    get_ability,
+    get_all_abilities,
     get_pokemon,
+    get_player,
+    get_player_items,
+    get_species,
+    get_species_abilities,
 )
 
 
@@ -344,6 +350,513 @@ class TestStorageIntegrity(BaseTestCase):
             if p is not None
         }
         self.assertEqual(after_by_id[mon_b["id"]]["slot"], 20)
+
+
+# =============================================================================
+# 3. ABILITY DATA TESTS
+# =============================================================================
+
+class TestAbilities(BaseTestCase):
+    """Ability getters and species ability resolution (Sprint 3 pattern)."""
+
+    def test_get_all_abilities_json_fallback(self) -> None:
+        """No catalog tables in the base schema: Data/abilities.json serves."""
+        abilities = get_all_abilities()
+
+        self.assertGreater(len(abilities), 0)
+        for ability in abilities:
+            self.assertIn("id", ability)
+            self.assertIn("name", ability)
+            self.assertIn("description", ability)
+
+        ids = {a["id"] for a in abilities}
+        self.assertIn("overgrow", ids)
+        self.assertIn("static", ids)
+
+    def test_get_ability_lookup_case_insensitive(self) -> None:
+        self.assertIsNotNone(get_ability("overgrow"))
+        self.assertIsNotNone(get_ability("Overgrow"))
+        self.assertIsNone(get_ability("does_not_exist_xyz"))
+
+    def test_get_species_carries_ability_ids(self) -> None:
+        """The JSON species fallback passes the ability ids through."""
+        species = get_species("pikachu")
+
+        self.assertIsNotNone(species)
+        self.assertIn("abilities", species)
+        self.assertEqual(species["abilities"], ["static"])
+
+    def test_get_species_abilities_resolves_ids_to_records(self) -> None:
+        species = get_species("pikachu")
+        resolved = get_species_abilities(species)
+
+        self.assertEqual(len(resolved), 1)
+        self.assertEqual(resolved[0]["id"], "static")
+        self.assertEqual(resolved[0]["name"], "Static")
+        self.assertIn("is_hidden", resolved[0])
+
+    def test_get_species_abilities_keeps_unknown_ids(self) -> None:
+        """Unknown ability ids surface instead of silently disappearing."""
+        species = get_species("pikachu")
+        species["abilities"] = ["static", "not-a-real-ability"]
+
+        resolved = get_species_abilities(species)
+
+        self.assertEqual(len(resolved), 2)
+        self.assertEqual(resolved[1]["id"], "not-a-real-ability")
+        self.assertEqual(resolved[1]["name"], "Not A Real Ability")
+
+    def test_get_species_abilities_robust_to_bad_shapes(self) -> None:
+        self.assertEqual(get_species_abilities(None), [])
+        self.assertEqual(get_species_abilities({}), [])
+
+        species = get_species("pikachu")
+
+        # None and dict shapes yield nothing...
+        for bad in (None, {"nope": True}):  # type: ignore[list-item]
+            species["abilities"] = bad
+            self.assertEqual(get_species_abilities(species), [])
+
+        # ...while a bare string id is gracefully treated as one ability.
+        species["abilities"] = "static"
+        resolved = get_species_abilities(species)
+        self.assertEqual(len(resolved), 1)
+        self.assertEqual(resolved[0]["id"], "static")
+
+    def test_details_endpoint_includes_abilities(self) -> None:
+        """The Pokémon details endpoint surfaces resolved abilities."""
+        from Server.app import create_app
+        from Server.auth import login_user
+
+        app = create_app()
+        app.config.update(
+            TESTING=True,
+            WTF_CSRF_ENABLED=False,
+        )
+
+        client = app.test_client()
+
+        with client.session_transaction() as sess:
+            sess["player_id"] = self.player1_id
+
+        mon = create_pokemon(
+            owner_id=self.player1_id,
+            species_id="pikachu",
+            level=5,
+        )
+
+        response = client.get(
+            f"/api/pc/pokemon/{mon['id']}/details"
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+        data = response.get_json()
+        self.assertTrue(data["success"])
+
+        abilities = data["pokemon"]["abilities"]
+        self.assertIsInstance(abilities, list)
+        self.assertEqual(len(abilities), 1)
+        self.assertEqual(abilities[0]["id"], "static")
+        self.assertEqual(abilities[0]["name"], "Static")
+
+
+from Server.evolution import (
+    can_evolve,
+    evolve_pokemon,
+    get_evolution_options,
+    get_evolution_rules,
+)
+
+
+
+# =============================================================================
+# EVOLUTION TESTS
+# =============================================================================
+
+class TestEvolution(BaseTestCase):
+    """Evolution rules, validation, and the /evolve endpoint."""
+
+    def _make_level_ready_starter(self, species_id: str):
+        """Create a starter at level 16 so level-up rules qualify."""
+        return create_pokemon(
+            owner_id=self.player1_id,
+            species_id=species_id,
+            level=16,
+        )
+
+    def test_get_evolution_rules_seeded(self) -> None:
+        rules = get_evolution_rules(from_species="bulbasaur")
+
+        self.assertEqual(len(rules), 1)
+        self.assertEqual(rules[0]["to_species"], "ivysaur")
+        self.assertEqual(rules[0]["method"], "level")
+        self.assertEqual(int(rules[0]["condition_level"]), 16)
+
+    def test_can_evolve_level_gate(self) -> None:
+        rules = get_evolution_rules(from_species="bulbasaur")
+        rule = rules[0]
+
+        low = {"species_id": "bulbasaur", "level": 15}
+        high = {"species_id": "bulbasaur", "level": 16}
+
+        self.assertFalse(can_evolve(low, rule)[0])
+        self.assertTrue(can_evolve(high, rule)[0])
+
+    def test_get_evolution_options_respect_level(self) -> None:
+        low = create_pokemon(
+            owner_id=self.player1_id,
+            species_id="bulbasaur",
+            level=5,
+        )
+        high = self._make_level_ready_starter("bulbasaur")
+
+        self.assertEqual(get_evolution_options(low), [])
+        self.assertEqual(
+            get_evolution_options(high)[0]["to_species"],
+            "ivysaur",
+        )
+
+    def test_evolve_pokemon_happy_path(self) -> None:
+        mon = self._make_level_ready_starter("charmander")
+
+        evolved = evolve_pokemon(
+            mon["id"],
+            "charmeleon",
+            player_id=self.player1_id,
+        )
+
+        self.assertIsNotNone(evolved)
+        self.assertEqual(evolved["species_id"], "charmeleon")
+
+        # Level, storage, and ownership are preserved.
+        self.assertEqual(int(evolved["level"]), 16)
+        self.assertEqual(int(evolved["owner_id"]), self.player1_id)
+
+        # New species stats were applied (charmeleon has higher HP than
+        # charmander at the same level).
+        self.assertGreater(int(evolved["max_hp"]), mon["max_hp"])
+
+    def test_evolve_pokemon_rejects_wrong_target(self) -> None:
+        mon = self._make_level_ready_starter("bulbasaur")
+
+        # ivysaur is valid, but charmeleon is not a rule for bulbasaur.
+        with self.assertRaises(ValueError):
+            evolve_pokemon(
+                mon["id"],
+                "charmeleon",
+                player_id=self.player1_id,
+            )
+
+    def test_evolve_pokemon_rejects_below_level(self) -> None:
+        mon = create_pokemon(
+            owner_id=self.player1_id,
+            species_id="bulbasaur",
+            level=5,
+        )
+
+        with self.assertRaises(ValueError):
+            evolve_pokemon(
+                mon["id"],
+                "ivysaur",
+                player_id=self.player1_id,
+            )
+
+    def test_full_evolution_chains_all_starters(self) -> None:
+        """Every level-based seed must complete its full 3-stage chain."""
+        chains = [
+            ("bulbasaur", "ivysaur", "venusaur", 32),
+            ("charmander", "charmeleon", "charizard", 36),
+            ("squirtle", "wartortle", "blastoise", 36),
+        ]
+
+        for base, mid, final, final_level in chains:
+            mon = self._make_level_ready_starter(base)
+
+            evolved = evolve_pokemon(
+                mon["id"],
+                mid,
+                player_id=self.player1_id,
+            )
+            self.assertEqual(evolved["species_id"], mid)
+
+            # Bump to the final stage's requirement and evolve again.
+            with get_connection() as db:
+                db.execute(
+                    "UPDATE pokemon SET level = ? WHERE id = ?",
+                    (final_level, mon["id"]),
+                )
+                db.commit()
+
+            final_mon = evolve_pokemon(
+                mon["id"],
+                final,
+                player_id=self.player1_id,
+            )
+
+            self.assertIsNotNone(final_mon)
+            self.assertEqual(final_mon["species_id"], final)
+
+            # Evolution preserves level through both stages.
+            self.assertEqual(int(final_mon["level"]), final_level)
+
+    def test_evolve_pokemon_rejects_wrong_owner(self) -> None:
+        mon = self._make_level_ready_starter("squirtle")
+
+        with self.assertRaises(PermissionError):
+            evolve_pokemon(
+                mon["id"],
+                "wartortle",
+                player_id=self.player2_id,
+            )
+
+    def test_evolve_endpoint_happy_path(self) -> None:
+        from Server.app import create_app
+
+        app = create_app()
+        app.config.update(
+            TESTING=True,
+            WTF_CSRF_ENABLED=False,
+        )
+
+        client = app.test_client()
+
+        with client.session_transaction() as sess:
+            sess["player_id"] = self.player1_id
+
+        mon = self._make_level_ready_starter("squirtle")
+
+        response = client.post(
+            f"/api/pc/pokemon/{mon['id']}/evolve",
+            json={"to_species": "wartortle"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+        data = response.get_json()
+        self.assertTrue(data["success"])
+        self.assertEqual(data["pokemon"]["species_id"], "wartortle")
+        self.assertEqual(int(data["pokemon"]["level"]), 16)
+
+    def test_evolve_endpoint_requires_auth(self) -> None:
+        from Server.app import create_app
+
+        app = create_app()
+        app.config.update(
+            TESTING=True,
+            WTF_CSRF_ENABLED=False,
+        )
+
+        client = app.test_client()
+        mon = self._make_level_ready_starter("bulbasaur")
+
+        response = client.post(
+            f"/api/pc/pokemon/{mon['id']}/evolve",
+            json={"to_species": "ivysaur"},
+        )
+
+        self.assertEqual(response.status_code, 401)
+
+    def test_evolve_endpoint_rejects_cross_player(self) -> None:
+        from Server.app import create_app
+
+        app = create_app()
+        app.config.update(
+            TESTING=True,
+            WTF_CSRF_ENABLED=False,
+        )
+
+        client = app.test_client()
+
+        with client.session_transaction() as sess:
+            sess["player_id"] = self.player2_id
+
+        mon = self._make_level_ready_starter("bulbasaur")
+
+        response = client.post(
+            f"/api/pc/pokemon/{mon['id']}/evolve",
+            json={"to_species": "ivysaur"},
+        )
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_evolve_endpoint_rejects_invalid_target(self) -> None:
+        from Server.app import create_app
+
+        app = create_app()
+        app.config.update(
+            TESTING=True,
+            WTF_CSRF_ENABLED=False,
+        )
+
+        client = app.test_client()
+
+        with client.session_transaction() as sess:
+            sess["player_id"] = self.player1_id
+
+        mon = self._make_level_ready_starter("bulbasaur")
+
+        response = client.post(
+            f"/api/pc/pokemon/{mon['id']}/evolve",
+            json={"to_species": "mewtwo"},
+        )
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_evolve_endpoint_rejects_missing_target(self) -> None:
+        from Server.app import create_app
+
+        app = create_app()
+        app.config.update(
+            TESTING=True,
+            WTF_CSRF_ENABLED=False,
+        )
+
+        client = app.test_client()
+
+        with client.session_transaction() as sess:
+            sess["player_id"] = self.player1_id
+
+        mon = self._make_level_ready_starter("charmander")
+
+        response = client.post(
+            f"/api/pc/pokemon/{mon['id']}/evolve",
+            json={},
+        )
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_stone_evolution_consumes_item(self) -> None:
+        """Pikachu + Thunder Stone → Raichu, and the stone is consumed."""
+        mon = create_pokemon(
+            owner_id=self.player1_id,
+            species_id="pikachu",
+            level=10,
+        )
+
+        add_item(self.player1_id, "thunder_stone", 2)
+
+        evolved = evolve_pokemon(
+            mon["id"],
+            "raichu",
+            player_id=self.player1_id,
+            item="thunder_stone",
+        )
+
+        self.assertIsNotNone(evolved)
+        self.assertEqual(evolved["species_id"], "raichu")
+        self.assertEqual(int(evolved["level"]), 10)
+
+        # One stone was consumed, one remains.
+        inventory = get_player_items(self.player1_id)
+        stones = [
+            entry
+            for entry in inventory
+            if entry["item_id"] == "thunder_stone"
+        ]
+
+        self.assertEqual(len(stones), 1)
+        self.assertEqual(int(stones[0]["quantity"]), 1)
+
+    def test_stone_evolution_requires_stone_in_bag(self) -> None:
+        mon = create_pokemon(
+            owner_id=self.player1_id,
+            species_id="pikachu",
+            level=10,
+        )
+
+        with self.assertRaises(ValueError):
+            evolve_pokemon(
+                mon["id"],
+                "raichu",
+                player_id=self.player1_id,
+                item="thunder_stone",
+            )
+
+    def test_eevee_all_three_stone_branches(self) -> None:
+        """Eevee must be able to evolve into flareon, vaporeon, jolteon."""
+        branches = [
+            ("fire_stone", "flareon"),
+            ("water_stone", "vaporeon"),
+            ("thunder_stone", "jolteon"),
+        ]
+
+        for stone, target in branches:
+            mon = create_pokemon(
+                owner_id=self.player1_id,
+                species_id="eevee",
+                level=5,
+            )
+
+            add_item(self.player1_id, stone, 1)
+
+            evolved = evolve_pokemon(
+                mon["id"],
+                target,
+                player_id=self.player1_id,
+                item=stone,
+            )
+
+            self.assertIsNotNone(evolved)
+            self.assertEqual(evolved["species_id"], target)
+
+    def test_stone_evolution_wrong_stone_rejected(self) -> None:
+        """A Fire Stone must not evolve Pikachu into Raichu."""
+        mon = create_pokemon(
+            owner_id=self.player1_id,
+            species_id="pikachu",
+            level=10,
+        )
+
+        add_item(self.player1_id, "fire_stone", 1)
+
+        with self.assertRaises(ValueError):
+            evolve_pokemon(
+                mon["id"],
+                "raichu",
+                player_id=self.player1_id,
+                item="fire_stone",
+            )
+
+    def test_details_endpoint_includes_item_options_with_stone(self) -> None:
+        """Details must not show stone options until the stone is held."""
+        from Server.app import create_app
+
+        app = create_app()
+        app.config.update(
+            TESTING=True,
+            WTF_CSRF_ENABLED=False,
+        )
+
+        client = app.test_client()
+
+        with client.session_transaction() as sess:
+            sess["player_id"] = self.player1_id
+
+        mon = create_pokemon(
+            owner_id=self.player1_id,
+            species_id="pikachu",
+            level=10,
+        )
+
+        response = client.get(
+            f"/api/pc/pokemon/{mon['id']}/details"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        options = response.get_json()["pokemon"]["evolution_options"]
+        self.assertEqual(options, [])
+
+        add_item(self.player1_id, "thunder_stone", 1)
+
+        response = client.get(
+            f"/api/pc/pokemon/{mon['id']}/details"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        options = response.get_json()["pokemon"]["evolution_options"]
+        self.assertEqual(len(options), 1)
+        self.assertEqual(options[0]["to_species"], "raichu")
 
 
 # =============================================================================

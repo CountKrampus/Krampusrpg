@@ -481,6 +481,7 @@
     font-size: 13px;
 }
 
+.pc-detail-abilities,
 .pc-detail-moves,
 .pc-detail-evolution {
     margin-top: 18px;
@@ -489,6 +490,7 @@
     background: rgba(255, 255, 255, 0.035);
 }
 
+.pc-detail-abilities ul,
 .pc-detail-moves ul,
 .pc-detail-evolution ul {
     list-style: none;
@@ -499,6 +501,7 @@
     gap: 6px;
 }
 
+.pc-detail-abilities li,
 .pc-detail-moves li,
 .pc-detail-evolution li {
     font-size: 13px;

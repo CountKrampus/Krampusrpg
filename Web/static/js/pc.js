@@ -129,6 +129,10 @@
             "pc-detail-nickname-save"
         ),
 
+        detailAbilitiesList: document.getElementById(
+            "pc-detail-abilities-list"
+        ),
+
         detailMovesList: document.getElementById(
             "pc-detail-moves-list"
         ),
@@ -151,6 +155,10 @@
 
         moveButton: document.getElementById(
             "pc-move-button"
+        ),
+
+        evolveButton: document.getElementById(
+            "pc-evolve-button"
         ),
 
         message: document.getElementById(
@@ -1500,6 +1508,11 @@
                 "";
         }
 
+        if (elements.detailAbilitiesList) {
+            elements.detailAbilitiesList.innerHTML =
+                "<li>Loading…</li>";
+        }
+
         if (elements.detailMovesList) {
             elements.detailMovesList.innerHTML =
                 "<li>Loading…</li>";
@@ -1507,6 +1520,11 @@
 
         if (elements.detailEvolution) {
             elements.detailEvolution.hidden =
+                true;
+        }
+
+        if (elements.evolveButton) {
+            elements.evolveButton.hidden =
                 true;
         }
 
@@ -1582,6 +1600,65 @@
                           (loc.slot ?? "?");
             }
 
+            if (elements.detailAbilitiesList) {
+                const abilities =
+                    Array.isArray(
+                        detail.abilities
+                    )
+                        ? detail.abilities
+                        : [];
+
+                elements.detailAbilitiesList.innerHTML =
+                    "";
+
+                if (!abilities.length) {
+                    const empty =
+                        document.createElement(
+                            "li"
+                        );
+
+                    empty.textContent =
+                        "No ability data.";
+
+                    elements.detailAbilitiesList.appendChild(
+                        empty
+                    );
+                } else {
+                    abilities.forEach(
+                        function (ability) {
+                            const item =
+                                document.createElement(
+                                    "li"
+                                );
+
+                            const label =
+                                ability.name ||
+                                ability.id ||
+                                "Unknown ability";
+
+                            const hidden =
+                                ability.is_hidden
+                                    ? " (Hidden)"
+                                    : "";
+
+                            item.textContent =
+                                label +
+                                hidden +
+                                (
+                                    ability.description
+                                        ? " — " +
+                                          ability.description
+                                        : ""
+                                );
+
+                            elements.detailAbilitiesList.appendChild(
+                                item
+                            );
+                        }
+                    );
+                }
+            }
+
             if (elements.detailMovesList) {
                 const moves =
                     Array.isArray(
@@ -1640,6 +1717,11 @@
                 if (!options.length) {
                     elements.detailEvolution.hidden =
                         true;
+
+                    if (elements.evolveButton) {
+                        elements.evolveButton.hidden =
+                            true;
+                    }
                 } else {
                     elements.detailEvolutionList.innerHTML =
                         "";
@@ -1664,12 +1746,32 @@
 
                     elements.detailEvolution.hidden =
                         false;
+
+                    if (elements.evolveButton) {
+                        elements.evolveButton.hidden =
+                            false;
+                    }
                 }
             }
         } catch (error) {
+            if (elements.detailAbilitiesList) {
+                elements.detailAbilitiesList.innerHTML =
+                    "<li>Couldn't load ability data.</li>";
+            }
+
             if (elements.detailMovesList) {
                 elements.detailMovesList.innerHTML =
                     "<li>Couldn't load move data.</li>";
+            }
+
+            if (elements.detailEvolution) {
+                elements.detailEvolution.hidden =
+                    true;
+            }
+
+            if (elements.evolveButton) {
+                elements.evolveButton.hidden =
+                    true;
             }
         }
     }
@@ -1728,11 +1830,261 @@
     }
 
 
+    async function evolvePokemon() {
+        if (!selectedPokemon) {
+            return;
+        }
+
+        const id =
+            pokemonId(
+                selectedPokemon
+            );
+
+        if (!id) {
+            return;
+        }        /*
+         * The evolution options shown in the detail panel come from the
+         * server; re-fetch them so we never offer a stale choice.
+         */
+        let options = [];
+        let inventory = [];
+
+        try {
+            const data =
+                await api(
+                    "/api/pc/pokemon/" +
+                    encodeURIComponent(id) +
+                    "/details"
+                );
+
+            options =
+                Array.isArray(
+                    data.pokemon &&
+                    data.pokemon.evolution_options
+                )
+                    ? data.pokemon.evolution_options
+                    : [];
+
+            const inv =
+                await api("/api/pc/inventory");
+
+            inventory =
+                Array.isArray(inv.items)
+                    ? inv.items
+                    : [];
+        } catch (error) {
+            showMessage(
+                "Couldn't load evolution options."
+            );
+
+            return;
+        }
+
+        if (!options.length) {
+            showMessage(
+                "This Pokémon can't evolve right now."
+            );
+
+            return;
+        }
+
+        /*
+         * Item-based rules (stone evolutions) only qualify when the
+         * required stone is in the player's bag; keep those the server
+         * would reject out of the player-facing list.
+         */
+        const usable = options.filter(
+            function (option) {
+                const rule = option.rule || {};
+
+                if (
+                    (rule.method || "") !== "item"
+                ) {
+                    return true;
+                }
+
+                const required =
+                    rule.condition_item || "";
+
+                return inventory.some(
+                    function (entry) {
+                        return (
+                            entry.item_id ===
+                                required &&
+                            entry.quantity > 0
+                        );
+                    }
+                );
+            }
+        );
+
+        if (!usable.length) {
+            showMessage(
+                options.some(
+                    function (option) {
+                        return (
+                            (option.rule || {}).method ===
+                            "item"
+                        )
+                    }
+                )
+                    ? "You need the right evolution stone first."
+                    : "This Pokémon can't evolve right now."
+            );
+
+            return;
+        }
+
+        let target = usable[0].to_species;
+        let usedItem = null;
+
+        if (usable.length > 1) {
+            const listing = usable
+                .map(function (option, index) {
+                    const rule =
+                        option.rule || {};
+
+                    return (
+                        (index + 1) +
+                        ". " +
+                        capitalize(
+                            option.to_species || "?"
+                        ) +
+                        (
+                            rule.method === "item"
+                                ? " (using " +
+                                  capitalize(
+                                      (rule.condition_item || "stone")
+                                          .replace(/_/g, " ")
+                                  ) +
+                                  ")"
+                                : ""
+                        )
+                    );
+                })
+                .join("\n");
+
+            const requested =
+                window.prompt(
+                    "Evolve into which Pokémon?\n\n" +
+                    listing +
+                    "\n\nEnter a number 1-" +
+                    usable.length +
+                    ":"
+                );
+
+            if (
+                requested === null ||
+                requested.trim() === ""
+            )
+            {
+                return;
+            }
+
+            const choice =
+                Number(requested);
+
+            if (
+                !Number.isInteger(choice) ||
+                choice < 1 ||
+                choice > usable.length
+            ) {
+                showMessage(
+                    "Invalid evolution choice."
+                );
+
+                return;
+            }
+
+            target =
+                usable[choice - 1].to_species;
+        }
+
+        const chosenRule =
+            (usable.find(function (option) {
+                return option.to_species === target;
+            }) || {}).rule || {};
+
+        if (chosenRule.method === "item") {
+            usedItem =
+                chosenRule.condition_item || null;
+        }
+
+        if (!target) {
+            return;
+        }
+
+        try {
+            const body = {
+                to_species: target
+            };
+
+            if (usedItem) {
+                body.item = usedItem;
+            }
+
+            const data =
+                await post(
+                    "/api/pc/pokemon/" +
+                    encodeURIComponent(id) +
+                    "/evolve",
+                    body
+                );
+
+            const evolved =
+                data.pokemon ||
+                {};
+
+            showMessage(
+                "Congratulations! " +
+                speciesName(selectedPokemon) +
+                " evolved into " +
+                capitalize(
+                    evolved.species_id || target
+                ) +
+                "."
+            );
+
+            await Promise.all(
+                [
+                    loadPage(currentPage),
+                    loadCount(),
+                    loadParty()
+                ]
+            );
+
+            /*
+             * Reopen the details panel with the evolved snapshot so the
+             * header, sprite, and evolution section reflect the new form.
+             */
+            selectedPokemon = Object.assign(
+                {},
+                selectedPokemon,
+                evolved,
+                {
+                    slot:
+                        selectedPokemon.slot
+                }
+            );
+
+            openDetails(
+                selectedPokemon,
+                currentPage,
+                selectedPokemon.slot,
+                selectedLocation
+            );
+        } catch (error) {
+            showMessage(
+                error.message
+            );
+        }
+    }
+
+
     function updateDetailButtons() {
         if (!elements.withdrawButton) {
             return;
         }
-
         if (
             selectedLocation === "party"
         ) {
@@ -2137,6 +2489,13 @@
             elements.detailNicknameSave.addEventListener(
                 "click",
                 saveNickname
+            );
+        }
+
+        if (elements.evolveButton) {
+            elements.evolveButton.addEventListener(
+                "click",
+                evolvePokemon
             );
         }
     }
