@@ -44,6 +44,12 @@
                     </a>
                     {% endif %}
 
+                    {% if current_user_has_permission('admin.pokemon.view') %}
+                    <a href="{{ url_for('admin.world') }}" class="admin-nav-link {% if request.endpoint in ['admin.world', 'admin.world_area_edit'] %}active{% endif %}">
+                        <span>World Config</span>
+                    </a>
+                    {% endif %}
+
                     {% if current_user_has_permission('admin.items.view') %}
                     <a href="{{ url_for('admin.items') }}" class="admin-nav-link {% if request.endpoint in ['admin.items', 'admin.items_edit'] %}active{% endif %}">
                         <span>Items</span>

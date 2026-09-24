@@ -27,6 +27,7 @@ from flask import (
     url_for,
 )
 
+from .. import world_config
 from ..database import get_connection
 from ..services import get_all_moves
 
@@ -96,6 +97,7 @@ from .audit import (
     log_setting_change,
     ACTION_CREATE,
     ACTION_UPDATE,
+    ACTION_DELETE,
     ACTION_DATABASE_OPERATION,
     TARGET_POKEMON,
     TARGET_PLAYER,
@@ -783,6 +785,293 @@ def events_toggle(event_id: int):
 @events_edit_required
 def events_edit():
     return redirect(url_for("admin.events"))
+
+
+# ============================================================
+# WORLD CONFIG (AREAS, ENCOUNTERS, CATCH RATES)
+# ============================================================
+
+def _world_context(
+    editing_area_id: str | None = None,
+    error: str | None = None,
+):
+    """Shared template context for the world admin page."""
+
+    areas = world_config.load_areas_document()["areas"]
+
+    # Compute each encounter's share of its area's total weight so the
+    # editor can show effective encounter percentages.
+    for area in areas:
+        encounters = area.get("encounters") or []
+        total_weight = sum(
+            float(entry.get("weight", 0) or 0)
+            for entry in encounters
+        )
+
+        for entry in encounters:
+            weight = float(entry.get("weight", 0) or 0)
+            entry["_share"] = (
+                round(100 * weight / total_weight, 1)
+                if total_weight > 0
+                else 0.0
+            )
+
+    editing_area = None
+
+    if editing_area_id:
+        editing_area = world_config.get_area_by_id(editing_area_id)
+
+    return {
+        "areas": areas,
+        "editing_area": editing_area,
+        "area_types": (
+            "town", "route", "cave", "forest", "water", "mountain",
+        ),
+        "catch_settings": world_config.get_catch_settings(),
+        "error": error,
+    }
+
+
+@admin_bp.route("/world")
+@pokemon_view_required
+def world():
+    """
+    World configuration: wild areas, encounter tables, and catch
+    rate tuning. Read access follows Pokémon view (world data is
+    Pokémon reference data); all writes require Pokémon edit.
+    """
+    return render_template(
+        "admin/world.html",
+        **_world_context(),
+        species_list=get_available_species(),
+    )
+
+
+@admin_bp.route("/world/areas/create", methods=["POST"])
+@pokemon_edit_required
+def world_area_create():
+    """Create a new (empty) wild area."""
+    staff_id = session.get("player_id")
+
+    try:
+        area = world_config.create_area(
+            name=request.form.get("name", ""),
+            area_type=request.form.get("type", "route"),
+            description=request.form.get("description", ""),
+            region=request.form.get("region", "krampus"),
+        )
+
+        log_action(
+            player_id=staff_id,
+            action=ACTION_CREATE,
+            target_type="world_area",
+            target_id=area["id"],
+            details={"name": area["name"], "type": area["type"]},
+        )
+        flash(f"Area '{area['name']}' created. Add encounters next.", "success")
+    except ValueError as exc:
+        return render_template(
+            "admin/world.html",
+            **_world_context(error=str(exc)),
+        )
+
+    return redirect(url_for("admin.world"))
+
+
+@admin_bp.route("/world/areas/<area_id>/edit", methods=["GET", "POST"])
+@pokemon_edit_required
+def world_area_edit(area_id: str):
+    """Edit an area's display fields."""
+    staff_id = session.get("player_id")
+
+    if request.method == "GET":
+        return render_template(
+            "admin/world.html",
+            **_world_context(editing_area_id=area_id),
+        )
+
+    try:
+        world_config.update_area(
+            area_id,
+            name=request.form.get("name"),
+            area_type=request.form.get("type"),
+            description=request.form.get("description"),
+            region=request.form.get("region"),
+        )
+
+        log_action(
+            player_id=staff_id,
+            action=ACTION_UPDATE,
+            target_type="world_area",
+            target_id=area_id,
+            details={"fields": ["name", "type", "description", "region"]},
+        )
+        flash("Area updated.", "success")
+    except ValueError as exc:
+        return render_template(
+            "admin/world.html",
+            **_world_context(
+                editing_area_id=area_id,
+                error=str(exc),
+            ),
+        )
+
+    return redirect(url_for("admin.world"))
+
+
+@admin_bp.post("/world/areas/<area_id>/delete")
+@pokemon_edit_required
+def world_area_delete(area_id: str):
+    """Delete an area and all of its encounters."""
+    staff_id = session.get("player_id")
+
+    try:
+        world_config.delete_area(area_id)
+
+        log_action(
+            player_id=staff_id,
+            action=ACTION_DELETE,
+            target_type="world_area",
+            target_id=area_id,
+            details={},
+        )
+        flash("Area deleted.", "success")
+    except ValueError as exc:
+        flash(str(exc), "error")
+
+    return redirect(url_for("admin.world"))
+
+
+@admin_bp.post("/world/areas/<area_id>/encounters/add")
+@pokemon_edit_required
+def world_encounter_add(area_id: str):
+    """Add one species encounter entry to an area."""
+    staff_id = session.get("player_id")
+
+    try:
+        world_config.add_area_encounter(
+            area_id,
+            species_id=request.form.get("species_id", ""),
+            min_level=request.form.get("min_level", 1),
+            max_level=request.form.get("max_level", 5),
+            weight=request.form.get("weight", 10),
+        )
+
+        log_action(
+            player_id=staff_id,
+            action=ACTION_UPDATE,
+            target_type="world_area",
+            target_id=area_id,
+            details={
+                "encounter_added": request.form.get("species_id", ""),
+            },
+        )
+        flash("Encounter added.", "success")
+    except ValueError as exc:
+        flash(str(exc), "error")
+
+    return redirect(url_for("admin.world"))
+
+
+@admin_bp.post("/world/areas/<area_id>/encounters/save")
+@pokemon_edit_required
+def world_encounters_save(area_id: str):
+    """
+    Bulk-save an area's encounter table from the inline editor
+    (edit species/levels/weights for all rows at once).
+    """
+    staff_id = session.get("player_id")
+
+    species_ids = request.form.getlist("enc_species")
+    min_levels = request.form.getlist("enc_min")
+    max_levels = request.form.getlist("enc_max")
+    weights = request.form.getlist("enc_weight")
+
+    encounters = []
+
+    for species_id, min_level, max_level, weight in zip(
+        species_ids, min_levels, max_levels, weights
+    ):
+        encounters.append(
+            {
+                "species_id": species_id,
+                "min_level": min_level,
+                "max_level": max_level,
+                "weight": weight,
+            }
+        )
+
+    try:
+        world_config.set_area_encounters(area_id, encounters)
+
+        log_action(
+            player_id=staff_id,
+            action=ACTION_UPDATE,
+            target_type="world_area",
+            target_id=area_id,
+            details={"encounters_saved": len(encounters)},
+        )
+        flash("Encounter table saved.", "success")
+    except ValueError as exc:
+        flash(str(exc), "error")
+
+    return redirect(url_for("admin.world"))
+
+
+@admin_bp.post("/world/areas/<area_id>/encounters/<int:index>/delete")
+@pokemon_edit_required
+def world_encounter_delete(area_id: str, index: int):
+    """Remove one encounter row from an area."""
+    staff_id = session.get("player_id")
+
+    try:
+        world_config.delete_area_encounter(area_id, index)
+
+        log_action(
+            player_id=staff_id,
+            action=ACTION_UPDATE,
+            target_type="world_area",
+            target_id=area_id,
+            details={"encounter_index_removed": index},
+        )
+        flash("Encounter removed.", "success")
+    except ValueError as exc:
+        flash(str(exc), "error")
+
+    return redirect(url_for("admin.world"))
+
+
+@admin_bp.post("/world/catch-settings")
+@pokemon_edit_required
+def world_catch_settings_save():
+    """Save the global catch tuning values (shiny odds, clamps)."""
+    staff_id = session.get("player_id")
+
+    try:
+        saved = world_config.save_catch_settings(
+            shiny_odds=request.form.get("shiny_odds"),
+            min_catch_chance=request.form.get("min_catch_chance"),
+            max_catch_chance=request.form.get("max_catch_chance"),
+            default_catch_rate=request.form.get("default_catch_rate"),
+        )
+
+        log_action(
+            player_id=staff_id,
+            action=ACTION_UPDATE,
+            target_type=TARGET_SETTING,
+            target_id="world_catch_settings",
+            details={
+                "shiny_odds": saved["shiny_odds"],
+                "min_catch_chance": saved["min_catch_chance"],
+                "max_catch_chance": saved["max_catch_chance"],
+                "default_catch_rate": saved["default_catch_rate"],
+            },
+        )
+        flash("Catch settings saved.", "success")
+    except Exception as exc:
+        flash(f"Failed to save catch settings: {exc}", "error")
+
+    return redirect(url_for("admin.world"))
 
 
 # ============================================================

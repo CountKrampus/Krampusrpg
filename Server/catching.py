@@ -41,6 +41,10 @@ from .services import (
 )
 
 # Per-species default when Data/pokemon.json has no catch_rate.
+# (Fallback defaults only — the live values come from get_tuning(),
+# which reads the admin-editable world settings when they exist, so
+# Webmasters can change catch clamps and shiny odds from the
+# dashboard without a code change.)
 DEFAULT_CATCH_RATE = 45.0
 
 # Clamps on the final catch chance (percent).
@@ -49,6 +53,27 @@ MAX_CATCH_CHANCE = 95.0
 
 # Wild shiny odds (1 in N).
 SHINY_ODDS = 512
+
+
+def get_tuning() -> dict[str, float]:
+    """
+    Live catch tuning values (admin-editable, world_config-backed).
+
+    Falls back to the module constants when the settings table or the
+    admin module isn't available (e.g. plain CLI scripts).
+    """
+
+    try:
+        from .world_config import get_catch_settings
+
+        return get_catch_settings()
+    except Exception:
+        return {
+            "shiny_odds": SHINY_ODDS,
+            "min_catch_chance": MIN_CATCH_CHANCE,
+            "max_catch_chance": MAX_CATCH_CHANCE,
+            "default_catch_rate": DEFAULT_CATCH_RATE,
+        }
 
 # Ball type id -> default catch multiplier when the item record
 # doesn't carry one.
@@ -111,7 +136,7 @@ def start_encounter(area_id: str | int) -> dict[str, Any] | None:
         return None
 
     level = _roll_level(entry)
-    shiny = random.randint(1, SHINY_ODDS) == 1
+    shiny = random.randint(1, get_tuning()["shiny_odds"]) == 1
 
     from .sprite_resolver import resolve_sprite
 
@@ -137,16 +162,18 @@ def start_encounter(area_id: str | int) -> dict[str, Any] | None:
 def get_species_catch_rate(species: dict[str, Any] | None) -> float:
     """Species catch rate from its record, or the default."""
 
+    default_rate = get_tuning()["default_catch_rate"]
+
     if not species:
-        return DEFAULT_CATCH_RATE
+        return default_rate
 
     try:
-        rate = float(species.get("catch_rate", DEFAULT_CATCH_RATE))
+        rate = float(species.get("catch_rate", default_rate))
     except (TypeError, ValueError):
-        rate = DEFAULT_CATCH_RATE
+        rate = default_rate
 
     if rate <= 0:
-        return DEFAULT_CATCH_RATE
+        return default_rate
 
     return rate
 
@@ -196,9 +223,17 @@ def calculate_catch_chance(
     level = max(1, int(encounter.get("level", 1)))
     level_factor = 1.0 - min(level, 50) * 0.006
 
+    tuning = get_tuning()
+
     chance = base_rate * multiplier * level_factor
 
-    return round(min(MAX_CATCH_CHANCE, max(MIN_CATCH_CHANCE, chance)), 2)
+    return round(
+        min(
+            tuning["max_catch_chance"],
+            max(tuning["min_catch_chance"], chance),
+        ),
+        2,
+    )
 
 
 # ============================================================

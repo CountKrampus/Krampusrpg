@@ -1,0 +1,448 @@
+{% extends "admin/base.html" %}
+
+{% block title %}World Config{% endblock %}
+
+{% block content %}
+<div class="admin-page-header">
+    <div>
+        <h1>World Config</h1>
+        <p class="admin-subtitle">
+            Wild areas, encounter tables, and catch rate tuning.
+        </p>
+    </div>
+</div>
+
+{% if error %}
+<div class="admin-alert admin-alert-error">{{ error }}</div>
+{% endif %}
+
+
+<!-- ============================================================
+     CATCH SETTINGS
+     ============================================================ -->
+
+<section class="admin-section">
+    <div class="admin-section-header">
+        <div>
+            <h2>Catch Settings</h2>
+            <p>
+                Global tuning applied to every wild encounter and ball
+                throw. Changes take effect immediately — no restart
+                needed.
+            </p>
+        </div>
+    </div>
+
+    <form
+        method="post"
+        action="{{ url_for('admin.world_catch_settings_save') }}"
+        class="admin-form"
+    >
+
+        <div class="admin-card-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+
+            <div class="admin-form-group">
+                <label for="cs-shiny-odds">Shiny Odds (1 in N)</label>
+                <input
+                    type="number"
+                    id="cs-shiny-odds"
+                    name="shiny_odds"
+                    value="{{ catch_settings.shiny_odds }}"
+                    min="2"
+                    max="100000"
+                    step="1"
+                    required
+                >
+                <span class="admin-form-help">
+                    1 in {{ catch_settings.shiny_odds }} wild Pokémon are shiny.
+                </span>
+            </div>
+
+            <div class="admin-form-group">
+                <label for="cs-min-catch">Min Catch Chance (%)</label>
+                <input
+                    type="number"
+                    id="cs-min-catch"
+                    name="min_catch_chance"
+                    value="{{ catch_settings.min_catch_chance }}"
+                    min="1"
+                    max="100"
+                    step="0.1"
+                    required
+                >
+                <span class="admin-form-help">
+                    Floor for any ball throw.
+                </span>
+            </div>
+
+            <div class="admin-form-group">
+                <label for="cs-max-catch">Max Catch Chance (%)</label>
+                <input
+                    type="number"
+                    id="cs-max-catch"
+                    name="max_catch_chance"
+                    value="{{ catch_settings.max_catch_chance }}"
+                    min="1"
+                    max="100"
+                    step="0.1"
+                    required
+                >
+                <span class="admin-form-help">
+                    Cap for any ball throw.
+                </span>
+            </div>
+
+            <div class="admin-form-group">
+                <label for="cs-default-rate">Default Species Catch Rate</label>
+                <input
+                    type="number"
+                    id="cs-default-rate"
+                    name="default_catch_rate"
+                    value="{{ catch_settings.default_catch_rate }}"
+                    min="1"
+                    max="255"
+                    step="1"
+                    required
+                >
+                <span class="admin-form-help">
+                    Used when a species has no catch_rate of its own.
+                </span>
+            </div>
+
+        </div>
+
+        <button type="submit" class="admin-button admin-button-primary">
+            Save Catch Settings
+        </button>
+
+    </form>
+</section>
+
+
+<!-- ============================================================
+     CREATE AREA
+     ============================================================ -->
+
+<section class="admin-section">
+    <div class="admin-section-header">
+        <div>
+            <h2>New Area</h2>
+            <p>Add a wild area to the map. Encounters can be added after creation.</p>
+        </div>
+    </div>
+
+    <form
+        method="post"
+        action="{{ url_for('admin.world_area_create') }}"
+        class="admin-form"
+    >
+
+        <div class="admin-card-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
+
+            <div class="admin-form-group">
+                <label for="area-name">Name</label>
+                <input
+                    type="text"
+                    id="area-name"
+                    name="name"
+                    required
+                    maxlength="80"
+                    placeholder="e.g. Ember Cavern"
+                >
+            </div>
+
+            <div class="admin-form-group">
+                <label for="area-type">Type</label>
+                <select id="area-type" name="type">
+                    {% for area_type in area_types %}
+                    <option value="{{ area_type }}">
+                        {{ area_type | capitalize }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="admin-form-group">
+                <label for="area-region">Region</label>
+                <input
+                    type="text"
+                    id="area-region"
+                    name="region"
+                    value="krampus"
+                    maxlength="40"
+                >
+            </div>
+
+            <div class="admin-form-group">
+                <label for="area-description">Description</label>
+                <input
+                    type="text"
+                    id="area-description"
+                    name="description"
+                    maxlength="200"
+                    placeholder="Shown on the exploration page"
+                >
+            </div>
+
+        </div>
+
+        <button type="submit" class="admin-button">
+            Create Area
+        </button>
+
+    </form>
+</section>
+
+
+<!-- ============================================================
+     AREAS & ENCOUNTER TABLES
+     ============================================================ -->
+
+<section class="admin-section">
+
+    <div class="admin-section-header">
+        <div>
+            <h2>Wild Areas</h2>
+            <p>
+                {{ areas | length }} area{{ "s" if areas | length != 1 else "" }}.
+                Edit levels and weights inline, then save the table.
+                Weights set how common a species is relative to the
+                others in the same area.
+            </p>
+        </div>
+    </div>
+
+    {% for area in areas %}
+
+    <div class="admin-card" style="margin-bottom: 18px;">
+
+        <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">
+
+            <h2 style="margin: 0;">
+                {{ area.name }}
+                <span class="admin-status-badge">
+                    {{ area.type | capitalize }}
+                </span>
+                {% if not area.encounters %}
+                <span class="admin-status-badge status-warning">
+                    No encounters
+                </span>
+                {% endif %}
+            </h2>
+
+            <div style="display: flex; gap: 8px;">
+                <a
+                    class="admin-button admin-button-small"
+                    href="{{ url_for('admin.world_area_edit', area_id=area.id) }}"
+                >
+                    Edit Details
+                </a>
+
+                <form
+                    method="post"
+                    action="{{ url_for('admin.world_area_delete', area_id=area.id) }}"
+                    onsubmit="return confirm('Delete {{ area.name }} and all of its encounters?');"
+                >
+                    <button
+                        type="submit"
+                        class="admin-button admin-button-small admin-button-danger"
+                    >
+                        Delete
+                    </button>
+                </form>
+            </div>
+
+        </div>
+
+        <p class="admin-form-help" style="margin: 8px 0 14px;">
+            {{ area.description or "No description." }}
+            <em>(region: {{ area.region | default("—") }} · id: {{ area.id }})</em>
+        </p>
+
+        {% if area.encounters %}
+
+        <form
+            method="post"
+            action="{{ url_for('admin.world_encounters_save', area_id=area.id) }}"
+        >
+
+            <div class="admin-table-container">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Species</th>
+                            <th>Min Level</th>
+                            <th>Max Level</th>
+                            <th>Weight</th>
+                            <th>Share</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for entry in area.encounters %}
+                        <tr>
+                            <td>
+                                <input
+                                    type="text"
+                                    name="enc_species"
+                                    value="{{ entry.species_id }}"
+                                    required
+                                    maxlength="40"
+                                    list="world-species-list"
+                                    style="width: 160px;"
+                                >
+                            </td>
+
+                            <td>
+                                <input
+                                    type="number"
+                                    name="enc_min"
+                                    value="{{ entry.min_level }}"
+                                    min="1"
+                                    max="100"
+                                    required
+                                    style="width: 70px;"
+                                >
+                            </td>
+
+                            <td>
+                                <input
+                                    type="number"
+                                    name="enc_max"
+                                    value="{{ entry.max_level }}"
+                                    min="1"
+                                    max="100"
+                                    required
+                                    style="width: 70px;"
+                                >
+                            </td>
+
+                            <td>
+                                <input
+                                    type="number"
+                                    name="enc_weight"
+                                    value="{{ entry.weight }}"
+                                    min="0.1"
+                                    max="1000"
+                                    step="0.1"
+                                    required
+                                    style="width: 80px;"
+                                >
+                            </td>
+
+                            <td>
+                                <span class="admin-status-badge status-success">
+                                    {{ entry._share | default(0) }}%
+                                </span>
+                            </td>
+
+                            <td>
+                                <button
+                                    type="submit"
+                                    class="admin-button admin-button-small admin-button-danger"
+                                    formaction="{{ url_for('admin.world_encounter_delete', area_id=area.id, index=loop.index0) }}"
+                                    formnovalidate
+                                >
+                                    ✕
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <button type="submit" class="admin-button admin-button-primary" style="margin-top: 10px;">
+                Save Encounter Table
+            </button>
+
+        </form>
+
+        {% else %}
+
+        <p class="admin-form-help">
+            No wild Pokémon in this area yet.
+        </p>
+
+        {% endif %}
+
+        <!-- Add one encounter -->
+        <form
+            method="post"
+            action="{{ url_for('admin.world_encounter_add', area_id=area.id) }}"
+            class="admin-form"
+            style="margin-top: 14px; display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end;"
+        >
+
+            <div class="admin-form-group" style="margin-bottom: 0;">
+                <label for="add-species-{{ loop.index }}">Species</label>
+                <input
+                    type="text"
+                    id="add-species-{{ loop.index }}"
+                    name="species_id"
+                    required
+                    maxlength="40"
+                    list="world-species-list"
+                    placeholder="pikachu"
+                    style="width: 160px;"
+                >
+            </div>
+
+            <div class="admin-form-group" style="margin-bottom: 0;">
+                <label>Min Lv</label>
+                <input
+                    type="number"
+                    name="min_level"
+                    value="3"
+                    min="1"
+                    max="100"
+                    style="width: 70px;"
+                >
+            </div>
+
+            <div class="admin-form-group" style="margin-bottom: 0;">
+                <label>Max Lv</label>
+                <input
+                    type="number"
+                    name="max_level"
+                    value="6"
+                    min="1"
+                    max="100"
+                    style="width: 70px;"
+                >
+            </div>
+
+            <div class="admin-form-group" style="margin-bottom: 0;">
+                <label>Weight</label>
+                <input
+                    type="number"
+                    name="weight"
+                    value="10"
+                    min="0.1"
+                    max="1000"
+                    step="0.1"
+                    style="width: 80px;"
+                >
+            </div>
+
+            <button type="submit" class="admin-button admin-button-small">
+                Add Encounter
+            </button>
+
+        </form>
+
+    </div>
+
+    {% endfor %}
+
+</section>
+
+<!-- Species autocomplete source (ids from the Pokémon catalog) -->
+<datalist id="world-species-list">
+    {% for species in species_list %}
+    <option value="{{ species.id }}">
+    {% endfor %}
+</datalist>
+
+{% endblock %}
