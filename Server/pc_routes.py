@@ -24,7 +24,13 @@ from .pc_storage import (
     swap_pokemon,
     withdraw_pokemon,
 )
-from .services import get_pokemon, get_player_items, get_species_abilities
+from .services import (
+    get_pokemon,
+    get_player_items,
+    get_pokemon_learnset,
+    get_species_abilities,
+    learn_pokemon_move,
+)
 from .sprite_resolver import get_pokemon_sprite_data
 
 
@@ -827,10 +833,189 @@ def pc_pokemon_details(
     except Exception:
         pokemon["location"] = None
 
+    # Species learnset with per-entry known/learnable flags, so the
+    # details panel can offer "learn this move" actions.
+    try:
+        pokemon["learnset"] = (
+            get_pokemon_learnset(
+                pokemon
+            )
+        )
+    except Exception:
+        pokemon["learnset"] = []
+
     return jsonify(
         {
             "success": True,
             "pokemon": pokemon,
+        }
+    )
+
+
+# =============================================================================
+# LEARNSET
+# =============================================================================
+
+@pc_bp.get("/api/pc/pokemon/<int:pokemon_id>/learnset")
+def pc_pokemon_learnset(
+    pokemon_id: int,
+):
+    """
+    Return the species learnset for one of the player's Pokémon.
+
+    Each entry is a move record plus:
+    - "level": the level the move is learned at
+    - "known": whether this Pokémon already knows the move
+    - "level_met": whether this Pokémon's level meets the requirement
+    - "learnable": not known yet AND level requirement met
+    """
+    try:
+        player_id = _require_player()
+    except PermissionError as exc:
+        return _error_response(
+            str(exc),
+            401,
+        )
+
+    pokemon = get_pokemon(
+        player_id,
+        pokemon_id,
+    )
+
+    if pokemon is None:
+        return _error_response(
+            "Pokémon not found.",
+            404,
+        )
+
+    try:
+        learnset = get_pokemon_learnset(
+            pokemon
+        )
+    except Exception:
+        learnset = []
+
+    return jsonify(
+        {
+            "success": True,
+            "pokemon_id": pokemon_id,
+            "learnset": learnset,
+        }
+    )
+
+
+# =============================================================================
+# EQUIP (LEARN) MOVE
+# =============================================================================
+
+@pc_bp.post("/api/pc/pokemon/<int:pokemon_id>/moves")
+def pc_pokemon_learn_move(
+    pokemon_id: int,
+):
+    """
+    Teach one of the player's Pokémon a move from its learnset.
+
+    Expects a JSON body: {"move": "vine_whip"} and, when all 4 move
+    slots are full, {"replace_slot": 1-4} to swap out the move in that
+    slot. All validation (learnset membership, level gate, duplicate,
+    slot bounds) happens server-side.
+    """
+    try:
+        player_id = _require_player()
+    except PermissionError as exc:
+        return _error_response(
+            str(exc),
+            401,
+        )
+
+    # Ownership check: get_pokemon() only returns a row when
+    # owner_id == player_id.
+    pokemon = get_pokemon(
+        player_id,
+        pokemon_id,
+    )
+
+    if pokemon is None:
+        return _error_response(
+            "Pokémon not found.",
+            404,
+        )
+
+    data = _get_json()
+
+    move_id = data.get(
+        "move"
+    )
+
+    if not move_id or not str(move_id).strip():
+        return _error_response(
+            "move is required.",
+            400,
+        )
+
+    replace_slot = data.get(
+        "replace_slot"
+    )
+
+    if replace_slot is not None:
+        try:
+            replace_slot = int(replace_slot)
+
+            if not 1 <= replace_slot <= 4:
+                raise ValueError
+        except (TypeError, ValueError):
+            return _error_response(
+                "replace_slot must be between 1 and 4.",
+                400,
+            )
+
+    from .database import get_connection
+
+    try:
+        with get_connection() as db:
+            result = learn_pokemon_move(
+                db,
+                pokemon_id,
+                str(move_id),
+                replace_slot=replace_slot,
+            )
+    except ValueError as exc:
+        return _error_response(
+            str(exc),
+            400,
+        )
+    except Exception:
+        return _error_response(
+            "Failed to learn move.",
+            500,
+        )
+
+    # Re-fetch through the normal details path so the response carries
+    # the same shape the details panel expects.
+    updated = get_pokemon(
+        player_id,
+        pokemon_id,
+    )
+
+    try:
+        updated_learnset = (
+            get_pokemon_learnset(updated)
+            if updated
+            else []
+        )
+    except Exception:
+        updated_learnset = []
+
+    return jsonify(
+        {
+            "success": True,
+            "learned": result,
+            "moves": (
+                updated.get("moves", [])
+                if updated
+                else []
+            ),
+            "learnset": updated_learnset,
         }
     )
 

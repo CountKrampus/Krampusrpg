@@ -6,7 +6,8 @@
         "category": "physical",
         "power": 40,
         "accuracy": 100,
-        "pp": 35
+        "pp": 35,
+        "description": "A full-body charge attack."
     },
     {
         "id": "scratch",
@@ -15,7 +16,8 @@
         "category": "physical",
         "power": 40,
         "accuracy": 100,
-        "pp": 35
+        "pp": 35,
+        "description": "Scratches with sharp claws."
     },
     {
         "id": "thundershock",
@@ -24,6 +26,127 @@
         "category": "special",
         "power": 40,
         "accuracy": 100,
-        "pp": 30
+        "pp": 30,
+        "description": "An electric attack that may cause paralysis."
+    },
+    {
+        "id": "growl",
+        "name": "Growl",
+        "type": "normal",
+        "category": "status",
+        "power": 0,
+        "accuracy": 100,
+        "pp": 40,
+        "description": "Lowers the foe's Attack."
+    },
+    {
+        "id": "tail_whip",
+        "name": "Tail Whip",
+        "type": "normal",
+        "category": "status",
+        "power": 0,
+        "accuracy": 100,
+        "pp": 30,
+        "description": "Lowers the foe's Defense."
+    },
+    {
+        "id": "vine_whip",
+        "name": "Vine Whip",
+        "type": "grass",
+        "category": "physical",
+        "power": 45,
+        "accuracy": 100,
+        "pp": 25,
+        "description": "Strikes the foe with slender vines."
+    },
+    {
+        "id": "razor_leaf",
+        "name": "Razor Leaf",
+        "type": "grass",
+        "category": "physical",
+        "power": 55,
+        "accuracy": 95,
+        "pp": 25,
+        "description": "Sharp leaves slash the foe. High critical-hit ratio."
+    },
+    {
+        "id": "ember",
+        "name": "Ember",
+        "type": "fire",
+        "category": "special",
+        "power": 40,
+        "accuracy": 100,
+        "pp": 25,
+        "description": "A weak fire attack that may cause a burn."
+    },
+    {
+        "id": "flamethrower",
+        "name": "Flamethrower",
+        "type": "fire",
+        "category": "special",
+        "power": 90,
+        "accuracy": 100,
+        "pp": 15,
+        "description": "A powerful fire attack that may cause a burn."
+    },
+    {
+        "id": "water_gun",
+        "name": "Water Gun",
+        "type": "water",
+        "category": "special",
+        "power": 40,
+        "accuracy": 100,
+        "pp": 25,
+        "description": "Squirts water to attack the foe."
+    },
+    {
+        "id": "bubble_beam",
+        "name": "Bubble Beam",
+        "type": "water",
+        "category": "special",
+        "power": 65,
+        "accuracy": 100,
+        "pp": 20,
+        "description": "A spray of bubbles that may lower the foe's Speed."
+    },
+    {
+        "id": "quick_attack",
+        "name": "Quick Attack",
+        "type": "normal",
+        "category": "physical",
+        "power": 40,
+        "accuracy": 100,
+        "pp": 30,
+        "description": "An extremely fast attack that always strikes first."
+    },
+    {
+        "id": "thunderbolt",
+        "name": "Thunderbolt",
+        "type": "electric",
+        "category": "special",
+        "power": 90,
+        "accuracy": 100,
+        "pp": 15,
+        "description": "A strong electric attack that may cause paralysis."
+    },
+    {
+        "id": "bite",
+        "name": "Bite",
+        "type": "normal",
+        "category": "physical",
+        "power": 60,
+        "accuracy": 100,
+        "pp": 25,
+        "description": "Bites with sharp fangs. May cause flinching."
+    },
+    {
+        "id": "swift",
+        "name": "Swift",
+        "type": "normal",
+        "category": "special",
+        "power": 60,
+        "accuracy": 100,
+        "pp": 20,
+        "description": "Star-shaped rays that never miss."
     }
 ]

@@ -13,6 +13,11 @@
         },
         "abilities": ["overgrow"],
         "starting_moves": ["tackle"],
+        "level_up_moves": [
+            {"move": "vine_whip", "level": 7},
+            {"move": "growl", "level": 4},
+            {"move": "razor_leaf", "level": 20}
+        ],
         "gender_ratio": "mixed"
     },
     {
@@ -29,6 +34,11 @@
         },
         "abilities": ["blaze"],
         "starting_moves": ["scratch"],
+        "level_up_moves": [
+            {"move": "growl", "level": 4},
+            {"move": "ember", "level": 7},
+            {"move": "flamethrower", "level": 24}
+        ],
         "gender_ratio": "mixed"
     },
     {
@@ -45,6 +55,11 @@
         },
         "abilities": ["torrent"],
         "starting_moves": ["tackle"],
+        "level_up_moves": [
+            {"move": "tail_whip", "level": 4},
+            {"move": "water_gun", "level": 7},
+            {"move": "bubble_beam", "level": 20}
+        ],
         "gender_ratio": "mixed"
     },
     {
@@ -60,7 +75,11 @@
             "speed": 60
         },
         "abilities": ["overgrow"],
-        "starting_moves": ["tackle"],
+        "starting_moves": ["tackle", "vine_whip"],
+        "level_up_moves": [
+            {"move": "growl", "level": 1},
+            {"move": "razor_leaf", "level": 20}
+        ],
         "gender_ratio": "mixed"
     },
     {
@@ -76,7 +95,11 @@
             "speed": 80
         },
         "abilities": ["overgrow"],
-        "starting_moves": ["tackle"],
+        "starting_moves": ["tackle", "razor_leaf"],
+        "level_up_moves": [
+            {"move": "vine_whip", "level": 1},
+            {"move": "growl", "level": 1}
+        ],
         "gender_ratio": "mixed"
     },
     {
@@ -92,7 +115,11 @@
             "speed": 80
         },
         "abilities": ["blaze"],
-        "starting_moves": ["scratch"],
+        "starting_moves": ["scratch", "ember"],
+        "level_up_moves": [
+            {"move": "growl", "level": 1},
+            {"move": "flamethrower", "level": 24}
+        ],
         "gender_ratio": "mixed"
     },
     {
@@ -108,7 +135,12 @@
             "speed": 100
         },
         "abilities": ["blaze"],
-        "starting_moves": ["scratch"],
+        "starting_moves": ["scratch", "flamethrower"],
+        "level_up_moves": [
+            {"move": "ember", "level": 1},
+            {"move": "growl", "level": 1},
+            {"move": "quick_attack", "level": 26}
+        ],
         "gender_ratio": "mixed"
     },
     {
@@ -124,7 +156,11 @@
             "speed": 58
         },
         "abilities": ["torrent"],
-        "starting_moves": ["tackle"],
+        "starting_moves": ["tackle", "water_gun"],
+        "level_up_moves": [
+            {"move": "tail_whip", "level": 1},
+            {"move": "bubble_beam", "level": 20}
+        ],
         "gender_ratio": "mixed"
     },
     {
@@ -140,7 +176,11 @@
             "speed": 78
         },
         "abilities": ["torrent"],
-        "starting_moves": ["tackle"],
+        "starting_moves": ["tackle", "bubble_beam"],
+        "level_up_moves": [
+            {"move": "water_gun", "level": 1},
+            {"move": "bite", "level": 24}
+        ],
         "gender_ratio": "mixed"
     },
     {
@@ -157,6 +197,12 @@
         },
         "abilities": ["static"],
         "starting_moves": ["tackle", "thundershock"],
+        "level_up_moves": [
+            {"move": "growl", "level": 5},
+            {"move": "quick_attack", "level": 10},
+            {"move": "thunderbolt", "level": 26},
+            {"move": "swift", "level": 32}
+        ],
         "gender_ratio": "mixed"
     },
     {
@@ -172,7 +218,11 @@
             "speed": 110
         },
         "abilities": ["static"],
-        "starting_moves": ["tackle", "thundershock"],
+        "starting_moves": ["tackle", "thunderbolt"],
+        "level_up_moves": [
+            {"move": "quick_attack", "level": 1},
+            {"move": "swift", "level": 1}
+        ],
         "gender_ratio": "mixed"
     },
     {
@@ -189,6 +239,12 @@
         },
         "abilities": ["run_away"],
         "starting_moves": ["tackle"],
+        "level_up_moves": [
+            {"move": "tail_whip", "level": 5},
+            {"move": "quick_attack", "level": 10},
+            {"move": "bite", "level": 22},
+            {"move": "swift", "level": 28}
+        ],
         "gender_ratio": "mixed"
     },
     {
@@ -204,7 +260,12 @@
             "speed": 65
         },
         "abilities": ["flash_fire"],
-        "starting_moves": ["scratch"],
+        "starting_moves": ["scratch", "ember"],
+        "level_up_moves": [
+            {"move": "quick_attack", "level": 1},
+            {"move": "bite", "level": 22},
+            {"move": "flamethrower", "level": 30}
+        ],
         "gender_ratio": "mixed"
     },
     {
@@ -220,7 +281,12 @@
             "speed": 65
         },
         "abilities": ["water_absorb"],
-        "starting_moves": ["tackle"],
+        "starting_moves": ["tackle", "water_gun"],
+        "level_up_moves": [
+            {"move": "tail_whip", "level": 1},
+            {"move": "quick_attack", "level": 1},
+            {"move": "bubble_beam", "level": 25}
+        ],
         "gender_ratio": "mixed"
     },
     {
@@ -237,6 +303,11 @@
         },
         "abilities": ["volt_absorb"],
         "starting_moves": ["tackle", "thundershock"],
+        "level_up_moves": [
+            {"move": "quick_attack", "level": 1},
+            {"move": "thunderbolt", "level": 25},
+            {"move": "swift", "level": 30}
+        ],
         "gender_ratio": "mixed"
     }
 ]

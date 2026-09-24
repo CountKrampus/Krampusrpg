@@ -454,6 +454,7 @@ def get_species(
                         "type": p.get("type", ["normal"]),
                         "base_stats": base_stats,
                         "starting_moves": p.get("starting_moves", ["tackle"]),
+                        "level_up_moves": p.get("level_up_moves", []),
                         "abilities": p.get("abilities", []),
                     }
         except Exception:
@@ -1416,6 +1417,432 @@ def add_starting_moves(
                     slot,
                 ),
             )
+
+
+# ============================================================
+# LEARNSETS
+# ============================================================
+
+LEARNSET_MOVE_LIMIT = 4
+
+
+def _normalize_learnset_entries(
+    entries: Any,
+) -> list[dict[str, Any]]:
+    """
+    Normalize a species' level-up learnset into a consistent list of
+    {"move", "level"} dicts, tolerating every shape the JSON actually
+    uses (dict entries with move/id keys, bare string move ids).
+    """
+
+    normalized: list[dict[str, Any]] = []
+
+    if not isinstance(entries, list):
+        return normalized
+
+    for entry in entries:
+        move_id: str | None = None
+        level = 1
+
+        if isinstance(entry, dict):
+            raw_move = (
+                entry.get("move")
+                or entry.get("move_id")
+                or entry.get("id")
+            )
+
+            if raw_move is not None:
+                move_id = str(raw_move).strip().lower()
+
+            try:
+                level = max(1, int(entry.get("level", 1)))
+            except (TypeError, ValueError):
+                level = 1
+
+        elif isinstance(entry, (str, int)):
+            move_id = str(entry).strip().lower()
+
+        if move_id:
+            normalized.append(
+                {
+                    "move": move_id,
+                    "level": level,
+                }
+            )
+
+    # Lowest level first, then alphabetical for stable ordering.
+    normalized.sort(
+        key=lambda entry: (
+            entry["level"],
+            entry["move"],
+        )
+    )
+
+    return normalized
+
+
+def get_species_learnset(
+    species: dict[str, Any] | None,
+) -> list[dict[str, Any]]:
+    """
+    Full learnset for a species: starting moves at level 1 plus any
+    level_up_moves entries, each with the resolved move record.
+
+    Entries the move catalog doesn't know about are still surfaced (with
+    name falling back to the id) so gaps in Data/moves.json are visible
+    instead of silently disappearing -- same policy as
+    get_species_abilities().
+    """
+
+    if not species:
+        return []
+
+    # Reuse the existing starting-moves parser (handles starting_moves,
+    # moves, and level_up_moves keys with dict or bare-string shapes).
+    learned: dict[str, int] = {}
+
+    for move_id in get_species_starting_moves(species):
+        learned.setdefault(
+            str(move_id).strip().lower(),
+            1,
+        )
+
+    for entry in _normalize_learnset_entries(
+        species.get("level_up_moves")
+    ):
+        learned.setdefault(
+            entry["move"],
+            entry["level"],
+        )
+
+    result: list[dict[str, Any]] = []
+
+    for move_id, level in learned.items():
+        move = get_move(move_id)
+
+        result.append(
+            {
+                "id": move_id,
+                "level": level,
+                "name": (
+                    move.get("name", move_id.title())
+                    if move
+                    else move_id.title()
+                ),
+                "type": (
+                    move.get("type_id") or move.get("type")
+                    if move
+                    else None
+                ),
+                "category": (
+                    move.get("category") if move else None
+                ),
+                "power": (
+                    move.get("power") if move else None
+                ),
+                "accuracy": (
+                    move.get("accuracy") if move else None
+                ),
+                "pp": (
+                    move.get("max_pp", move.get("pp"))
+                    if move
+                    else None
+                ),
+                "description": (
+                    move.get("description", "") if move else ""
+                ),
+            }
+        )
+
+    result.sort(
+        key=lambda entry: (
+            entry["level"],
+            entry["id"],
+        )
+    )
+
+    return result
+
+
+def get_pokemon_learnset(
+    pokemon: dict[str, Any] | None,
+) -> list[dict[str, Any]]:
+    """
+    Learnset for a Pokémon instance, with each entry flagged by whether
+    the Pokémon has already learned the move and whether its level
+    requirement is met.
+    """
+
+    if not pokemon:
+        return []
+
+    species = (
+        pokemon.get("species")
+        or get_species(pokemon.get("species_id"))
+    )
+
+    known: set[str] = {
+        str(entry.get("move_id", "")).strip().lower()
+        for entry in pokemon.get("moves", [])
+        if isinstance(entry, dict) and entry.get("move_id")
+    }
+
+    level = int(pokemon.get("level", 1))
+
+    result: list[dict[str, Any]] = []
+
+    for entry in get_species_learnset(species):
+        move_id = entry["id"]
+
+        result.append(
+            {
+                **entry,
+                "known": move_id in known,
+                "level_met": level >= entry["level"],
+                "learnable": (
+                    move_id not in known
+                    and level >= entry["level"]
+                ),
+            }
+        )
+
+    return result
+
+
+def learn_pokemon_move(
+    db,
+    pokemon_id: int,
+    move_id: str,
+    replace_slot: int | None = None,
+) -> dict[str, Any]:
+    """
+    Teach a Pokémon a new move, replacing an existing one if needed.
+
+    Must be called inside an open transaction (`db` is a live
+    connection) so the slot bookkeeping below stays atomic.
+
+    Rules:
+    - The move must exist in the catalog and be in the species'
+      learnset at a level the Pokémon has reached.
+    - A Pokémon can't learn a move it already knows.
+    - Max 4 moves; replacing requires a valid occupied slot (1-4). With
+      no slot given and the Pokémon full, ValueError says so.
+
+    Returns the refreshed slot list for the Pokémon.
+    """
+
+    if not _table_exists(
+        db,
+        "pokemon_moves",
+    ):
+        raise ValueError(
+            "Move storage is not available."
+        )
+
+    columns = _table_columns(
+        db,
+        "pokemon_moves",
+    )
+
+    required = {
+        "pokemon_id",
+        "move_id",
+        "slot",
+    }
+
+    if not required.issubset(columns):
+        raise ValueError(
+            "Move storage is not available."
+        )
+
+    pokemon_row = db.execute(
+        """
+        SELECT *
+        FROM pokemon
+        WHERE id = ?
+        """,
+        (pokemon_id,),
+    ).fetchone()
+
+    if pokemon_row is None:
+        raise ValueError("Pokémon not found.")
+
+    pokemon = dict(pokemon_row)
+    species = get_species(
+        pokemon.get("species_id")
+    )
+
+    if species is None:
+        raise ValueError(
+            "Unknown species for this Pokémon."
+        )
+
+    wanted = str(move_id).strip().lower()
+
+    # Learnset + level gate: build the eligibility map once and use it
+    # for both the "unknown move" and "level not met" errors.
+    learnset = {
+        entry["id"]: entry
+        for entry in get_pokemon_learnset(
+            {
+                **pokemon,
+                "species": species,
+                "moves": [],
+            }
+        )
+    }
+
+    entry = learnset.get(wanted)
+
+    if entry is None:
+        move_record = get_move(wanted)
+        name = (
+            move_record.get("name", wanted)
+            if move_record
+            else wanted
+        )
+
+        raise ValueError(
+            f"{name} is not in this Pokémon's learnset."
+        )
+
+    if not entry["level_met"]:
+        move_record = get_move(wanted)
+        name = (
+            move_record.get("name", wanted)
+            if move_record
+            else wanted
+        )
+
+        raise ValueError(
+            f"{name} requires level {entry['level']} "
+            f"(current: {pokemon.get('level', 1)})."
+        )
+
+    existing_rows = db.execute(
+        """
+        SELECT *
+        FROM pokemon_moves
+        WHERE pokemon_id = ?
+        ORDER BY slot
+        """,
+        (pokemon_id,),
+    ).fetchall()
+
+    if any(
+        str(row["move_id"]).strip().lower() == wanted
+        for row in existing_rows
+    ):
+        raise ValueError(
+            "This Pokémon already knows that move."
+        )
+
+    has_pp = "current_pp" in columns
+
+    move = get_move(wanted)
+    pp = int(
+        (
+            move.get("pp", move.get("max_pp", 0))
+            if move
+            else 0
+        )
+        or 0
+    )
+
+    occupied = {
+        int(row["slot"])
+        for row in existing_rows
+    }
+
+    target_slot: int
+
+    if replace_slot is not None:
+        target_slot = int(replace_slot)
+
+        if target_slot not in occupied:
+            raise ValueError(
+                "Choose a move slot to replace."
+            )
+
+        db.execute(
+            """
+            DELETE FROM pokemon_moves
+            WHERE pokemon_id = ?
+              AND slot = ?
+            """,
+            (
+                pokemon_id,
+                target_slot,
+            ),
+        )
+    elif len(occupied) < LEARNSET_MOVE_LIMIT:
+        target_slot = min(
+            slot
+            for slot in range(1, LEARNSET_MOVE_LIMIT + 1)
+            if slot not in occupied
+        )
+    else:
+        raise ValueError(
+            "All 4 move slots are full. "
+            "Replace an existing move."
+        )
+
+    if has_pp:
+        db.execute(
+            """
+            INSERT INTO pokemon_moves
+            (
+                pokemon_id,
+                move_id,
+                slot,
+                current_pp
+            )
+            VALUES (?, ?, ?, ?)
+            """,
+            (
+                pokemon_id,
+                wanted,
+                target_slot,
+                pp,
+            ),
+        )
+    else:
+        db.execute(
+            """
+            INSERT INTO pokemon_moves
+            (
+                pokemon_id,
+                move_id,
+                slot
+            )
+            VALUES (?, ?, ?)
+            """,
+            (
+                pokemon_id,
+                wanted,
+                target_slot,
+            ),
+        )
+
+    db.commit()
+
+    refreshed = db.execute(
+        """
+        SELECT *
+        FROM pokemon_moves
+        WHERE pokemon_id = ?
+        ORDER BY slot
+        """,
+        (pokemon_id,),
+    ).fetchall()
+
+    return {
+        "success": True,
+        "move_id": wanted,
+        "slot": target_slot,
+        "replaced": replace_slot is not None,
+        "slots": [dict(row) for row in refreshed],
+    }
 
 
 # ============================================================

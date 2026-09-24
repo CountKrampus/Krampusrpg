@@ -137,6 +137,10 @@
             "pc-detail-moves-list"
         ),
 
+        detailLearnsetList: document.getElementById(
+            "pc-detail-learnset-list"
+        ),
+
         detailEvolution: document.getElementById(
             "pc-detail-evolution"
         ),
@@ -1518,6 +1522,11 @@
                 "<li>Loading…</li>";
         }
 
+        if (elements.detailLearnsetList) {
+            elements.detailLearnsetList.innerHTML =
+                "<li>Loading…</li>";
+        }
+
         if (elements.detailEvolution) {
             elements.detailEvolution.hidden =
                 true;
@@ -1706,6 +1715,16 @@
                 }
             }
 
+            if (elements.detailLearnsetList) {
+                renderLearnset(
+                    Array.isArray(
+                        detail.learnset
+                    )
+                        ? detail.learnset
+                        : []
+                );
+            }
+
             if (elements.detailEvolution && elements.detailEvolutionList) {
                 const options =
                     Array.isArray(
@@ -1764,6 +1783,11 @@
                     "<li>Couldn't load move data.</li>";
             }
 
+            if (elements.detailLearnsetList) {
+                elements.detailLearnsetList.innerHTML =
+                    "<li>Couldn't load learnset data.</li>";
+            }
+
             if (elements.detailEvolution) {
                 elements.detailEvolution.hidden =
                     true;
@@ -1774,6 +1798,245 @@
                     true;
             }
         }
+    }
+
+
+    /*
+     * Render the species learnset in the details panel. Each entry
+     * shows its level requirement plus its state:
+     * - known:   already equipped (tagged "Known")
+     * - learnable: level met, not known yet -> gets a Learn button
+     * - otherwise: tagged with the level still required
+     */
+    function renderLearnset(learnset) {
+        if (!elements.detailLearnsetList) {
+            return;
+        }
+
+        elements.detailLearnsetList.innerHTML =
+            "";
+
+        if (!learnset.length) {
+            const empty =
+                document.createElement(
+                    "li"
+                );
+
+            empty.textContent =
+                "No learnset data.";
+
+            elements.detailLearnsetList.appendChild(
+                empty
+            );
+
+            return;
+        }
+
+        learnset.forEach(
+            function (entry) {
+                const item =
+                    document.createElement(
+                        "li"
+                    );
+
+                item.className =
+                    "pc-learnset-item";
+
+                const label =
+                    document.createElement(
+                        "span"
+                    );
+
+                let text =
+                    "Lv. " +
+                    (entry.level ?? "?") +
+                    " — " +
+                    (entry.name || entry.id || "Unknown move");
+
+                if (entry.type) {
+                    text +=
+                        " (" + capitalize(entry.type) + ")";
+                }
+
+                if (entry.known) {
+                    text += " · Known";
+                } else if (!entry.level_met) {
+                    text +=
+                        " · Requires Lv. " +
+                        entry.level;
+                }
+
+                label.textContent =
+                    text;
+
+                item.appendChild(
+                    label
+                );
+
+                if (entry.learnable) {
+                    const button =
+                        document.createElement(
+                            "button"
+                        );
+
+                    button.type =
+                        "button";
+
+                    button.className =
+                        "pc-button pc-learn-button";
+
+                    button.textContent =
+                        "Learn";
+
+                    button.addEventListener(
+                        "click",
+                        function () {
+                            learnMove(
+                                entry
+                            );
+                        }
+                    );
+
+                    item.appendChild(
+                        button
+                    );
+                }
+
+                elements.detailLearnsetList.appendChild(
+                    item
+                );
+            }
+        );
+    }
+
+
+    /*
+     * Teach the selected Pokémon a move from its learnset. When all
+     * four slots are full the server asks for a replace_slot; we then
+     * prompt for which equipped move to forget.
+     */
+    async function learnMove(entry) {
+        if (!selectedPokemon || !entry) {
+            return;
+        }
+
+        const id =
+            pokemonId(
+                selectedPokemon
+            );
+
+        if (!id) {
+            return;
+        }
+
+        const body = {
+            move: entry.id
+        };
+
+        try {
+            await post(
+                "/api/pc/pokemon/" +
+                encodeURIComponent(id) +
+                "/moves",
+                body
+            );
+        } catch (error) {
+            const message =
+                String(
+                    error && error.message
+                ) || "";
+
+            if (
+                message.indexOf(
+                    "All 4 move slots are full"
+                ) !== -1
+            ) {
+                const slots =
+                    (
+                        selectedPokemon.moves ||
+                        []
+                    )
+                        .map(
+                            function (move, index) {
+                                return (
+                                    (index + 1) +
+                                    ". " +
+                                    (move.name ||
+                                        move.move_id ||
+                                        "Unknown")
+                                );
+                            }
+                        )
+                        .join("\n");
+
+                const answer =
+                    window.prompt(
+                        "All 4 move slots are full. " +
+                        "Enter the number of the move to forget:\n\n" +
+                        slots,
+                        "1"
+                    );
+
+                if (answer === null) {
+                    return;
+                }
+
+                const slot =
+                    parseInt(
+                        answer,
+                        10
+                    );
+
+                if (
+                    !slot ||
+                    slot < 1 ||
+                    slot > 4
+                ) {
+                    showMessage(
+                        "Invalid slot number."
+                    );
+
+                    return;
+                }
+
+                try {
+                    await post(
+                        "/api/pc/pokemon/" +
+                        encodeURIComponent(id) +
+                        "/moves",
+                        {
+                            move: entry.id,
+                            replace_slot: slot
+                        }
+                    );
+                } catch (retryError) {
+                    showMessage(
+                        (retryError && retryError.message) ||
+                        "Couldn't learn that move."
+                    );
+
+                    return;
+                }
+            } else {
+                showMessage(
+                    message ||
+                    "Couldn't learn that move."
+                );
+
+                return;
+            }
+        }
+
+        showMessage(
+            "Learned " +
+            (entry.name || entry.id) +
+            "!"
+        );
+
+        // Refresh the panel so moves + learnset reflect the change.
+        loadPokemonDetails(
+            selectedPokemon
+        );
     }
 
 

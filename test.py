@@ -1103,5 +1103,276 @@ class TestDatabaseMigration(BaseTestCase):
         self.assertEqual(verify_storage_invariant(), [])
 
 
+from Server.services import (
+    get_pokemon_learnset,
+    get_species_learnset,
+    learn_pokemon_move,
+)
+
+
+class TestLearnsets(BaseTestCase):
+    """Species learnsets and move equipping (Sprint 4 pattern)."""
+
+    def test_get_species_learnset_includes_starting_and_level_moves(self) -> None:
+        species = get_species("pikachu")
+        learnset = get_species_learnset(species)
+
+        ids = {entry["id"] for entry in learnset}
+
+        # Starting moves appear at level 1...
+        self.assertIn("tackle", ids)
+        self.assertIn("thundershock", ids)
+
+        # ...and level-up moves appear with their levels.
+        thunderbolt = next(
+            e for e in learnset if e["id"] == "thunderbolt"
+        )
+        self.assertEqual(thunderbolt["level"], 26)
+
+    def test_get_species_learnset_is_sorted_by_level(self) -> None:
+        learnset = get_species_learnset(get_species("eevee"))
+
+        levels = [entry["level"] for entry in learnset]
+        self.assertEqual(levels, sorted(levels))
+
+    def test_get_species_learnset_resolves_move_records(self) -> None:
+        learnset = get_species_learnset(get_species("bulbasaur"))
+
+        vine_whip = next(
+            e for e in learnset if e["id"] == "vine_whip"
+        )
+        self.assertEqual(vine_whip["name"], "Vine Whip")
+        self.assertEqual(vine_whip["type"], "grass")
+        self.assertGreater(int(vine_whip["power"]), 0)
+
+    def test_get_species_learnset_empty_for_missing_species(self) -> None:
+        self.assertEqual(get_species_learnset(None), [])
+
+    def test_get_pokemon_learnset_flags_known_and_learnable(self) -> None:
+        mon = create_pokemon(
+            owner_id=self.player1_id,
+            species_id="pikachu",
+            level=26,
+        )
+
+        learnset = get_pokemon_learnset(mon)
+
+        by_id = {entry["id"]: entry for entry in learnset}
+
+        # tackle is a starting move, so it's already known.
+        self.assertTrue(by_id["tackle"]["known"])
+        self.assertFalse(by_id["tackle"]["learnable"])
+
+        # thunderbolt (level 26) is met but not yet known.
+        self.assertTrue(by_id["thunderbolt"]["level_met"])
+        self.assertFalse(by_id["thunderbolt"]["known"])
+        self.assertTrue(by_id["thunderbolt"]["learnable"])
+
+        # swift (level 32) is above this Pokémon's level.
+        self.assertFalse(by_id["swift"]["level_met"])
+        self.assertFalse(by_id["swift"]["learnable"])
+
+    def test_learn_move_appends_to_empty_slot(self) -> None:
+        mon = create_pokemon(
+            owner_id=self.player1_id,
+            species_id="pikachu",
+            level=26,
+        )
+
+        with get_connection() as db:
+            result = learn_pokemon_move(
+                db,
+                mon["id"],
+                "thunderbolt",
+            )
+
+        self.assertTrue(result["success"])
+        self.assertEqual(result["move_id"], "thunderbolt")
+        self.assertFalse(result["replaced"])
+
+        updated = get_pokemon(self.player1_id, mon["id"])
+        learned_ids = {
+            str(m["move_id"]) for m in updated["moves"]
+        }
+        self.assertIn("thunderbolt", learned_ids)
+
+    def test_learn_move_rejects_unknown_and_below_level(self) -> None:
+        mon = create_pokemon(
+            owner_id=self.player1_id,
+            species_id="pikachu",
+            level=5,
+        )
+
+        with get_connection() as db:
+            # Not in pikachu's learnset at all.
+            with self.assertRaises(ValueError):
+                learn_pokemon_move(db, mon["id"], "ember")
+
+            # In the learnset but level 26 > current level 5.
+            with self.assertRaises(ValueError):
+                learn_pokemon_move(db, mon["id"], "thunderbolt")
+
+    def test_learn_move_rejects_duplicate(self) -> None:
+        mon = create_pokemon(
+            owner_id=self.player1_id,
+            species_id="pikachu",
+            level=26,
+        )
+
+        with get_connection() as db:
+            learn_pokemon_move(db, mon["id"], "thunderbolt")
+
+            with self.assertRaises(ValueError):
+                learn_pokemon_move(db, mon["id"], "thunderbolt")
+
+    def test_learn_move_replaces_occupied_slot_when_full(self) -> None:
+        mon = create_pokemon(
+            owner_id=self.player1_id,
+            species_id="pikachu",
+            level=32,
+        )
+
+        # Fill all 4 slots: tackle + thundershock start, then add two.
+        with get_connection() as db:
+            learn_pokemon_move(db, mon["id"], "thunderbolt")
+            learn_pokemon_move(db, mon["id"], "quick_attack")
+
+            with self.assertRaises(ValueError):
+                learn_pokemon_move(db, mon["id"], "swift")
+
+            result = learn_pokemon_move(
+                db,
+                mon["id"],
+                "swift",
+                replace_slot=4,
+            )
+
+        self.assertTrue(result["replaced"])
+        self.assertEqual(result["slot"], 4)
+
+        updated = get_pokemon(self.player1_id, mon["id"])
+        learned_ids = {
+            str(m["move_id"]) for m in updated["moves"]
+        }
+
+        self.assertIn("swift", learned_ids)
+        self.assertNotIn("quick_attack", learned_ids)
+        self.assertEqual(len(updated["moves"]), 4)
+
+    def test_learn_move_rejects_empty_slot(self) -> None:
+        mon = create_pokemon(
+            owner_id=self.player1_id,
+            species_id="pikachu",
+            level=26,
+        )
+
+        with get_connection() as db:
+            with self.assertRaises(ValueError):
+                learn_pokemon_move(
+                    db,
+                    mon["id"],
+                    "thunderbolt",
+                    replace_slot=3,
+                )
+
+    def test_learnset_endpoints(self) -> None:
+        """GET learnset + POST equip flow through the PC API."""
+        from Server.app import create_app
+
+        app = create_app()
+        app.config.update(
+            TESTING=True,
+            WTF_CSRF_ENABLED=False,
+        )
+
+        client = app.test_client()
+
+        with client.session_transaction() as sess:
+            sess["player_id"] = self.player1_id
+
+        mon = create_pokemon(
+            owner_id=self.player1_id,
+            species_id="pikachu",
+            level=26,
+        )
+
+        # GET learnset
+        response = client.get(
+            f"/api/pc/pokemon/{mon['id']}/learnset"
+        )
+        self.assertEqual(response.status_code, 200)
+
+        data = response.get_json()
+        self.assertTrue(data["success"])
+
+        learnset = data["learnset"]
+        by_id = {entry["id"]: entry for entry in learnset}
+        self.assertTrue(by_id["thunderbolt"]["learnable"])
+
+        # POST learn move
+        response = client.post(
+            f"/api/pc/pokemon/{mon['id']}/moves",
+            json={"move": "thunderbolt"},
+        )
+        self.assertEqual(response.status_code, 200)
+
+        data = response.get_json()
+        self.assertTrue(data["success"])
+
+        move_ids = {
+            str(m["move_id"]) for m in data["moves"]
+        }
+        self.assertIn("thunderbolt", move_ids)
+
+        # The refreshed learnset now marks it as known.
+        by_id = {entry["id"]: entry for entry in data["learnset"]}
+        self.assertTrue(by_id["thunderbolt"]["known"])
+
+        # Validation errors surface as 400s.
+        response = client.post(
+            f"/api/pc/pokemon/{mon['id']}/moves",
+            json={"move": "ember"},
+        )
+        self.assertEqual(response.status_code, 400)
+
+        response = client.post(
+            f"/api/pc/pokemon/{mon['id']}/moves",
+            json={"move": "thunderbolt"},
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_learnset_endpoints_require_ownership(self) -> None:
+        """Another player's Pokémon is invisible to the endpoints."""
+        from Server.app import create_app
+
+        app = create_app()
+        app.config.update(
+            TESTING=True,
+            WTF_CSRF_ENABLED=False,
+        )
+
+        client = app.test_client()
+
+        with client.session_transaction() as sess:
+            sess["player_id"] = self.player2_id
+
+        mon = create_pokemon(
+            owner_id=self.player1_id,
+            species_id="pikachu",
+            level=26,
+        )
+
+        response = client.get(
+            f"/api/pc/pokemon/{mon['id']}/learnset"
+        )
+        self.assertEqual(response.status_code, 404)
+
+        response = client.post(
+            f"/api/pc/pokemon/{mon['id']}/moves",
+            json={"move": "thunderbolt"},
+        )
+        self.assertEqual(response.status_code, 404)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -483,6 +483,7 @@
 
 .pc-detail-abilities,
 .pc-detail-moves,
+.pc-detail-learnset,
 .pc-detail-evolution {
     margin-top: 18px;
     padding: 13px;
@@ -492,6 +493,7 @@
 
 .pc-detail-abilities ul,
 .pc-detail-moves ul,
+.pc-detail-learnset ul,
 .pc-detail-evolution ul {
     list-style: none;
     margin: 8px 0 0;
@@ -503,11 +505,25 @@
 
 .pc-detail-abilities li,
 .pc-detail-moves li,
+.pc-detail-learnset li,
 .pc-detail-evolution li {
     font-size: 13px;
     padding: 6px 10px;
     border-radius: 6px;
     background: rgba(255, 255, 255, 0.04);
+}
+
+.pc-learnset-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.pc-learn-button {
+    flex-shrink: 0;
+    padding: 4px 12px;
+    font-size: 11px;
 }
 
 .pc-results-grid {
