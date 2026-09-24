@@ -39,6 +39,27 @@ from ..news import (
     update_news_post,
 )
 
+from ..roadmap import (
+    CARD_PRIORITIES,
+    CARD_STATUSES,
+    STATUS_LABELS,
+    create_card,
+    create_milestone,
+    create_task,
+    delete_card,
+    delete_milestone,
+    delete_task,
+    ensure_roadmap_tables,
+    get_board,
+    get_card,
+    get_milestone,
+    move_card,
+    seed_roadmap,
+    update_card,
+    update_milestone,
+    update_task,
+)
+
 from .decorators import (
     dashboard_required,
     players_view_required,
@@ -1186,3 +1207,345 @@ def news_delete(post_id: int):
     delete_news_post(post_id)
     flash("News article deleted.", "success")
     return redirect(url_for("admin.news"))
+
+
+# ============================================================
+# DEVELOPMENT ROADMAP (WEBMASTER-ONLY)
+# ============================================================
+
+def _roadmap_context(
+    editing_card=None,
+    editing_milestone=None,
+    create_card_mode=False,
+    create_milestone_mode=False,
+    error=None,
+):
+    """Shared template context for the roadmap admin pages."""
+
+    ensure_roadmap_tables()
+    seed_roadmap()
+
+    return {
+        "board": get_board(),
+        "statuses": CARD_STATUSES,
+        "status_labels": STATUS_LABELS,
+        "priorities": CARD_PRIORITIES,
+        "milestones": get_board()["milestones"],
+        "editing_card": editing_card,
+        "editing_milestone": editing_milestone,
+        "create_card_mode": create_card_mode,
+        "create_milestone_mode": create_milestone_mode,
+        "error": error,
+    }
+
+
+@admin_bp.route("/roadmap")
+@webmaster_required
+def roadmap():
+    """
+    Webmaster-only Kanban board for the development roadmap.
+    """
+    create_milestone_mode = request.args.get("new") == "milestone"
+
+    return render_template(
+        "admin/roadmap.html",
+        **_roadmap_context(
+            create_milestone_mode=create_milestone_mode,
+        ),
+    )
+
+
+# ------------------------------------------------------------
+# MILESTONE CRUD
+# ------------------------------------------------------------
+
+@admin_bp.post("/roadmap/milestones/create")
+@webmaster_required
+def roadmap_milestone_create():
+    """
+    Create a new roadmap milestone.
+    """
+    name = request.form.get("name", "")
+    description = request.form.get("description", "")
+
+    try:
+        create_milestone(name, description)
+    except ValueError as exc:
+        return render_template(
+            "admin/roadmap.html",
+            **_roadmap_context(
+                create_milestone_mode=True,
+                editing_milestone={
+                    "name": name,
+                    "description": description,
+                },
+                error=str(exc),
+            ),
+        )
+
+    flash("Milestone created.", "success")
+    return redirect(url_for("admin.roadmap"))
+
+
+@admin_bp.route("/roadmap/milestones/<int:milestone_id>/edit", methods=["GET", "POST"])
+@webmaster_required
+def roadmap_milestone_edit(milestone_id: int):
+    """
+    Edit or delete a milestone.
+    """
+    milestone = get_milestone(milestone_id)
+
+    if milestone is None:
+        abort(404)
+
+    if request.method == "GET":
+        return render_template(
+            "admin/roadmap.html",
+            **_roadmap_context(editing_milestone=milestone),
+        )
+
+    if request.form.get("action") == "delete":
+        delete_milestone(milestone_id)
+        flash("Milestone and all its cards were deleted.", "success")
+        return redirect(url_for("admin.roadmap"))
+
+    try:
+        update_milestone(
+            milestone_id,
+            name=request.form.get("name"),
+            description=request.form.get("description"),
+        )
+    except ValueError as exc:
+        return render_template(
+            "admin/roadmap.html",
+            **_roadmap_context(
+                editing_milestone={
+                    **milestone,
+                    "name": request.form.get("name", milestone["name"]),
+                    "description": request.form.get(
+                        "description", milestone["description"]
+                    ),
+                },
+                error=str(exc),
+            ),
+        )
+
+    flash("Milestone updated.", "success")
+    return redirect(url_for("admin.roadmap"))
+
+
+# ------------------------------------------------------------
+# CARD CRUD
+# ------------------------------------------------------------
+
+@admin_bp.route("/roadmap/cards/create", methods=["GET", "POST"])
+@webmaster_required
+def roadmap_card_create():
+    """
+    Create a new roadmap card.
+    """
+    if request.method == "GET":
+        return render_template(
+            "admin/roadmap.html",
+            **_roadmap_context(create_card_mode=True),
+        )
+
+    form = request.form
+
+    try:
+        milestone_id = int(form.get("milestone_id", ""))
+    except (TypeError, ValueError):
+        milestone_id = None
+
+    if milestone_id is None:
+        return render_template(
+            "admin/roadmap.html",
+            **_roadmap_context(
+                create_card_mode=True,
+                editing_card={
+                    "title": form.get("title", ""),
+                    "description": form.get("description", ""),
+                    "status": form.get("status", "backlog"),
+                    "priority": form.get("priority", "medium"),
+                    "sprint": form.get("sprint", ""),
+                    "assignee": form.get("assignee", ""),
+                },
+                error="Please choose a milestone for this card.",
+            ),
+        )
+
+    try:
+        card_id = create_card(
+            milestone_id=milestone_id,
+            title=form.get("title", ""),
+            description=form.get("description", ""),
+            status=form.get("status", "backlog"),
+            priority=form.get("priority", "medium"),
+            sprint=form.get("sprint", ""),
+            assignee=form.get("assignee", ""),
+        )
+    except ValueError as exc:
+        return render_template(
+            "admin/roadmap.html",
+            **_roadmap_context(
+                create_card_mode=True,
+                editing_card={
+                    "title": form.get("title", ""),
+                    "description": form.get("description", ""),
+                    "status": form.get("status", "backlog"),
+                    "priority": form.get("priority", "medium"),
+                    "sprint": form.get("sprint", ""),
+                    "assignee": form.get("assignee", ""),
+                },
+                error=str(exc),
+            ),
+        )
+
+    # Optional initial checklist, one task per line.
+    for line in form.get("tasks", "").splitlines():
+        line = line.strip()
+        if line:
+            create_task(card_id, line)
+
+    flash("Card created.", "success")
+    return redirect(url_for("admin.roadmap"))
+
+
+@admin_bp.route("/roadmap/cards/<int:card_id>/edit", methods=["GET", "POST"])
+@webmaster_required
+def roadmap_card_edit(card_id: int):
+    """
+    Edit a card: fields, checklist items, or delete it.
+    """
+    card = get_card(card_id)
+
+    if card is None:
+        abort(404)
+
+    if request.method == "GET":
+        return render_template(
+            "admin/roadmap.html",
+            **_roadmap_context(editing_card=card),
+        )
+
+    form = request.form
+    action = form.get("action", "save")
+
+    if action == "delete":
+        delete_card(card_id)
+        flash("Card deleted.", "success")
+        return redirect(url_for("admin.roadmap"))
+
+    if action == "add_task":
+        label = form.get("task_label", "")
+        try:
+            create_task(card_id, label)
+            flash("Task added.", "success")
+        except ValueError as exc:
+            flash(str(exc), "error")
+
+        return redirect(url_for("admin.roadmap_card_edit", card_id=card_id))
+
+    if action == "delete_task":
+        try:
+            task_id = int(form.get("task_id", ""))
+        except (TypeError, ValueError):
+            task_id = None
+
+        if task_id is not None:
+            delete_task(task_id)
+            flash("Task removed.", "success")
+
+        return redirect(url_for("admin.roadmap_card_edit", card_id=card_id))
+
+    if action == "toggle_task":
+        try:
+            task_id = int(form.get("task_id", ""))
+        except (TypeError, ValueError):
+            task_id = None
+
+        if task_id is not None:
+            task = next(
+                (t for t in card["tasks"] if t["id"] == task_id),
+                None,
+            )
+
+            if task is not None:
+                update_task(task_id, done=not bool(task["done"]))
+
+        return redirect(url_for("admin.roadmap_card_edit", card_id=card_id))
+
+    # Default: save the card fields.
+    try:
+        milestone_id_raw = form.get("milestone_id")
+        milestone_id = (
+            int(milestone_id_raw)
+            if milestone_id_raw not in (None, "")
+            else None
+        )
+
+        update_card(
+            card_id,
+            title=form.get("title"),
+            description=form.get("description"),
+            status=form.get("status"),
+            priority=form.get("priority"),
+            sprint=form.get("sprint"),
+            assignee=form.get("assignee"),
+            milestone_id=milestone_id,
+        )
+    except ValueError as exc:
+        return render_template(
+            "admin/roadmap.html",
+            **_roadmap_context(
+                editing_card={
+                    **card,
+                    "title": form.get("title", card["title"]),
+                    "description": form.get(
+                        "description", card["description"]
+                    ),
+                    "status": form.get("status", card["status"]),
+                    "priority": form.get("priority", card["priority"]),
+                    "sprint": form.get("sprint", card["sprint"]),
+                    "assignee": form.get("assignee", card["assignee"]),
+                },
+                error=str(exc),
+            ),
+        )
+
+    flash("Card updated.", "success")
+    return redirect(url_for("admin.roadmap"))
+
+
+@admin_bp.post("/roadmap/cards/<int:card_id>/move")
+@webmaster_required
+def roadmap_card_move(card_id: int):
+    """
+    Move a card to another Kanban column. Used both by drag-and-drop
+    (JavaScript) and the per-card status select.
+    """
+    status = request.form.get("status", "")
+
+    try:
+        moved = move_card(card_id, status)
+    except ValueError as exc:
+        flash(str(exc), "error")
+        return redirect(url_for("admin.roadmap"))
+
+    if not moved:
+        abort(404)
+
+    if request.form.get("ajax"):
+        from flask import jsonify
+
+        card = get_card(card_id)
+
+        return jsonify(
+            {
+                "success": True,
+                "card": card,
+            }
+        )
+
+    flash("Card moved.", "success")
+    return redirect(url_for("admin.roadmap"))

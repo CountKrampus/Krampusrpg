@@ -1,0 +1,718 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Roadmap{% endblock %}
+
+{% block page_heading %}
+Development Roadmap
+{% endblock %}
+
+{% block content %}
+
+<div class="admin-page roadmap-admin">
+
+    <div class="admin-page-header">
+
+        <div>
+            <h1>Development Roadmap</h1>
+            <p>
+                Webmaster-only Kanban board. Players see the public
+                version at <a href="{{ url_for('roadmap') }}">/roadmap</a>.
+            </p>
+        </div>
+
+        <div class="roadmap-admin-actions">
+            <a
+                href="{{ url_for('admin.roadmap_card_create') }}"
+                class="admin-button"
+            >
+                + New Card
+            </a>
+
+            <a
+                href="{{ url_for('admin.roadmap', new='milestone') }}"
+                class="admin-button admin-button-secondary"
+            >
+                + New Milestone
+            </a>
+        </div>
+
+    </div>
+
+
+    {% if error %}
+
+    <div class="admin-alert admin-alert-error">
+        {{ error }}
+    </div>
+
+    {% endif %}
+
+
+    {% if create_card_mode or editing_card %}
+
+    <!-- ==================================================== -->
+    <!-- CARD FORM -->
+    <!-- ==================================================== -->
+
+    <section class="admin-card">
+
+        <div class="admin-card-header">
+
+            <h2>
+                {% if create_card_mode %}
+                    Create Card
+                {% else %}
+                    Edit Card #{{ editing_card.id }}
+                {% endif %}
+            </h2>
+
+        </div>
+
+        <form
+            method="post"
+            action="{% if create_card_mode %}
+                {{ url_for('admin.roadmap_card_create') }}
+            {% else %}
+                {{ url_for('admin.roadmap_card_edit', card_id=editing_card.id) }}
+            {% endif %}"
+            class="admin-form"
+        >
+
+            <div class="admin-form-group">
+
+                <label for="card-title">Title</label>
+
+                <input
+                    type="text"
+                    id="card-title"
+                    name="title"
+                    value="{{ editing_card.title if editing_card else '' }}"
+                    required
+                    maxlength="120"
+                >
+
+            </div>
+
+            <div class="admin-form-group">
+
+                <label for="card-milestone">Milestone</label>
+
+                <select
+                    id="card-milestone"
+                    name="milestone_id"
+                    required
+                >
+
+                    <option value="">
+                        — choose milestone —
+                    </option>
+
+                    {% for milestone in milestones %}
+
+                    <option
+                        value="{{ milestone.id }}"
+
+                        {% if editing_card and editing_card.milestone_id == milestone.id %}
+                            selected
+                        {% endif %}
+
+                    >
+                        {{ milestone.name }}
+                    </option>
+
+                    {% endfor %}
+
+                </select>
+
+            </div>
+
+            <div class="admin-form-group">
+
+                <label for="card-description">Description</label>
+
+                <textarea
+                    id="card-description"
+                    name="description"
+                    rows="3"
+                >{{ editing_card.description if editing_card else '' }}</textarea>
+
+            </div>
+
+            <div class="roadmap-form-grid">
+
+                <div class="admin-form-group">
+
+                    <label for="card-status">Status</label>
+
+                    <select id="card-status" name="status">
+
+                        {% for status in statuses %}
+
+                        <option
+                            value="{{ status }}"
+
+                            {% if editing_card and editing_card.status == status %}
+                                selected
+                            {% elif create_card_mode and status == 'backlog' %}
+                                selected
+                            {% endif %}
+
+                        >
+                            {{ status_labels[status] }}
+                        </option>
+
+                        {% endfor %}
+
+                    </select>
+
+                </div>
+
+                <div class="admin-form-group">
+
+                    <label for="card-priority">Priority</label>
+
+                    <select id="card-priority" name="priority">
+
+                        {% for priority in priorities %}
+
+                        <option
+                            value="{{ priority }}"
+
+                            {% if editing_card and editing_card.priority == priority %}
+                                selected
+                            {% elif create_card_mode and priority == 'medium' %}
+                                selected
+                            {% endif %}
+
+                        >
+                            {{ priority|title }}
+                        </option>
+
+                        {% endfor %}
+
+                    </select>
+
+                </div>
+
+                <div class="admin-form-group">
+
+                    <label for="card-sprint">Sprint</label>
+
+                    <input
+                        type="text"
+                        id="card-sprint"
+                        name="sprint"
+                        value="{{ editing_card.sprint if editing_card else '' }}"
+                        maxlength="60"
+                        placeholder="e.g. Foundation Sprint 2"
+                    >
+
+                </div>
+
+                <div class="admin-form-group">
+
+                    <label for="card-assignee">Assignee</label>
+
+                    <input
+                        type="text"
+                        id="card-assignee"
+                        name="assignee"
+                        value="{{ editing_card.assignee if editing_card else '' }}"
+                        maxlength="60"
+                        placeholder="e.g. Webmaster"
+                    >
+
+                </div>
+
+            </div>
+
+            {% if create_card_mode %}
+
+            <div class="admin-form-group">
+
+                <label for="card-tasks">
+                    Checklist (one task per line, optional)
+                </label>
+
+                <textarea
+                    id="card-tasks"
+                    name="tasks"
+                    rows="4"
+                    placeholder="Species schema&#10;Base stats&#10;Types"
+                ></textarea>
+
+            </div>
+
+            {% endif %}
+
+            <div class="admin-form-actions">
+
+                <button type="submit" class="admin-button">
+
+                    {% if create_card_mode %}
+                        Create Card
+                    {% else %}
+                        Save Changes
+                    {% endif %}
+
+                </button>
+
+                <a
+                    href="{{ url_for('admin.roadmap') }}"
+                    class="admin-button admin-button-secondary"
+                >
+                    Cancel
+                </a>
+
+            </div>
+
+        </form>
+
+        {% if editing_card and not create_card_mode %}
+
+        <!-- Checklist management -->
+        <div class="roadmap-task-editor">
+
+            <h3>Checklist</h3>
+
+            {% if editing_card.tasks %}
+
+            <ul class="roadmap-task-list">
+
+                {% for task in editing_card.tasks %}
+
+                <li>
+
+                    <form
+                        method="post"
+                        action="{{ url_for('admin.roadmap_card_edit', card_id=editing_card.id) }}"
+                        class="roadmap-task-form"
+                    >
+
+                        <input type="hidden" name="action" value="toggle_task">
+                        <input type="hidden" name="task_id" value="{{ task.id }}">
+
+                        <button
+                            type="submit"
+                            class="roadmap-task-toggle
+
+                                {% if task.done %}
+                                    roadmap-task-done
+                                {% endif %}"
+
+                            title="Toggle done"
+                        >
+
+                            {% if task.done %}
+                                ✓
+                            {% else %}
+                                ○
+                            {% endif %}
+
+                            {{ task.label }}
+
+                        </button>
+
+                    </form>
+
+                    <form
+                        method="post"
+                        action="{{ url_for('admin.roadmap_card_edit', card_id=editing_card.id) }}"
+                        class="roadmap-task-form"
+                    >
+
+                        <input type="hidden" name="action" value="delete_task">
+                        <input type="hidden" name="task_id" value="{{ task.id }}">
+
+                        <button
+                            type="submit"
+                            class="admin-button admin-button-small admin-button-danger"
+                            title="Remove task"
+                        >
+                            ×
+                        </button>
+
+                    </form>
+
+                </li>
+
+                {% endfor %}
+
+            </ul>
+
+            {% else %}
+
+            <p class="admin-empty-text">
+                No checklist items yet.
+            </p>
+
+            {% endif %}
+
+            <form
+                method="post"
+                action="{{ url_for('admin.roadmap_card_edit', card_id=editing_card.id) }}"
+                class="roadmap-task-add"
+            >
+
+                <input type="hidden" name="action" value="add_task">
+
+                <input
+                    type="text"
+                    name="task_label"
+                    placeholder="New checklist item…"
+                    maxlength="200"
+                    required
+                >
+
+                <button type="submit" class="admin-button admin-button-small">
+                    Add Task
+                </button>
+
+            </form>
+
+        </div>
+
+        {% endif %}
+
+    </section>
+
+    {% endif %}
+
+
+    {% if create_milestone_mode or editing_milestone %}
+
+    <!-- ==================================================== -->
+    <!-- MILESTONE FORM -->
+    <!-- ==================================================== -->
+
+    <section class="admin-card" id="milestone-form">
+
+        <div class="admin-card-header">
+
+            <h2>
+
+                {% if editing_milestone and not create_milestone_mode %}
+                    Edit Milestone #{{ editing_milestone.id }}
+                {% else %}
+                    Create Milestone
+                {% endif %}
+
+            </h2>
+
+        </div>
+
+        <form
+            method="post"
+            action="{% if editing_milestone and not create_milestone_mode %}
+                {{ url_for('admin.roadmap_milestone_edit', milestone_id=editing_milestone.id) }}
+            {% else %}
+                {{ url_for('admin.roadmap_milestone_create') }}
+            {% endif %}"
+            class="admin-form"
+        >
+
+            <div class="admin-form-group">
+
+                <label for="milestone-name">Name</label>
+
+                <input
+                    type="text"
+                    id="milestone-name"
+                    name="name"
+                    value="{{ editing_milestone.name if editing_milestone else '' }}"
+                    required
+                    maxlength="100"
+                    placeholder="e.g. Battle System"
+                >
+
+            </div>
+
+            <div class="admin-form-group">
+
+                <label for="milestone-description">Description</label>
+
+                <input
+                    type="text"
+                    id="milestone-description"
+                    name="description"
+                    value="{{ editing_milestone.description if editing_milestone else '' }}"
+                    maxlength="200"
+                    placeholder="One-line summary shown on the public roadmap"
+                >
+
+            </div>
+
+            <div class="admin-form-actions">
+
+                <button type="submit" class="admin-button">
+
+                    {% if editing_milestone and not create_milestone_mode %}
+                        Save Milestone
+                    {% else %}
+                        Create Milestone
+                    {% endif %}
+
+                </button>
+
+                <a
+                    href="{{ url_for('admin.roadmap') }}"
+                    class="admin-button admin-button-secondary"
+                >
+                    Cancel
+                </a>
+
+            </div>
+
+        </form>
+
+        {% if editing_milestone and not create_milestone_mode %}
+
+        <form
+            method="post"
+            action="{{ url_for('admin.roadmap_milestone_edit', milestone_id=editing_milestone.id) }}"
+            onsubmit="return confirm('Delete this milestone and ALL its cards?');"
+        >
+
+            <input type="hidden" name="action" value="delete">
+
+            <button
+                type="submit"
+                class="admin-button admin-button-danger"
+            >
+                Delete Milestone
+            </button>
+
+        </form>
+
+        {% endif %}
+
+    </section>
+
+    {% endif %}
+
+
+    <!-- ==================================================== -->
+    <!-- BOARD -->
+    <!-- ==================================================== -->
+
+    <section class="admin-card">
+
+        <div class="admin-card-header">
+
+            <h2>Board</h2>
+
+            <p class="admin-muted-hint">
+                Drag cards between columns to change their status.
+            </p>
+
+        </div>
+
+        <div
+            class="roadmap-board roadmap-board-admin"
+            data-move-url-template="{{ url_for('admin.roadmap_card_move', card_id=0) }}"
+        >
+
+            {% for status in statuses %}
+
+            <div
+
+                class="roadmap-column roadmap-column-{{ status }} roadmap-drop-column"
+
+                data-status="{{ status }}"
+
+            >
+
+                <div class="roadmap-column-header">
+
+                    <h3>{{ status_labels[status] }}</h3>
+
+                    {% set column_count = namespace(n=0) %}
+
+                    {% for milestone in board.milestones %}
+
+                        {% for card in milestone.cards %}
+
+                            {% if card.status == status %}
+                                {% set column_count.n = column_count.n + 1 %}
+                            {% endif %}
+
+                        {% endfor %}
+
+                    {% endfor %}
+
+                    <span class="roadmap-column-count">
+                        {{ column_count.n }}
+                    </span>
+
+                </div>
+
+                <div class="roadmap-column-body">
+
+                    {% for milestone in board.milestones %}
+
+                        {% for card in milestone.cards %}
+
+                            {% if card.status == status %}
+
+                            <article
+
+                                class="roadmap-card roadmap-card-{{ card.priority }} roadmap-draggable"
+
+                                draggable="true"
+
+                                data-card-id="{{ card.id }}"
+
+                            >
+
+                                <div class="roadmap-card-milestone">
+                                    {{ milestone.name }}
+                                </div>
+
+                                <h4 class="roadmap-card-title">
+                                    {{ card.title }}
+                                </h4>
+
+                                {% if card.total_tasks %}
+
+                                <div class="roadmap-card-progress">
+
+                                    <div class="roadmap-progress-bar roadmap-progress-bar-small">
+
+                                        <div class="roadmap-progress-fill"
+
+                                            style="width:
+                                                {{ (100 * card.done_tasks / card.total_tasks) | round | int }}%;"
+
+                                        ></div>
+
+                                    </div>
+
+                                    <span class="roadmap-card-progress-text">
+                                        {{ card.done_tasks }}/{{ card.total_tasks }}
+                                    </span>
+
+                                </div>
+
+                                {% endif %}
+
+                                <div class="roadmap-card-admin-actions">
+
+                                    <a
+
+                                        href="{{ url_for('admin.roadmap_card_edit', card_id=card.id) }}"
+
+                                        class="admin-button admin-button-small"
+
+                                    >
+                                        Edit
+                                    </a>
+
+                                </div>
+
+                            </article>
+
+                            {% endif %}
+
+                        {% endfor %}
+
+                    {% endfor %}
+
+                </div>
+
+            </div>
+
+            {% endfor %}
+
+        </div>
+
+    </section>
+
+
+    <!-- ==================================================== -->
+    <!-- MILESTONES OVERVIEW -->
+    <!-- ==================================================== -->
+
+    <section class="admin-card">
+
+        <div class="admin-card-header">
+
+            <h2>Milestones</h2>
+
+        </div>
+
+        <div class="admin-table-wrapper">
+
+            <table class="admin-table">
+
+                <thead>
+
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Description</th>
+                        <th>Cards</th>
+                        <th>Actions</th>
+                    </tr>
+
+                </thead>
+
+                <tbody>
+
+                    {% for milestone in board.milestones %}
+
+                    <tr>
+
+                        <td>#{{ milestone.id }}</td>
+
+                        <td>
+                            <strong>{{ milestone.name }}</strong>
+                        </td>
+
+                        <td>{{ milestone.description or "—" }}</td>
+
+                        <td>{{ milestone.card_count }}</td>
+
+                        <td>
+
+                            <a
+
+                                href="{{ url_for('admin.roadmap_milestone_edit', milestone_id=milestone.id) }}"
+
+                                class="admin-button admin-button-small"
+
+                            >
+                                Edit
+                            </a>
+
+                        </td>
+
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </section>
+
+</div>
+
+<link
+    rel="stylesheet"
+    href="{{ url_for('admin.static', filename='css/roadmap.css') }}"
+>
+
+{% endblock %}
+
+
+{% block extra_scripts %}
+
+<script
+    src="{{ url_for('admin.static', filename='js/roadmap.js') }}"
+    defer
+></script>
+
+{% endblock %}

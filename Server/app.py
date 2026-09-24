@@ -71,6 +71,12 @@ from .news import (
     get_published_news,
 )
 
+from .roadmap import (
+    ensure_roadmap_tables,
+    get_board,
+    seed_roadmap,
+)
+
 from .pc_storage import (
     ensure_pc_schema,
 )
@@ -127,6 +133,10 @@ def create_app() -> Flask:
     # News is database-backed.
     ensure_news_table()
 
+    # The development roadmap is database-backed.
+    ensure_roadmap_tables()
+    seed_roadmap()
+
     # ========================================================
     # BLUEPRINT REGISTRATION
     # ========================================================
@@ -175,6 +185,24 @@ def create_app() -> Flask:
                 "status": "ok",
                 "game": "Krampus RPG",
             }
+        )
+
+    # ========================================================
+    # DEVELOPMENT ROADMAP (PUBLIC)
+    # ========================================================
+
+    @app.get("/roadmap")
+    def roadmap():
+        """
+        Public development roadmap — a living Kanban board showing what
+        the Krampus RPG team is working on. Editable by Webmasters in
+        the admin panel.
+        """
+        board = get_board()
+
+        return render_template(
+            "roadmap.html",
+            board=board,
         )
 
     # ========================================================

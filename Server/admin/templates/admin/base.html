@@ -81,6 +81,9 @@
                     <a href="{{ url_for('admin.news') }}" class="admin-nav-link {% if request.endpoint in ['admin.news', 'admin.news_create', 'admin.news_edit'] %}active{% endif %}">
                         <span>News Management</span>
                     </a>
+                    <a href="{{ url_for('admin.roadmap') }}" class="admin-nav-link {% if request.endpoint in ['admin.roadmap', 'admin.roadmap_card_create', 'admin.roadmap_card_edit', 'admin.roadmap_milestone_create', 'admin.roadmap_milestone_edit'] %}active{% endif %}">
+                        <span>Development Roadmap</span>
+                    </a>
                 </div>
                 {% endif %}
 

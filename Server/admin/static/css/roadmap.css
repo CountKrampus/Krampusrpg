@@ -1,0 +1,146 @@
+/* ============================================================
+   Krampus RPG Admin — Development Roadmap
+   Board-specific admin styling. The shared Kanban layout classes
+   (.roadmap-board, .roadmap-column, .roadmap-card, progress bars,
+   badges) live in Web/static/css/roadmap.css and are reused here.
+   ============================================================ */
+
+.roadmap-admin-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+/* Card drag affordances */
+
+.roadmap-draggable {
+    cursor: grab;
+}
+
+.roadmap-draggable:active {
+    cursor: grabbing;
+}
+
+.roadmap-card.roadmap-drag-over {
+    outline: 2px dashed var(--gold, #d5ad52);
+}
+
+.roadmap-drop-column {
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.roadmap-drop-column.roadmap-drop-target {
+    border-color: var(--gold, #d5ad52);
+    background: rgba(213, 173, 82, 0.06);
+}
+
+.roadmap-drop-column.roadmap-drop-hover {
+    border-color: var(--red-light, #a52f38);
+}
+
+.roadmap-column-count {
+    display: inline-block;
+    margin-left: 8px;
+    font-size: 11px;
+    color: var(--muted, #8a919c);
+    border: 1px solid var(--border, #2a3038);
+    border-radius: 999px;
+    padding: 1px 8px;
+}
+
+/* Per-card admin actions */
+
+.roadmap-card-admin-actions {
+    margin-top: 8px;
+    display: flex;
+    justify-content: flex-end;
+}
+
+/* ------------------------------------------------------------
+   Card / milestone forms
+   ------------------------------------------------------------ */
+
+.roadmap-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 20px;
+}
+
+@media (max-width: 800px) {
+    .roadmap-form-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ------------------------------------------------------------
+   Checklist editor (edit-card mode)
+   ------------------------------------------------------------ */
+
+.roadmap-task-editor {
+    border-top: 1px solid var(--border, #2a3038);
+    margin-top: 20px;
+    padding-top: 16px;
+}
+
+.roadmap-task-editor h3 {
+    margin: 0 0 10px;
+    font-size: 15px;
+}
+
+.roadmap-task-list {
+    list-style: none;
+    margin: 0 0 12px;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.roadmap-task-list li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.roadmap-task-form {
+    display: flex;
+    align-items: center;
+}
+
+.roadmap-task-toggle {
+    background: none;
+    border: none;
+    color: var(--text, #e6e9ee);
+    font-size: 13px;
+    text-align: left;
+    padding: 2px 0;
+    cursor: pointer;
+}
+
+.roadmap-task-toggle:hover {
+    color: var(--gold, #d5ad52);
+}
+
+.roadmap-task-toggle.roadmap-task-done {
+    color: var(--muted, #8a919c);
+    text-decoration: line-through;
+}
+
+.roadmap-task-add {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.roadmap-task-add input[type="text"] {
+    flex: 1;
+    max-width: 420px;
+}
+
+/* Column header inside the admin board */
+
+.roadmap-board-admin .roadmap-column-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}

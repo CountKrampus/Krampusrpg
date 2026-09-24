@@ -1,0 +1,317 @@
+/* ============================================================
+   Krampus RPG — Development Roadmap
+   Public board styling. Uses the shared theme variables from
+   style.css (--panel, --border, --text, --muted, --red, ...).
+   ============================================================ */
+
+.roadmap-page {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.roadmap-header-card .card-header {
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 15px;
+    padding-bottom: 15px;
+}
+
+.roadmap-header-card h1 {
+    margin: 0 0 5px;
+}
+
+.roadmap-intro p {
+    margin: 0 0 8px;
+}
+
+/* ------------------------------------------------------------
+   Milestone progress rows
+   ------------------------------------------------------------ */
+
+.roadmap-progress-list {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.roadmap-progress-row {
+    display: grid;
+    grid-template-columns: 220px 1fr 60px;
+    align-items: center;
+    gap: 15px;
+}
+
+.roadmap-progress-label strong {
+    color: var(--text);
+}
+
+.roadmap-progress-label .muted {
+    font-size: 12px;
+}
+
+.roadmap-progress-bar {
+    position: relative;
+    height: 14px;
+    background: var(--bg-light, #0d1013);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.roadmap-progress-bar-small {
+    height: 8px;
+}
+
+.roadmap-progress-fill {
+    height: 100%;
+    background: linear-gradient(
+        90deg,
+        var(--red-dark),
+        var(--red-light)
+    );
+    border-radius: 999px;
+    transition: width 0.4s ease;
+}
+
+.roadmap-progress-fill.roadmap-progress-half {
+    background: linear-gradient(
+        90deg,
+        #6b5a2b,
+        var(--gold)
+    );
+}
+
+.roadmap-progress-fill.roadmap-progress-complete {
+    background: linear-gradient(
+        90deg,
+        #2f5c40,
+        #5ea377
+    );
+}
+
+.roadmap-progress-value {
+    text-align: right;
+    font-weight: bold;
+    color: var(--gold);
+}
+
+/* ------------------------------------------------------------
+   Kanban board
+   ------------------------------------------------------------ */
+
+.roadmap-board {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(220px, 1fr));
+    gap: 14px;
+
+    overflow-x: auto;
+    padding-bottom: 6px;
+}
+
+.roadmap-column {
+    background: var(--bg-light, #0d1013);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+
+    min-width: 220px;
+
+    display: flex;
+    flex-direction: column;
+}
+
+.roadmap-column-header {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+}
+
+.roadmap-column-header h3 {
+    margin: 0;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+}
+
+.roadmap-column-in_development .roadmap-column-header h3 {
+    color: var(--gold);
+}
+
+.roadmap-column-completed .roadmap-column-header h3 {
+    color: #5ea377;
+}
+
+.roadmap-column-body {
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.roadmap-column-empty {
+    color: var(--muted);
+    font-size: 12px;
+    text-align: center;
+    padding: 18px 6px;
+    border: 1px dashed var(--border);
+    border-radius: 5px;
+}
+
+/* ------------------------------------------------------------
+   Cards
+   ------------------------------------------------------------ */
+
+.roadmap-card {
+    background: linear-gradient(180deg, #1a2027, #13171c);
+    border: 1px solid var(--border);
+    border-left-width: 3px;
+    border-radius: 5px;
+    padding: 10px 12px;
+}
+
+.roadmap-card-critical {
+    border-left-color: var(--red-light);
+}
+
+.roadmap-card-high {
+    border-left-color: var(--gold);
+}
+
+.roadmap-card-medium {
+    border-left-color: var(--blue);
+}
+
+.roadmap-card-low {
+    border-left-color: var(--border-light);
+}
+
+.roadmap-card-milestone {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin-bottom: 4px;
+}
+
+.roadmap-card-title {
+    margin: 0 0 6px;
+    font-size: 15px;
+    color: var(--text);
+}
+
+.roadmap-card-desc {
+    margin: 0 0 8px;
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.roadmap-card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-bottom: 6px;
+}
+
+.roadmap-badge {
+    display: inline-block;
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.roadmap-badge-critical {
+    color: #f1b7bb;
+    border-color: var(--red-light);
+    background: rgba(165, 47, 56, 0.25);
+}
+
+.roadmap-badge-high {
+    color: var(--gold);
+    border-color: var(--gold);
+    background: rgba(213, 173, 82, 0.12);
+}
+
+.roadmap-badge-low {
+    color: var(--muted);
+}
+
+.roadmap-badge-sprint {
+    color: var(--blue);
+    border-color: var(--blue);
+}
+
+.roadmap-badge-assignee {
+    color: var(--text);
+}
+
+/* Checklist */
+
+.roadmap-card-tasks ul {
+    list-style: none;
+    margin: 0 0 8px;
+    padding: 0;
+}
+
+.roadmap-card-tasks li {
+    font-size: 12px;
+    color: var(--text);
+    padding: 2px 0 2px 20px;
+    position: relative;
+}
+
+.roadmap-card-tasks li::before {
+    content: "[ ]";
+    position: absolute;
+    left: 0;
+    color: var(--muted);
+}
+
+.roadmap-card-tasks li.roadmap-task-done {
+    color: var(--muted);
+    text-decoration: line-through;
+}
+
+.roadmap-card-tasks li.roadmap-task-done::before {
+    content: "[x]";
+    color: #5ea377;
+}
+
+/* Card progress */
+
+.roadmap-card-progress {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.roadmap-card-progress .roadmap-progress-bar {
+    flex: 1;
+}
+
+.roadmap-card-progress-text {
+    font-size: 11px;
+    color: var(--muted);
+    white-space: nowrap;
+}
+
+/* ------------------------------------------------------------
+   Responsive
+   ------------------------------------------------------------ */
+
+@media (max-width: 1100px) {
+    .roadmap-board {
+        grid-template-columns: repeat(5, 240px);
+    }
+}
+
+@media (max-width: 700px) {
+    .roadmap-progress-row {
+        grid-template-columns: 1fr;
+        gap: 6px;
+    }
+
+    .roadmap-progress-value {
+        text-align: left;
+    }
+}

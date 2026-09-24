@@ -1,0 +1,270 @@
+{% extends "base.html" %}
+
+{% block title %}Development Roadmap{% endblock %}
+
+{% block content %}
+
+<div class="roadmap-page">
+
+    <section class="card roadmap-header-card">
+
+        <div class="card-header">
+            <div>
+                <span class="section-kicker">KRAMPUS RPG</span>
+                <h1>Development Roadmap</h1>
+            </div>
+        </div>
+
+        <div class="roadmap-intro">
+
+            <p>
+                A living view of what the Krampus RPG team is building.
+                The board below is updated by the team as features move
+                from idea to release.
+            </p>
+
+            <p class="muted">
+                Columns: Backlog &rarr; Planned &rarr; In Development
+                &rarr; Testing &rarr; Completed.
+            </p>
+
+        </div>
+
+    </section>
+
+
+    <!-- MILESTONE PROGRESS -->
+    <section class="card roadmap-progress-card">
+
+        <div class="card-header">
+            <div>
+                <span class="section-kicker">PROGRESS</span>
+                <h2>Milestones</h2>
+            </div>
+        </div>
+
+        <div class="roadmap-progress-list">
+
+            {% for milestone in board.milestones %}
+
+            <div class="roadmap-progress-row">
+
+                <div class="roadmap-progress-label">
+
+                    <strong>{{ milestone.name }}</strong>
+
+                    {% if milestone.description %}
+                    <span class="muted">
+                        — {{ milestone.description }}
+                    </span>
+                    {% endif %}
+
+                </div>
+
+                <div class="roadmap-progress-bar"
+
+                    role="progressbar"
+                    aria-valuenow="{{ milestone.progress }}"
+                    aria-valuemin="0"
+                    aria-valuemax="100"
+                >
+
+                    <div class="roadmap-progress-fill
+
+                        {% if milestone.progress >= 100 %}
+                            roadmap-progress-complete
+                        {% elif milestone.progress >= 50 %}
+                            roadmap-progress-half
+                        {% endif %}"
+
+                        style="width: {{ milestone.progress }}%;"
+                    ></div>
+
+                </div>
+
+                <span class="roadmap-progress-value">
+                    {{ milestone.progress }}%
+                </span>
+
+            </div>
+
+            {% endfor %}
+
+        </div>
+
+    </section>
+
+
+    <!-- KANBAN BOARD -->
+    <section class="card roadmap-board-card">
+
+        <div class="card-header">
+            <div>
+                <span class="section-kicker">KANBAN</span>
+                <h2>The Board</h2>
+            </div>
+        </div>
+
+        <div class="roadmap-board">
+
+            {% for status in board.statuses %}
+
+            <div class="roadmap-column roadmap-column-{{ status }}">
+
+                <div class="roadmap-column-header">
+
+                    <h3>{{ board.status_labels[status] }}</h3>
+
+                </div>
+
+                <div class="roadmap-column-body">
+
+                    {% set column_empty = true %}
+
+                    {% for milestone in board.milestones %}
+
+                        {% for card in milestone.cards %}
+
+                            {% if card.status == status %}
+
+                                {% set column_empty = false %}
+
+                                <article class="roadmap-card
+
+                                    roadmap-card-{{ card.priority }}"
+
+                                    data-card-id="{{ card.id }}"
+                                >
+
+                                    <div class="roadmap-card-milestone">
+                                        {{ milestone.name }}
+                                    </div>
+
+                                    <h4 class="roadmap-card-title">
+                                        {{ card.title }}
+                                    </h4>
+
+                                    {% if card.description %}
+                                    <p class="roadmap-card-desc">
+                                        {{ card.description }}
+                                    </p>
+                                    {% endif %}
+
+                                    <div class="roadmap-card-meta">
+
+                                        {% if card.priority == 'critical' %}
+                                        <span class="roadmap-badge roadmap-badge-critical">
+                                            Critical
+                                        </span>
+                                        {% elif card.priority == 'high' %}
+                                        <span class="roadmap-badge roadmap-badge-high">
+                                            High
+                                        </span>
+                                        {% elif card.priority == 'low' %}
+                                        <span class="roadmap-badge roadmap-badge-low">
+                                            Low
+                                        </span>
+                                        {% else %}
+                                        <span class="roadmap-badge">
+                                            Medium
+                                        </span>
+                                        {% endif %}
+
+                                        {% if card.sprint %}
+                                        <span class="roadmap-badge roadmap-badge-sprint">
+                                            {{ card.sprint }}
+                                        </span>
+                                        {% endif %}
+
+                                        {% if card.assignee %}
+                                        <span class="roadmap-badge roadmap-badge-assignee">
+                                            {{ card.assignee }}
+                                        </span>
+                                        {% endif %}
+
+                                    </div>
+
+                                    {% if card.total_tasks %}
+
+                                    <div class="roadmap-card-tasks">
+
+                                        <ul>
+
+                                            {% for task in card.tasks %}
+
+                                            <li
+
+                                                {% if task.done %}
+                                                    class="roadmap-task-done"
+                                                {% endif %}
+
+                                            >
+                                                {{ task.label }}
+                                            </li>
+
+                                            {% endfor %}
+
+                                        </ul>
+
+                                    </div>
+
+                                    <div class="roadmap-card-progress">
+
+                                        <div class="roadmap-progress-bar roadmap-progress-bar-small">
+
+                                            <div class="roadmap-progress-fill"
+
+                                                style="width:
+
+                                                    {% if card.total_tasks %}
+                                                        {{ (100 * card.done_tasks / card.total_tasks) | round | int }}
+                                                    {% else %}
+                                                        0
+                                                    {% endif %}%;"
+
+                                            ></div>
+
+                                        </div>
+
+                                        <span class="roadmap-card-progress-text">
+                                            {{ card.done_tasks }}/{{ card.total_tasks }}
+                                        </span>
+
+                                    </div>
+
+                                    {% endif %}
+
+                                </article>
+
+                            {% endif %}
+
+                        {% endfor %}
+
+                    {% endfor %}
+
+                    {% if column_empty %}
+
+                    <div class="roadmap-column-empty">
+                        Nothing here yet.
+                    </div>
+
+                    {% endif %}
+
+                </div>
+
+            </div>
+
+            {% endfor %}
+
+        </div>
+
+    </section>
+
+</div>
+
+<link
+    rel="stylesheet"
+    href="{{ url_for('static', filename='css/roadmap.css') }}"
+>
+
+{% endblock %}
