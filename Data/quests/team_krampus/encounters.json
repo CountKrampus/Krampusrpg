@@ -1,0 +1,228 @@
+{
+  "organization": "team_krampus",
+  "emblem": "A horned Pokémon skull surrounded by six pointed icicles",
+  "motto": "The world has forgotten what fear is.",
+  "philosophy": "For centuries, humans have made this world comfortable — walls, cities, rules — and every generation the Pokémon grew weaker. Team Krampus wants to restore the old balance, even if it means forcibly evolving, manipulating, and experimenting on Pokémon.",
+  "hierarchy": {
+    "director": ["director_krampus"],
+    "high_command": [],
+    "research_division": ["krampus_archaeologist"],
+    "field_command": ["lieutenant_noelle"],
+    "enforcers": ["krampus_enforcer", "krampus_senior_grunt"],
+    "scouts": ["krampus_scout"],
+    "grunts": ["krampus_recruit"],
+    "keepers": ["krampus_keeper"],
+    "handlers": ["krampus_handler"]
+  },
+  "npcs": {
+    "krampus_recruit": {
+      "id": "krampus_recruit",
+      "name": "Krampus Recruit",
+      "organization": "team_krampus",
+      "rank": "grunt",
+      "battle_type": "trainer",
+      "intro": "\"You shouldn't be here.\"",
+      "defeat": "\"This isn't over. The Boss will hear about you.\"",
+      "team": [
+        {"species": "zubat", "level": 5}
+      ]
+    },
+    "krampus_scout": {
+      "id": "krampus_scout",
+      "name": "Krampus Scout",
+      "organization": "team_krampus",
+      "rank": "scout",
+      "battle_type": "trainer",
+      "intro": "\"Those tracks? You saw nothing.\"",
+      "defeat": "\"Keep following them. See where it gets you.\"",
+      "team": [
+        {"species": "zubat", "level": 6},
+        {"species": "sneasel", "level": 7}
+      ]
+    },
+    "krampus_handler": {
+      "id": "krampus_handler",
+      "name": "Krampus Handler",
+      "organization": "team_krampus",
+      "rank": "handler",
+      "battle_type": "trainer",
+      "intro": "\"Get away from those cages.\"",
+      "defeat": "\"You think we're hurting them? We're saving them from what comes next.\"",
+      "team": [
+        {"species": "poochyena", "level": 7},
+        {"species": "zubat", "level": 7},
+        {"species": "sneasel", "level": 8}
+      ]
+    },
+    "krampus_archaeologist": {
+      "id": "krampus_archaeologist",
+      "name": "Krampus Archaeologist",
+      "organization": "team_krampus",
+      "rank": "research_division",
+      "battle_type": "trainer",
+      "intro": "\"This shrine predates every village in the region. It belongs to us.\"",
+      "defeat": "\"Too late. The relic is already gone.\"",
+      "team": [
+        {"species": "yamask", "level": 8},
+        {"species": "sneasel", "level": 9},
+        {"species": "murkrow", "level": 9}
+      ]
+    },
+    "lieutenant_noelle": {
+      "id": "lieutenant_noelle",
+      "name": "Lieutenant Noelle",
+      "organization": "team_krampus",
+      "rank": "field_command",
+      "battle_type": "commander",
+      "intro": "\"You're stronger than I expected. Let's see how strong.\"",
+      "defeat": "\"Interesting... You're going to become a problem.\"",
+      "escapes": true,
+      "team": [
+        {"species": "sneasel", "level": 10},
+        {"species": "houndour", "level": 10},
+        {"species": "murkrow", "level": 11},
+        {"species": "froslass", "level": 12}
+      ]
+    },
+    "krampus_keeper": {
+      "id": "krampus_keeper",
+      "name": "Krampus Keeper",
+      "organization": "team_krampus",
+      "rank": "keeper",
+      "battle_type": "trainer",
+      "intro": "\"The children are here because they want to be.\"",
+      "defeat": "\"We don't steal children. We teach them what your villages refuse to.\"",
+      "team": [
+        {"species": "mightyena", "level": 11},
+        {"species": "golbat", "level": 11},
+        {"species": "sneasel", "level": 12},
+        {"species": "houndour", "level": 12}
+      ]
+    },
+    "krampus_grunt_a": {
+      "id": "krampus_grunt_a",
+      "name": "Krampus Grunt",
+      "organization": "team_krampus",
+      "rank": "grunt",
+      "battle_type": "trainer",
+      "intro": "\"The town goes dark tonight!\"",
+      "defeat": "\"It doesn't matter — the others are already inside!\"",
+      "team": [
+        {"species": "houndour", "level": 12},
+        {"species": "zubat", "level": 12}
+      ]
+    },
+    "krampus_grunt_b": {
+      "id": "krampus_grunt_b",
+      "name": "Krampus Grunt",
+      "organization": "team_krampus",
+      "rank": "grunt",
+      "battle_type": "trainer",
+      "intro": "\"The Boss wants the bell. Don't get in the way.\"",
+      "defeat": "\"You're too late. It's already ringing.\"",
+      "team": [
+        {"species": "poochyena", "level": 12},
+        {"species": "sneasel", "level": 13},
+        {"species": "murkrow", "level": 13}
+      ]
+    },
+    "krampus_enforcer": {
+      "id": "krampus_enforcer",
+      "name": "Krampus Enforcer",
+      "organization": "team_krampus",
+      "rank": "enforcer",
+      "battle_type": "trainer",
+      "intro": "\"Nobody leaves the plaza.\"",
+      "defeat": "\"The blackout was never the point. You've lost already.\"",
+      "team": [
+        {"species": "golbat", "level": 13},
+        {"species": "houndour", "level": 13},
+        {"species": "mightyena", "level": 14},
+        {"species": "froslass", "level": 14}
+      ]
+    },
+    "krampus_grunt_keep_a": {
+      "id": "krampus_grunt_keep_a",
+      "name": "Krampus Grunt",
+      "organization": "team_krampus",
+      "rank": "grunt",
+      "battle_type": "trainer",
+      "intro": "\"An intruder in the Keep!\"",
+      "defeat": "\"The corridors will swallow you.\"",
+      "team": [
+        {"species": "zubat", "level": 14},
+        {"species": "poochyena", "level": 14}
+      ]
+    },
+    "krampus_grunt_keep_b": {
+      "id": "krampus_grunt_keep_b",
+      "name": "Krampus Grunt",
+      "organization": "team_krampus",
+      "rank": "grunt",
+      "battle_type": "trainer",
+      "intro": "\"You've come further than the last one.\"",
+      "defeat": "\"The Director will finish you.\"",
+      "team": [
+        {"species": "sneasel", "level": 14},
+        {"species": "houndour", "level": 15},
+        {"species": "murkrow", "level": 15}
+      ]
+    },
+    "krampus_grunt_keep_c": {
+      "id": "krampus_grunt_keep_c",
+      "name": "Krampus Grunt",
+      "organization": "team_krampus",
+      "rank": "grunt",
+      "battle_type": "trainer",
+      "intro": "\"The lab is off-limits!\"",
+      "defeat": "\"Everything down there is beyond you.\"",
+      "team": [
+        {"species": "golbat", "level": 15},
+        {"species": "mightyena", "level": 15},
+        {"species": "sneasel", "level": 16},
+        {"species": "froslass", "level": 16}
+      ]
+    },
+    "krampus_senior_grunt": {
+      "id": "krampus_senior_grunt",
+      "name": "Krampus Senior Grunt",
+      "organization": "team_krampus",
+      "rank": "enforcer",
+      "battle_type": "trainer",
+      "intro": "\"Beyond this door is the Director. Turn back.\"",
+      "defeat": "\"So be it. Face him, then. If you can.\"",
+      "team": [
+        {"species": "houndoom", "level": 16},
+        {"species": "weavile", "level": 16},
+        {"species": "golbat", "level": 16},
+        {"species": "froslass", "level": 17},
+        {"species": "murkrow", "level": 17}
+      ]
+    },
+    "director_krampus": {
+      "id": "director_krampus",
+      "name": "Director Krampus",
+      "organization": "team_krampus",
+      "rank": "director",
+      "battle_type": "boss",
+      "intro": "\"Then you have chosen the easy path.\"",
+      "defeat": "\"You think you've stopped us? You've only rung the first bell.\"",
+      "escapes": true,
+      "boss_mechanic": {
+        "name": "Krampus Bell",
+        "trigger": "at_50_percent_hp",
+        "effect": "winters_wrath",
+        "description": "The bell activates. Every remaining Pokémon receives Winter's Wrath: Attack up, Speed up, critical-hit chance up — but Defense down.",
+        "buffs": {"attack": 1, "speed": 1, "crit_chance": 0.1, "defense": -1}
+      },
+      "team": [
+        {"species": "mightyena", "level": 16},
+        {"species": "golbat", "level": 16},
+        {"species": "houndoom", "level": 17},
+        {"species": "weavile", "level": 17},
+        {"species": "froslass", "level": 18},
+        {"species": "krampus_houndoom", "level": 20, "variant": "krampus"}
+      ]
+    }
+  }
+}

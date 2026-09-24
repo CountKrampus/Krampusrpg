@@ -1,0 +1,187 @@
+{% macro story_page() %}
+
+<div class="story-page">
+
+    <section class="card world-header-card">
+
+        <div>
+            <span class="world-kicker">KRAMPUS RPG</span>
+            <h1>Story Adventure</h1>
+            <p>
+                Follow the main quest lines. Battles scale from lone
+                grunts to six-Pokémon bosses — and Team Krampus is
+                only the beginning.
+            </p>
+        </div>
+
+        <div class="world-ball-count">
+            <span>QUEST LINES</span>
+            <strong>{{ questlines | length }}</strong>
+            <small>available</small>
+        </div>
+
+    </section>
+
+    {% for line in questlines %}
+
+    <section class="card story-line-card">
+
+        <header class="story-line-header">
+            <div>
+                <span class="story-line-tag">QUEST LINE {{ loop.index }}</span>
+                <h2>{{ line.title }}</h2>
+            </div>
+
+            <div class="story-line-progress">
+                <strong>{{ line.completed_count }} / {{ line.quests | length }}</strong>
+                <small>quests complete</small>
+            </div>
+        </header>
+
+        {% if line.premise %}
+        <p class="story-premise">{{ line.premise }}</p>
+        {% endif %}
+
+        <div class="story-line-meta">
+            <span><strong>{{ line.totals.quests }}</strong> quests</span>
+            <span><strong>{{ line.totals.battles }}</strong> NPC battles</span>
+            <span>Teams scale up to <strong>{{ line.totals.max_team_size }}</strong> Pokémon</span>
+            {% if line.theme %}
+            <span>Theme: <em>{{ line.theme }}</em></span>
+            {% endif %}
+        </div>
+
+        {% if line.key_npcs %}
+        <div class="story-npc-row">
+            {% for npc_id in line.key_npcs %}
+            {% set npc = quest_npc(line.id, npc_id) %}
+            {% if npc %}
+            <div class="story-npc-chip rank-{{ npc.rank }}">
+                <strong>{{ npc.name }}</strong>
+                <small>{{ npc.rank | replace('_', ' ') | title }} · {{ npc.team | length }} Pokémon</small>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <ol class="story-quest-chain">
+
+            {% for quest in line.quests %}
+
+            <li class="story-quest
+                {% if quest.is_completed %}state-completed{% elif quest.is_active %}state-active{% elif quest.is_locked %}state-locked{% else %}state-open{% endif %}">
+
+                <div class="story-quest-marker">
+                    {% if quest.is_completed %}✓{% elif quest.is_locked %}🔒{% else %}{{ quest.number }}{% endif %}
+                </div>
+
+                <div class="story-quest-body">
+
+                    <h3>
+                        {{ quest.name }}
+                        {% if quest.is_completed %}
+                        <span class="story-badge completed">Completed</span>
+                        {% elif quest.is_active %}
+                        <span class="story-badge active">In Progress</span>
+                        {% elif quest.is_locked %}
+                        <span class="story-badge locked">Locked</span>
+                        {% else %}
+                        <span class="story-badge open">Available</span>
+                        {% endif %}
+                    </h3>
+
+                    <p class="story-quest-location">
+                        📍 {{ quest.location }}
+                        · {{ quest.type | replace('_', ' ') | title }}
+                    </p>
+
+                    {% if not quest.is_locked %}
+                    <p class="story-quest-objective">{{ quest.objective }}</p>
+
+                    {% if quest.battles %}
+                    <div class="story-battle-row">
+                        {% for b in quest.battles %}
+                        <div class="story-battle-chip
+                            {% if b.npc.battle_type == 'boss' %}boss{% elif b.npc.battle_type == 'commander' %}commander{% endif %}">
+                            <strong>{{ b.npc.name }}</strong>
+                            <small>
+                                {{ b.team_size }} Pokémon
+                                {% if b.escapes %} · escapes{% endif %}
+                                {% if b.boss_mechanic %} · {{ b.boss_mechanic.name }}{% endif %}
+                            </small>
+                            <ul class="story-battle-team">
+                                {% for mon in b.npc.team %}
+                                <li>
+                                    {{ mon.species | replace('_', ' ') | title }}
+                                    <span>Lv. {{ mon.level }}</span>
+                                    {% if mon.variant and mon.variant != 'normal' %}
+                                    <em class="story-variant-tag">{{ mon.variant | title }}</em>
+                                    {% endif %}
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    {% if quest.rewards %}
+                    <p class="story-quest-rewards">
+                        Rewards:
+                        {% if quest.rewards.money %}💰 {{ quest.rewards.money }} Pokécoins{% endif %}
+                        {% if quest.rewards.xp %} · ✨ {{ quest.rewards.xp }} XP{% endif %}
+                        {% if quest.rewards['items'] %}
+                            {% for it in quest.rewards['items'] %} · 🎒 {{ it.quantity }}× {{ it.id | replace('_', ' ') | title }}{% endfor %}
+                        {% endif %}
+                        {% if quest.rewards['quest_items'] %}
+                            {% for qi in quest.rewards['quest_items'] %} · 🔑 {{ qi | replace('_', ' ') | title }}{% endfor %}
+                        {% endif %}
+                        {% if quest.rewards.pokemon_reward %}
+                            · 🎁 {{ quest.rewards.pokemon_reward.species | default('Bonus Pokémon') | replace('_', ' ') | title }}
+                            {% if quest.rewards.pokemon_reward.variant and quest.rewards.pokemon_reward.variant != 'normal' %}
+                            ({{ quest.rewards.pokemon_reward.variant | title }} Form)
+                            {% endif %}
+                        {% endif %}
+                    </p>
+                    {% endif %}
+
+                    {% if quest.boss_mechanic %}
+                    <p class="story-boss-mechanic">
+                        ⚠️ <strong>{{ quest.boss_mechanic.name }}</strong> — {{ quest.boss_mechanic.description }}
+                    </p>
+                    {% endif %}
+
+                    {% else %}
+                    <p class="story-quest-locked">
+                        Complete the previous quests to unlock this chapter.
+                    </p>
+                    {% endif %}
+
+                </div>
+            </li>
+
+            {% endfor %}
+
+        </ol>
+
+    </section>
+
+    {% else %}
+
+    <section class="card">
+        <h2>No quest lines yet</h2>
+        <p>Check back soon — the story is still being written.</p>
+    </section>
+
+    {% endfor %}
+
+</div>
+
+{% endmacro %}
+
+{% block title %}Story Adventure - Krampus RPG{% endblock %}
+
+{% block content %}{{ story_page() }}{% endblock %}
+
+{% block public_content %}{{ story_page() }}{% endblock %}

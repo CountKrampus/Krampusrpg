@@ -1,0 +1,23 @@
+{
+  "id": "tk_010",
+  "number": 10,
+  "slug": "krampus_fortress",
+  "name": "The Fortress",
+  "questline": "team_krampus",
+  "location": "Krampus Keep",
+  "type": "dungeon",
+  "battles": [
+    {"npc": "krampus_grunt_keep_a", "team_size": 2},
+    {"npc": "krampus_grunt_keep_b", "team_size": 3},
+    {"npc": "krampus_grunt_keep_c", "team_size": 4},
+    {"npc": "krampus_senior_grunt", "team_size": 5}
+  ],
+  "objective": "Krampus Keep is the first proper Team Krampus dungeon: frozen corridors, prison cells, laboratories, ancient ruins, storage rooms, and battle chambers. Fight through to the central chamber.",
+  "intro": "The fortress is carved into the mountain itself. Something older than Team Krampus sleeps beneath its foundations.",
+  "dialogue": [
+    "Krampus Senior Grunt: \"Beyond this door is the Director. Turn back.\"",
+    "Krampus Senior Grunt (defeated): \"So be it. Face him, then. If you can.\""
+  ],
+  "requirements": ["tk_009"],
+  "rewards": {"money": 1500, "xp": 2500}
+}

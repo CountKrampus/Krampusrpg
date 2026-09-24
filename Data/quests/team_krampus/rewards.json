@@ -1,0 +1,59 @@
+{
+  "questline": "team_krampus",
+  "item_rewards": {
+    "quest_001": {"items": [{"id": "poke_ball", "quantity": 5}, {"id": "potion", "quantity": 3}], "money": 300},
+    "quest_002": {"items": [{"id": "potion", "quantity": 2}], "money": 250, "quest_items": ["team_krampus_insignia"]},
+    "quest_003": {"money": 400},
+    "quest_004": {"money": 500},
+    "quest_005": {"money": 600},
+    "quest_006": {"money": 1200, "quest_items": ["krampus_fragment"]},
+    "quest_007": {"money": 800},
+    "quest_008": {"items": [{"id": "super_potion", "quantity": 2}], "money": 900},
+    "quest_009": {"money": 1000},
+    "quest_010": {"money": 1500},
+    "quest_011": {"money": 2000},
+    "quest_012": {"money": 5000, "quest_items": ["winterheart_shard"]}
+  },
+  "pokemon_rewards": {
+    "quest_003": {
+      "type": "marked_pokemon",
+      "description": "A special Pokémon with a temporary Krampus Mark.",
+      "pool": ["pikachu"],
+      "variant": "normal",
+      "level": 8
+    },
+    "quest_004": {
+      "type": "choice",
+      "description": "One of the freed Pokémon chooses to remain with the player. Small chance of a Krampus Variant.",
+      "pool": ["poochyena", "sneasel", "zubat"],
+      "variant_chance": {"variant": "krampus", "odds": 10},
+      "level": 9
+    },
+    "quest_012": {
+      "type": "reward_encounter",
+      "description": "Director Krampus's signature Pokémon, left behind when he fled.",
+      "species": "krampus_houndoom",
+      "variant": "krampus",
+      "level": 20,
+      "ability": "flash_fire_pale",
+      "moves": ["ember", "bite", "howl", "ice_fang"]
+    }
+  },
+  "quest_items": {
+    "team_krampus_insignia": {
+      "id": "team_krampus_insignia",
+      "name": "Team Krampus Insignia",
+      "description": "A black-and-red emblem: a horned Pokémon skull ringed by six pointed icicles. It was being used to mark certain Pokémon."
+    },
+    "krampus_fragment": {
+      "id": "krampus_fragment",
+      "name": "Krampus Fragment",
+      "description": "A shard of the ancient Winterheart relic. It is unnaturally cold and hums faintly in the dark."
+    },
+    "winterheart_shard": {
+      "id": "winterheart_shard",
+      "name": "Winterheart Shard",
+      "description": "One piece of the seal that holds something ancient beneath Frostpine. When the six bells ring, the heart will remember."
+    }
+  }
+}

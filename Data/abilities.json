@@ -1,42 +1,102 @@
 [
-    {
-        "id": "overgrow",
-        "name": "Overgrow",
-        "description": "Powers up Grass-type moves when HP is low."
-    },
-    {
-        "id": "blaze",
-        "name": "Blaze",
-        "description": "Powers up Fire-type moves when HP is low."
-    },
-    {
-        "id": "torrent",
-        "name": "Torrent",
-        "description": "Powers up Water-type moves when HP is low."
-    },
-    {
-        "id": "static",
-        "name": "Static",
-        "description": "May paralyze an opponent that makes contact."
-    },
-    {
-        "id": "run_away",
-        "name": "Run Away",
-        "description": "Enables a sure getaway from wild Pokémon."
-    },
-    {
-        "id": "flash_fire",
-        "name": "Flash Fire",
-        "description": "Powers up Fire-type moves hit by fire."
-    },
-    {
-        "id": "water_absorb",
-        "name": "Water Absorb",
-        "description": "Restores HP when hit by Water-type moves."
-    },
-    {
-        "id": "volt_absorb",
-        "name": "Volt Absorb",
-        "description": "Restores HP when hit by Electric-type moves."
-    }
+  {
+    "id": "overgrow",
+    "name": "Overgrow",
+    "description": "Powers up Grass-type moves when HP is low."
+  },
+  {
+    "id": "blaze",
+    "name": "Blaze",
+    "description": "Powers up Fire-type moves when HP is low."
+  },
+  {
+    "id": "torrent",
+    "name": "Torrent",
+    "description": "Powers up Water-type moves when HP is low."
+  },
+  {
+    "id": "static",
+    "name": "Static",
+    "description": "May paralyze an opponent that makes contact."
+  },
+  {
+    "id": "run_away",
+    "name": "Run Away",
+    "description": "Enables a sure getaway from wild Pokémon."
+  },
+  {
+    "id": "flash_fire",
+    "name": "Flash Fire",
+    "description": "Powers up Fire-type moves hit by fire."
+  },
+  {
+    "id": "water_absorb",
+    "name": "Water Absorb",
+    "description": "Restores HP when hit by Water-type moves."
+  },
+  {
+    "id": "volt_absorb",
+    "name": "Volt Absorb",
+    "description": "Restores HP when hit by Electric-type moves."
+  },
+  {
+    "id": "levitate",
+    "name": "Levitate",
+    "description": "Gives full immunity to all Ground-type moves."
+  },
+  {
+    "id": "inner_focus",
+    "name": "Inner Focus",
+    "description": "The Pokémon's intensely focused mind prevents it from flinching."
+  },
+  {
+    "id": "quick_feet",
+    "name": "Quick Feet",
+    "description": "Boosts Speed when the Pokémon has a status condition."
+  },
+  {
+    "id": "intimidate",
+    "name": "Intimidate",
+    "description": "Lowers the foe's Attack upon entering battle."
+  },
+  {
+    "id": "flash_fire_pale",
+    "name": "Pale Flame",
+    "description": "An unnaturally cold flame engulfs the Pokémon; Fire-type moves grow stronger, and contact may freeze."
+  },
+  {
+    "id": "cursed_body",
+    "name": "Cursed Body",
+    "description": "Contact with the Pokémon may disable the attacker's move."
+  },
+  {
+    "id": "snow_cloak",
+    "name": "Snow Cloak",
+    "description": "Raises evasion in a hailstorm."
+  },
+  {
+    "id": "pressure",
+    "name": "Pressure",
+    "description": "The foe's moves cost double PP due to intimidation."
+  },
+  {
+    "id": "super_luck",
+    "name": "Super Luck",
+    "description": "Boosts the critical-hit ratio of moves."
+  },
+  {
+    "id": "ice_body",
+    "name": "Ice Body",
+    "description": "The Pokémon gradually regains HP in a hailstorm."
+  },
+  {
+    "id": "drought",
+    "name": "Drought",
+    "description": "The Pokémon's presence harshly brightens the battlefield."
+  },
+  {
+    "id": "unstable",
+    "name": "Unstable",
+    "description": "A Team Krampus experiment trait: has a chance to gain a temporary stat boost when damaged."
+  }
 ]

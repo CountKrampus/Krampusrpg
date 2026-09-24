@@ -1,0 +1,19 @@
+{
+  "id": "tk_004",
+  "number": 4,
+  "slug": "stolen_pokemon",
+  "name": "The Stolen Pokémon",
+  "questline": "team_krampus",
+  "location": "Hidden Camp, Frostpine",
+  "type": "trainer_battle",
+  "battle": {"npc": "krampus_handler", "team_size": 3},
+  "objective": "Discover the hidden Team Krampus camp and free the captured Pokémon.",
+  "intro": "Cages line the clearing. Inside them: the missing Pokémon. A Team Krampus handler bars the way.",
+  "dialogue": [
+    "Krampus Handler: \"Get away from those cages.\"",
+    "Krampus Handler (defeated): \"You think we're hurting them? We're saving them from what comes next.\""
+  ],
+  "lore_discovery": "The first indication that Team Krampus believes they are doing something necessary.",
+  "requirements": ["tk_003"],
+  "rewards": {"money": 500, "xp": 450, "pokemon_reward": {"type": "choice", "pool": ["poochyena", "sneasel", "zubat"], "variant_chance": {"variant": "krampus", "odds": 10}, "level": 9}}
+}

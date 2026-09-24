@@ -33,5 +33,15 @@
         "id": "undead",
         "name": "Undead",
         "suffix": "-undead"
+    },
+    {
+        "id": "krampus",
+        "name": "Krampus",
+        "suffix": "-krampus"
+    },
+    {
+        "id": "shattered",
+        "name": "Shattered",
+        "suffix": "-shattered"
     }
 ]

@@ -1,0 +1,19 @@
+{
+  "id": "tk_006",
+  "number": 6,
+  "slug": "first_lieutenant",
+  "name": "The First Lieutenant",
+  "questline": "team_krampus",
+  "location": "Frostpine Ridge",
+  "type": "commander_battle",
+  "battle": {"npc": "lieutenant_noelle", "team_size": 4, "escapes": true},
+  "objective": "You finally meet a named member of Team Krampus: Lieutenant Noelle, a field commander who is calm, intelligent, and treats you with respect.",
+  "intro": "She doesn't ambush you. She waits, arms crossed, almost curious.",
+  "dialogue": [
+    "Lieutenant Noelle: \"You're stronger than I expected. Let's see how strong.\"",
+    "Lieutenant Noelle (defeated): \"Interesting... You're going to become a problem.\""
+  ],
+  "lore_discovery": "You cannot defeat her permanently — she recalls her Pokémon and escapes. She becomes your first major recurring antagonist.",
+  "requirements": ["tk_005"],
+  "rewards": {"money": 1200, "xp": 1200, "quest_items": ["krampus_fragment"]}
+}

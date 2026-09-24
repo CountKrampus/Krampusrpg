@@ -1,0 +1,19 @@
+{
+  "id": "tk_002",
+  "number": 2,
+  "slug": "something_in_the_woods",
+  "name": "Something in the Woods",
+  "questline": "team_krampus",
+  "location": "Frostpine Route",
+  "type": "trainer_battle",
+  "battle": {"npc": "krampus_recruit", "team_size": 1},
+  "objective": "Search Frostpine Route for the source of the aggression — and deal with whoever is out there.",
+  "intro": "Wild Pokémon scatter as you walk the frozen route. Someone steps out from between the pines, dressed in dark crimson.",
+  "dialogue": [
+    "Krampus Recruit: \"You shouldn't be here.\"",
+    "Krampus Recruit (defeated): \"This isn't over. The Boss will hear about you.\""
+  ],
+  "lore_discovery": "The insignia the recruit drops was apparently being used to mark certain Pokémon.",
+  "requirements": ["tk_001"],
+  "rewards": {"items": [{"id": "potion", "quantity": 2}], "money": 250, "xp": 200, "quest_items": ["team_krampus_insignia"]}
+}

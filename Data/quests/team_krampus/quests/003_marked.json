@@ -1,0 +1,18 @@
+{
+  "id": "tk_003",
+  "number": 3,
+  "slug": "marked",
+  "name": "Marked",
+  "questline": "team_krampus",
+  "location": "Frostpine Forest",
+  "type": "trainer_battle",
+  "battle": {"npc": "krampus_scout", "team_size": 2},
+  "objective": "An injured Pokémon bears a strange red marking. The researcher says it isn't natural. Follow the tracks into the forest.",
+  "intro": "The tracks lead deep into the pines. Someone has been here recently — and recently enough that they are still watching.",
+  "dialogue": [
+    "Researcher: \"That marking isn't natural. Something — or someone — did that to it.\"",
+    "Krampus Scout: \"Those tracks? You saw nothing.\""
+  ],
+  "requirements": ["tk_002"],
+  "rewards": {"money": 400, "xp": 300, "pokemon_reward": {"type": "marked_pokemon", "pool": ["pikachu"], "level": 8}}
+}

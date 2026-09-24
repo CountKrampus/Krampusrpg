@@ -1,0 +1,19 @@
+{
+  "id": "tk_007",
+  "number": 7,
+  "slug": "missing_children",
+  "name": "The Missing Children",
+  "questline": "team_krampus",
+  "location": "Deep Frostpine",
+  "type": "trainer_battle",
+  "battle": {"npc": "krampus_keeper", "team_size": 4},
+  "objective": "Several young trainers have disappeared from Hollyhollow. Everyone assumes Team Krampus kidnapped them. Track them into the forest.",
+  "intro": "You find the children — but they are not prisoners. They are training. Willingly.",
+  "dialogue": [
+    "Krampus Keeper: \"The children are here because they want to be.\"",
+    "Krampus Keeper (defeated): \"We don't steal children. We teach them what your villages refuse to.\""
+  ],
+  "lore_discovery": "Team Krampus has been teaching the children how to defend themselves against aggressive Pokémon. The organization becomes more ambiguous.",
+  "requirements": ["tk_006"],
+  "rewards": {"money": 800, "xp": 800}
+}

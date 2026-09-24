@@ -1,0 +1,18 @@
+{
+  "id": "tk_009",
+  "number": 9,
+  "slug": "krampus_bell",
+  "name": "The Krampus Bell",
+  "questline": "team_krampus",
+  "location": "Hollyhollow Village",
+  "type": "story",
+  "battle": null,
+  "objective": "The stolen object is revealed: the Krampus Bell, an ancient artifact. Ringing it allows the user to communicate with Pokémon beyond the boundaries of the region. Team Krampus intends to use it to awaken something.",
+  "intro": "The researcher unwraps the villagers' inventory of what was taken. What's missing is not money or Pokémon. It is a bell older than the village itself.",
+  "dialogue": [
+    "Researcher: \"According to legend, ringing the bell lets you speak with Pokémon that exist beyond the normal boundaries of the region.\"",
+    "Researcher: \"Team Krampus means to use it to awaken something. Follow them.\""
+  ],
+  "requirements": ["tk_008"],
+  "rewards": {"money": 1000, "xp": 900}
+}

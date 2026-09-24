@@ -1022,12 +1022,410 @@ MOBILE
             2,
             minmax(0, 1fr)
         );
-}
-
-
-.pokemon-card img {
+}.pokemon-card img {
     width: 85px;
     height: 85px;
 }
 
+}
+
+/* =========================================================
+STORY ADVENTURE
+========================================================= */
+
+.story-page {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+
+.story-line-card {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+
+.story-line-header {
+    display: flex;
+
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+
+    flex-wrap: wrap;
+}
+
+
+.story-line-header h2 {
+    margin: 4px 0 0;
+
+    font-size: 20px;
+}
+
+
+.story-line-tag {
+    color: var(--gold);
+
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 2px;
+}
+
+
+.story-line-progress {
+    padding: 8px 14px;
+
+    background: var(--panel-light);
+
+    border: 1px solid var(--border);
+    border-radius: 8px;
+
+    text-align: center;
+}
+
+
+.story-line-progress strong {
+    display: block;
+
+    color: var(--red-light);
+
+    font-size: 18px;
+}
+
+
+.story-line-progress small {
+    color: var(--muted);
+
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+
+.story-premise {
+    margin: 0;
+
+    color: var(--muted);
+
+    line-height: 1.6;
+}
+
+
+.story-line-meta {
+    display: flex;
+
+    flex-wrap: wrap;
+    gap: 10px 22px;
+
+    color: var(--muted);
+
+    font-size: 13px;
+}
+
+
+.story-npc-row {
+    display: flex;
+
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+
+.story-npc-chip {
+    padding: 6px 10px;
+
+    background: var(--panel-light);
+
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--muted);
+    border-radius: 6px;
+}
+
+
+.story-npc-chip.rank-director {
+    border-left-color: var(--red);
+}
+
+.story-npc-chip.rank-field_command,
+.story-npc-chip.rank-research_division {
+    border-left-color: var(--gold);
+}
+
+.story-npc-chip.rank-enforcer {
+    border-left-color: var(--blue);
+}
+
+
+.story-npc-chip strong {
+    display: block;
+
+    font-size: 12px;
+}
+
+
+.story-npc-chip small {
+    color: var(--muted);
+
+    font-size: 10px;
+}
+
+
+.story-quest-chain {
+    margin: 0;
+    padding: 0;
+
+    list-style: none;
+
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+
+.story-quest {
+    display: flex;
+
+    gap: 12px;
+
+    padding: 12px;
+
+    background: var(--panel);
+
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+
+
+.story-quest.state-completed {
+    border-color: var(--green);
+}
+
+.story-quest.state-active {
+    border-color: var(--gold);
+}
+
+.story-quest.state-locked {
+    opacity: 0.55;
+}
+
+
+.story-quest-marker {
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    flex: 0 0 34px;
+
+    height: 34px;
+
+    background: var(--panel-light);
+
+    border: 1px solid var(--border-light);
+    border-radius: 50%;
+
+    font-weight: 900;
+}
+
+
+.story-quest.state-completed .story-quest-marker {
+    background: var(--green);
+
+    border-color: var(--green);
+}
+
+.story-quest.state-active .story-quest-marker {
+    background: var(--gold);
+
+    border-color: var(--gold);
+
+    color: #1a1408;
+}
+
+
+.story-quest-body {
+    flex: 1;
+
+    min-width: 0;
+}
+
+
+.story-quest-body h3 {
+    margin: 0 0 4px;
+
+    font-size: 15px;
+}
+
+
+.story-badge {
+    padding: 2px 8px;
+
+    border-radius: 10px;
+
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    vertical-align: middle;
+}
+
+
+.story-badge.completed {
+    background: var(--green);
+}
+
+.story-badge.active {
+    background: var(--gold);
+
+    color: #1a1408;
+}
+
+.story-badge.locked {
+    background: var(--panel-light);
+
+    color: var(--muted);
+}
+
+.story-badge.open {
+    background: var(--red);
+}
+
+
+.story-quest-location {
+    margin: 0 0 6px;
+
+    color: var(--muted);
+
+    font-size: 12px;
+}
+
+
+.story-quest-objective {
+    margin: 0 0 8px;
+
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+
+.story-quest-locked {
+    margin: 0;
+
+    color: var(--muted);
+
+    font-size: 12px;
+    font-style: italic;
+}
+
+
+.story-battle-row {
+    display: flex;
+
+    flex-wrap: wrap;
+    gap: 8px;
+
+    margin-bottom: 8px;
+}
+
+
+.story-battle-chip {
+    flex: 1;
+
+    min-width: 220px;
+
+    padding: 8px 10px;
+
+    background: var(--panel-light);
+
+    border: 1px solid var(--border);
+    border-radius: 6px;
+}
+
+
+.story-battle-chip.boss {
+    border-color: var(--red);
+}
+
+.story-battle-chip.commander {
+    border-color: var(--gold);
+}
+
+
+.story-battle-chip strong {
+    font-size: 12px;
+}
+
+
+.story-battle-chip small {
+    display: block;
+
+    color: var(--muted);
+
+    font-size: 11px;
+
+    margin-bottom: 4px;
+}
+
+
+.story-battle-team {
+    margin: 0;
+    padding: 0;
+
+    list-style: none;
+
+    display: flex;
+
+    flex-wrap: wrap;
+    gap: 4px 12px;
+}
+
+
+.story-battle-team li {
+    color: var(--muted);
+
+    font-size: 11px;
+}
+
+
+.story-battle-team li span {
+    color: var(--blue);
+}
+
+
+.story-variant-tag {
+    color: var(--gold);
+
+    font-style: normal;
+
+    font-weight: 700;
+}
+
+
+.story-quest-rewards {
+    margin: 0;
+
+    padding-top: 6px;
+
+    border-top: 1px dashed var(--border);
+
+    color: var(--muted);
+
+    font-size: 12px;
+}
+
+
+.story-boss-mechanic {
+    margin: 0;
+
+    padding: 8px 10px;
+
+    background: rgba(165, 47, 56, 0.15);
+
+    border: 1px solid var(--red-dark);
+    border-radius: 6px;
+
+    font-size: 12px;
+    line-height: 1.5;
 }

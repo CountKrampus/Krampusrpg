@@ -1,0 +1,19 @@
+{
+  "id": "tk_005",
+  "number": 5,
+  "slug": "winter_relic",
+  "name": "The Winter Relic",
+  "questline": "team_krampus",
+  "location": "Ancient Shrine, Frostpine",
+  "type": "trainer_battle",
+  "battle": {"npc": "krampus_archaeologist", "team_size": 3},
+  "objective": "Team Krampus is searching for something beneath Frostpine: an ancient object known as the Winterheart. Reach the shrine first.",
+  "intro": "Legends say the Winterheart was used centuries ago to control a powerful Pokémon. Team Krampus is already at the shrine when you arrive.",
+  "dialogue": [
+    "Krampus Archaeologist: \"This shrine predates every village in the region. It belongs to us.\"",
+    "Krampus Archaeologist (defeated): \"Too late. The relic is already gone.\""
+  ],
+  "lore_discovery": "Team Krampus has already stolen part of the relic.",
+  "requirements": ["tk_004"],
+  "rewards": {"money": 600, "xp": 600}
+}

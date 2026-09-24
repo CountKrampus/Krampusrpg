@@ -112,6 +112,8 @@ from .profile_ribbons import (
     get_player_ribbons,
 )
 
+from . import quest_chain
+
 # ============================================================
 # APPLICATION FACTORY
 # ============================================================
@@ -163,6 +165,25 @@ def create_app() -> Flask:
     app.register_blueprint(
         pc_bp
     )
+
+    # ========================================================
+    # TEMPLATE HELPERS
+    # ========================================================
+
+    @app.context_processor
+    def _quest_template_helpers():
+        """
+        Template helpers for quest data. quest_npc() resolves an NPC
+        definition from a quest line's encounters.json so templates can
+        show names/teams without passing everything through the view.
+        """
+
+        def quest_npc(questline_id: str, npc_id: str):
+            return quest_chain.get_npc(questline_id, npc_id)
+
+        return {
+            "quest_npc": quest_npc,
+        }
 
     # ========================================================
     # PUBLIC HOME PAGE
@@ -449,7 +470,79 @@ def create_app() -> Flask:
 
     @app.get("/story-adventure")
     def story_adventure():
-        return redirect(url_for("coming_soon"))
+        """
+        The story quest hub: data-driven quest lines read from
+        Data/quests/ (see Server/quest_chain.py). Shows quest line
+        overview, quest chain, NPC teams, and the player's progress.
+        """
+        player_id = current_player_id()
+
+        questlines = []
+
+        for manifest in quest_chain.list_questlines():
+            qid = manifest["id"]
+            quests = quest_chain.get_quests(qid)
+            totals = quest_chain.questline_totals(qid)
+
+            # Decorate quests with resolved battles and completion state.
+            completed: set[str] = set()
+            active: set[str] = set()
+
+            if player_id is not None:
+                with get_connection() as db:
+                    rows = db.execute(
+                        """
+                        SELECT quest_id, status
+                        FROM player_quests
+                        WHERE player_id = ?
+                        """,
+                        (player_id,),
+                    ).fetchall()
+
+                    for row in rows:
+                        if row["status"] == "completed":
+                            completed.add(row["quest_id"])
+                        elif row["status"] == "active":
+                            active.add(row["quest_id"])
+
+            decorated = []
+            for quest in quests:
+                item = dict(quest)
+                item["battles"] = quest_chain.quest_battles(qid, quest)
+                item["is_completed"] = quest["id"] in completed
+                item["is_active"] = quest["id"] in active
+
+                # Availability: no unmet prerequisites.
+                prereqs = quest.get("requirements") or []
+                item["is_available"] = (
+                    all(prereq in completed for prereq in prereqs)
+                    if prereqs
+                    else True
+                )
+                item["is_locked"] = (
+                    bool(prereqs)
+                    and not item["is_available"]
+                )
+
+                decorated.append(item)
+
+            completed_count = sum(
+                1 for q in decorated if q["is_completed"]
+            )
+
+            questlines.append(
+                {
+                    **manifest,
+                    "quests": decorated,
+                    "totals": totals,
+                    "completed_count": completed_count,
+                }
+            )
+
+        return render_template(
+            "story_adventure.html",
+            questlines=questlines,
+        )
 
     # ========================================================
     # WORLD EXPLORATION (CATCHING)

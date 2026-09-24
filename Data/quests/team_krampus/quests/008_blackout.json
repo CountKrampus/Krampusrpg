@@ -1,0 +1,22 @@
+{
+  "id": "tk_008",
+  "number": 8,
+  "slug": "blackout",
+  "name": "The Blackout",
+  "questline": "team_krampus",
+  "location": "Hollyhollow Village",
+  "type": "multi_battle",
+  "battles": [
+    {"npc": "krampus_grunt_a", "team_size": 2},
+    {"npc": "krampus_grunt_b", "team_size": 3},
+    {"npc": "krampus_enforcer", "team_size": 4}
+  ],
+  "objective": "Hollyhollow suddenly loses power. The entire village goes dark — Team Krampus is attacking the town. Fight through three battles in the first multi-battle quest.",
+  "intro": "One moment the festival lanterns are glowing. The next, Hollyhollow is black as the inside of a cave — and crimson uniforms are moving between the houses.",
+  "dialogue": [
+    "Krampus Enforcer (defeated): \"The blackout was never the point. You've lost already.\""
+  ],
+  "lore_discovery": "After the final battle you discover that the blackout was a distraction. Team Krampus has stolen something from the village.",
+  "requirements": ["tk_007"],
+  "rewards": {"items": [{"id": "super_potion", "quantity": 2}], "money": 900, "xp": 1500}
+}

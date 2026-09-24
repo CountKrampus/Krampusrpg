@@ -1,0 +1,22 @@
+{
+  "id": "tk_011",
+  "number": 11,
+  "slug": "truth_beneath_the_mask",
+  "name": "The Truth Beneath the Mask",
+  "questline": "team_krampus",
+  "location": "Krampus Keep — Central Chamber",
+  "type": "story",
+  "battle": null,
+  "objective": "In the central chamber you meet Director Krampus, leader of the local operation. Instead of fighting, he explains Team Krampus.",
+  "intro": "The Director's voice is quiet and certain. He does not raise it. He does not need to.",
+  "dialogue": [
+    "Director Krampus: \"For centuries, humans have tried to make this world comfortable.\"",
+    "Director Krampus: \"They built walls. They built cities. They built rules.\"",
+    "Director Krampus: \"And every generation, the Pokémon grew weaker.\"",
+    "Director Krampus: \"Powerful Pokémon are disappearing because humans have made the world too safe. We will restore the old balance.\"",
+    "Director Krampus: \"Then you have chosen the easy path.\""
+  ],
+  "lore_discovery": "Team Krampus wants to restore the old balance between humans and Pokémon — but is willing to forcibly evolve, manipulate, and experiment on Pokémon to accomplish it.",
+  "requirements": ["tk_010"],
+  "rewards": {"money": 2000, "xp": 1200}
+}

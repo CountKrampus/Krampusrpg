@@ -1,0 +1,27 @@
+{
+  "id": "tk_012",
+  "number": 12,
+  "slug": "the_bellringer",
+  "name": "The Bellringer",
+  "questline": "team_krampus",
+  "location": "Krampus Keep — Bell Chamber",
+  "type": "boss_battle",
+  "battle": {"npc": "director_krampus", "team_size": 6, "escapes": true, "boss_mechanic": "krampus_bell"},
+  "objective": "The final battle of Quest Line 01: Director Krampus and his six-Pokémon team, capped by his signature Krampus Houndoom. At 50% HP he rings the Krampus Bell, granting his remaining Pokémon Winter's Wrath.",
+  "intro": "The Krampus Bell hangs above the chamber, ancient and impossibly cold. The Director stands beneath it, waiting.",
+  "dialogue": [
+    "Director Krampus: \"Then you have chosen the easy path.\"",
+    "Director Krampus (at 50% HP): \"You leave me no choice. Let the bell decide.\"",
+    "Director Krampus (defeated): \"You think you've stopped us? You've only rung the first bell.\""
+  ],
+  "boss_mechanic": {
+    "name": "Krampus Bell",
+    "trigger": "at_50_percent_hp",
+    "effect": "winters_wrath",
+    "description": "Every remaining enemy Pokémon receives a temporary battle effect: Attack up, Speed up, critical-hit chance up — but Defense down."
+  },
+  "lore_discovery": "The Winterheart begins to react. A massive roar echoes from beneath the fortress. Director Krampus escapes — the Krampus Bell was only one of several artifacts.",
+  "aftermath": "The player receives their first major unique reward: the Krampus Houndoom.",
+  "requirements": ["tk_011"],
+  "rewards": {"money": 5000, "xp": 5000, "quest_items": ["winterheart_shard"], "pokemon_reward": {"type": "reward_encounter", "species": "krampus_houndoom", "variant": "krampus", "level": 20, "ability": "flash_fire_pale", "moves": ["ember", "bite", "howl", "ice_fang"]}}
+}

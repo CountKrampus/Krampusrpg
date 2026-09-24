@@ -653,6 +653,20 @@ DEFAULT_VARIANTS = [
         "Violet custom coloration.",
         1,
     ),
+    (
+        "krampus",
+        "Krampus",
+        "-krampus",
+        "Dark crimson/black coloration. Pokémon altered by prolonged exposure to the mysterious energy utilized by Team Krampus.",
+        1,
+    ),
+    (
+        "shattered",
+        "Shattered",
+        "-shattered",
+        "Distorted variant caused by Team Krampus experimentation. Angry, unstable, and dangerous.",
+        1,
+    ),
 ]
 
 

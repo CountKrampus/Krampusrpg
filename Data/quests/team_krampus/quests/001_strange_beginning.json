@@ -1,0 +1,19 @@
+{
+  "id": "tk_001",
+  "number": 1,
+  "slug": "strange_beginning",
+  "name": "A Strange Beginning",
+  "questline": "team_krampus",
+  "location": "Hollyhollow Village",
+  "type": "story",
+  "battle": null,
+  "objective": "Speak with the village researcher and investigate reports of aggressive Pokémon near Frostpine Route.",
+  "intro": "Hollyhollow is preparing for its annual Winterwake Festival. But several Pokémon near Frostpine Route have been acting strangely — and the village researcher wants answers.",
+  "dialogue": [
+    "Researcher: \"Several Pokémon have been acting strangely near Frostpine Route. Aggressive. Territorial. It isn't like them.\"",
+    "Researcher: \"Would you take a look for me? Take these — you'll need them.\""
+  ],
+  "lore_discovery": "The player finds a strange black piece of fabric caught on a tree. It bears a symbol: a horned Pokémon skull surrounded by six pointed icicles.",
+  "requirements": [],
+  "rewards": {"items": [{"id": "poke_ball", "quantity": 5}, {"id": "potion", "quantity": 3}], "money": 300, "xp": 120}
+}

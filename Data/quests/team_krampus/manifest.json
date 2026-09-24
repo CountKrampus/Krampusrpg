@@ -1,0 +1,30 @@
+{
+  "id": "team_krampus",
+  "title": "Quest Line 01 — The Krampus Conspiracy",
+  "organization": "team_krampus",
+  "premise": "The player arrives in Hollyhollow during its annual Winterwake Festival. Wild Pokémon have turned aggressive, Pokémon are disappearing, and strange black-and-red markings appear on trees and rocks. A mysterious group in dark crimson uniforms — Team Krampus — is behind it all. Their motto: \"The world has forgotten what fear is.\"",
+  "theme": "Who is Team Krampus?",
+  "regions": ["hollyhollow", "frostpine"],
+  "key_artifacts": ["winterheart", "krampus_bell", "krampus_fragment"],
+  "key_npcs": [
+    "krampus_recruit",
+    "krampus_scout",
+    "krampus_handler",
+    "krampus_archaeologist",
+    "lieutenant_noelle",
+    "krampus_keeper",
+    "krampus_enforcer",
+    "krampus_senior_grunt",
+    "director_krampus"
+  ],
+  "final_boss": "director_krampus",
+  "signature_reward": "krampus_houndoom",
+  "arcs": [
+    "The Krampus Conspiracy",
+    "The Six Bells",
+    "The Winterheart",
+    "The Krampus War",
+    "The Old World"
+  ],
+  "next_questline": "the_six_bells"
+}
