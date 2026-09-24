@@ -1501,3 +1501,172 @@ STORY ADVENTURE
     font-size: 12px;
     line-height: 1.5;
 }
+
+
+/* =========================================================
+KRAMPUS POINTS SHOP
+========================================================= */
+
+.kp-shop-item-card {
+display: flex;
+
+flex-direction: column;
+
+gap: 10px;
+}
+
+.kp-shop-item-header {
+display: flex;
+
+justify-content: space-between;
+
+align-items: flex-start;
+
+gap: 12px;
+}
+
+.kp-shop-item-header h2 {
+margin: 4px 0 0;
+
+font-size: 17px;
+}
+
+.kp-shop-item-type {
+display: inline-block;
+
+padding: 2px 8px;
+
+border-radius: 4px;
+
+font-size: 10px;
+font-weight: 800;
+
+letter-spacing: 0.08em;
+text-transform: uppercase;
+
+color: var(--muted);
+
+background: rgba(157, 167, 179, 0.12);
+}
+
+.kp-type-pokemon {
+color: var(--gold);
+
+background: rgba(213, 173, 82, 0.15);
+}
+
+.kp-type-area_unlock {
+color: var(--blue);
+
+background: rgba(93, 156, 201, 0.15);
+}
+
+.kp-shop-price {
+text-align: right;
+
+white-space: nowrap;
+}
+
+.kp-shop-price strong {
+font-size: 18px;
+
+color: var(--gold);
+}
+
+.kp-shop-price small {
+display: block;
+
+color: var(--muted);
+
+font-size: 10px;
+font-weight: 700;
+
+letter-spacing: 0.08em;
+}
+
+.kp-shop-item-description {
+margin: 0;
+
+color: var(--muted);
+
+font-size: 13px;
+line-height: 1.5;
+}
+
+.kp-shop-item-footer {
+display: flex;
+
+justify-content: space-between;
+
+align-items: center;
+
+gap: 10px;
+
+padding-top: 10px;
+
+border-top: 1px dashed var(--border);
+}
+
+.kp-shop-item-footer form {
+margin: 0;
+}
+
+.kp-shop-stock,
+.kp-shop-owned,
+.kp-shop-unaffordable {
+font-size: 12px;
+
+color: var(--muted);
+}
+
+.kp-shop-owned {
+color: var(--green);
+
+font-weight: 700;
+}
+
+.kp-shop-unaffordable {
+color: var(--red-light);
+}
+
+.kp-shop-grid {
+display: grid;
+
+grid-template-columns: repeat(
+    auto-fill,
+    minmax(280px, 1fr)
+);
+
+gap: 14px;
+}
+
+.flash-messages {
+display: flex;
+
+flex-direction: column;
+
+gap: 8px;
+
+margin-bottom: 14px;
+}
+
+.flash {
+padding: 10px 14px;
+
+border-radius: 6px;
+
+border: 1px solid var(--border);
+
+background: rgba(71, 124, 89, 0.15);
+
+font-size: 13px;
+font-weight: 700;
+}
+
+.flash-error {
+background: rgba(165, 47, 56, 0.2);
+
+border-color: var(--red-dark);
+
+color: var(--red-light);
+}

@@ -243,6 +243,11 @@
                         Music Shop
                     </a>
 
+                    <a href="{{ url_for('kp_shop') }}">
+                        <span>⭐</span>
+                        KP Shop
+                    </a>
+
                 </section>
 
 
@@ -389,6 +394,16 @@
         <!-- CENTER GAME AREA -->
 
         <main class="game-main">
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            <div class="flash-messages">
+                {% for category, message in messages %}
+                <div class="flash flash-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% endwith %}
 
             {% block content %}
             {% endblock %}
@@ -615,6 +630,16 @@
     {% else %}
 
     <main class="public-main">
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="flash-messages">
+            {% for category, message in messages %}
+            <div class="flash flash-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% endwith %}
 
         {% block public_content %}
         {% endblock %}

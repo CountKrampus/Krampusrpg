@@ -30,6 +30,7 @@ from typing import Any
 
 from flask import (
     Flask,
+    flash,
     jsonify,
     redirect,
     render_template,
@@ -68,6 +69,7 @@ from .services import (
     add_to_party,
     create_pokemon,
     get_party,
+    get_player,
     get_player_pokemon,
     get_player_progress,
     get_species,
@@ -596,6 +598,73 @@ def create_app() -> Flask:
     @app.get("/mines")
     def mines():
         return redirect(url_for("coming_soon"))
+
+    # ========================================================
+    # KRAMPUS POINTS SHOP (PLAYER-FACING)
+    # ========================================================
+
+    @app.get("/kp-shop")
+    def kp_shop():
+        """
+        The Krampus Points shop: browse active shop items and spend
+        KP on exclusive Pokémon, items, and area unlocks.
+        """
+        player_id = current_player_id()
+
+        balance = 0
+        owned_unlocks: set[str] = set()
+
+        if player_id is not None:
+            balance = krampus_points.get_balance(player_id)
+            owned_unlocks = set(
+                krampus_points.get_player_area_unlocks(player_id)
+            )
+
+        items = []
+
+        for item in krampus_points.get_shop_items(active_only=True):
+            entry = dict(item)
+            entry["affordable"] = (
+                player_id is not None and balance >= item["price"]
+            )
+            entry["owned"] = (
+                item["item_type"] == "area_unlock"
+                and item["item_ref"] in owned_unlocks
+            )
+            items.append(entry)
+
+        return render_template(
+            "kp_shop.html",
+            items=items,
+            balance=balance,
+        )
+
+    @app.post("/kp-shop/purchase")
+    def kp_shop_purchase():
+        """
+        Buy a KP shop item. purchase_shop_item() validates stock,
+        timing, and balance, then delivers the reward.
+        """
+        player_id = current_player_id()
+
+        if player_id is None:
+            flash("Log in to spend Krampus Points.", "error")
+            return redirect(url_for("login"))
+
+        item_id_raw = request.form.get("item_id", "").strip()
+
+        try:
+            item_id = int(item_id_raw)
+        except (TypeError, ValueError):
+            item_id = 0
+
+        try:
+            result = krampus_points.purchase_shop_item(player_id, item_id)
+            flash(result["message"], "success")
+        except ValueError as exc:
+            flash(str(exc), "error")
+
+        return redirect(url_for("kp_shop"))
 
     @app.get("/pokemon-center")
     def pokemon_center():
