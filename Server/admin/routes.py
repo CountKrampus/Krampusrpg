@@ -28,6 +28,7 @@ from flask import (
 )
 
 from .. import world_config
+from ..world_config import REGION_LABELS
 from ..database import get_connection
 from ..services import get_all_moves
 
@@ -827,6 +828,7 @@ def _world_context(
         "area_types": (
             "town", "route", "cave", "forest", "water", "mountain",
         ),
+        "region_labels": REGION_LABELS,
         "catch_settings": world_config.get_catch_settings(),
         "error": error,
     }
@@ -858,7 +860,7 @@ def world_area_create():
             name=request.form.get("name", ""),
             area_type=request.form.get("type", "route"),
             description=request.form.get("description", ""),
-            region=request.form.get("region", "krampus"),
+            region=request.form.get("region", "hollyhollow"),
         )
 
         log_action(

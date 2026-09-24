@@ -28,6 +28,14 @@ from .services import clear_data_cache
 
 AREAS_FILE = DATA_DIR / "areas.json"
 
+# Region id -> display label. The canonical region list for the
+# Hollyhollow/Frostpine world; used by the Story Adventure map strip
+# and the admin world editor's region picker.
+REGION_LABELS = {
+    "hollyhollow": "Hollyhollow",
+    "frostpine": "Frostpine",
+}
+
 # Settings-table keys for catch tuning (see Server/catching.py).
 SETTING_SHINY_ODDS = "world_shiny_odds"
 SETTING_MIN_CATCH = "world_min_catch_chance"
@@ -140,7 +148,7 @@ def create_area(
     name: str,
     area_type: str = "route",
     description: str = "",
-    region: str = "krampus",
+    region: str = "hollyhollow",
 ) -> dict[str, Any]:
     """
     Create a new (empty) area. Raises ValueError on bad input or a
@@ -166,7 +174,7 @@ def create_area(
     area = {
         "id": area_id,
         "name": name,
-        "region": str(region).strip() or "krampus",
+        "region": str(region).strip() or "hollyhollow",
         "type": area_type,
         "description": str(description).strip(),
         "encounters": [],

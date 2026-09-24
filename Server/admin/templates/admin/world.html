@@ -164,13 +164,11 @@
 
             <div class="admin-form-group">
                 <label for="area-region">Region</label>
-                <input
-                    type="text"
-                    id="area-region"
-                    name="region"
-                    value="krampus"
-                    maxlength="40"
-                >
+                <select id="area-region" name="region">
+                    {% for region_id, region_label in region_labels.items() %}
+                    <option value="{{ region_id }}">{{ region_label }}</option>
+                    {% endfor %}
+                </select>
             </div>
 
             <div class="admin-form-group">

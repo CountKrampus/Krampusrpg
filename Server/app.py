@@ -47,12 +47,6 @@ from .auth import (
     verify_password,
 )
 
-# Region id -> display label for the Story Adventure world map strip.
-REGION_LABELS = {
-    "hollyhollow": "Hollyhollow",
-    "frostpine": "Frostpine",
-}
-
 from .config import (
     DATABASE_PATH,
     SECRET_KEY,
@@ -81,6 +75,8 @@ from .services import (
     get_area,
     update_player_progress,
 )
+
+from .world_config import REGION_LABELS
 
 from .news import (
     ensure_news_table,
