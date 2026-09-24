@@ -1925,6 +1925,17 @@ def _migrate_legacy_area_ids(
             ),
         )
 
+    # The old 'krampus' region no longer exists in the Hollyhollow /
+    # Frostpine world; any player still parked there lives in the
+    # starting region now.
+    db.execute(
+        """
+        UPDATE player_progress
+        SET current_region = 'hollyhollow'
+        WHERE current_region = 'krampus'
+        """
+    )
+
 
 # =============================================================================
 # ROLE SEEDING
