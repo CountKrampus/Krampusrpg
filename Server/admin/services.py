@@ -509,7 +509,7 @@ def get_player_details(player_id: int) -> dict[str, Any] | None:
 
         return {
             **player,
-            "progress": progress or {"money": 0, "badges": 0, "current_region": "krampus", "current_area": "krampus_town"},
+            "progress": progress or {"money": 0, "badges": 0, "current_region": "hollyhollow", "current_area": "hollyhollow_village"},
             "pokemon_count": pokemon_count,
             "party_count": party_count,
             "pc_count": pc_count,

@@ -65,6 +65,32 @@
         </div>
         {% endif %}
 
+        {% if areas %}
+        <div class="story-areas-row">
+            <span class="story-line-tag">WORLD MAP</span>
+            {% set areas_by_region = areas | groupby('region') %}
+            {% for region, region_areas in areas_by_region %}
+            <div class="story-area-group">
+                <span class="story-area-region">{{ region_labels.get(region, region | replace('_', ' ') | title) }}</span>
+                {% for area in region_areas %}
+                <a class="story-area-chip world-area-type-{{ area.type }}"
+                   href="{{ url_for('world_exploration', area=area.id) }}"
+                   title="{{ area.description }}">
+                    <strong>{{ area.name }}</strong>
+                    <small>
+                        {% if area.encounters %}
+                        {{ area.encounters | length }} species · explore →
+                        {% else %}
+                        safe haven
+                        {% endif %}
+                    </small>
+                </a>
+                {% endfor %}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
         <ol class="story-quest-chain">
 
             {% for quest in line.quests %}

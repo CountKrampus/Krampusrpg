@@ -46,6 +46,12 @@ from .auth import (
     verify_password,
 )
 
+# Region id -> display label for the Story Adventure world map strip.
+REGION_LABELS = {
+    "hollyhollow": "Hollyhollow",
+    "frostpine": "Frostpine",
+}
+
 from .config import (
     DATABASE_PATH,
     SECRET_KEY,
@@ -113,6 +119,8 @@ from .profile_ribbons import (
 )
 
 from . import quest_chain
+from . import krampus_points
+from .admin.kp_routes import kp_admin_bp
 
 # ============================================================
 # APPLICATION FACTORY
@@ -154,12 +162,19 @@ def create_app() -> Flask:
     ensure_roadmap_tables()
     seed_roadmap()
 
+    # Krampus Points premium currency is database-backed.
+    krampus_points.ensure_kp_schema()
+
     # ========================================================
     # BLUEPRINT REGISTRATION
     # ========================================================
 
     app.register_blueprint(
         admin_bp
+    )
+
+    app.register_blueprint(
+        kp_admin_bp
     )
 
     app.register_blueprint(
@@ -261,7 +276,7 @@ def create_app() -> Flask:
         """
         Search a wild area for a Pokémon.
 
-        Expects JSON: {"area": "frostbite_route"}. Returns a transient
+        Expects JSON: {"area": "frostpine_route"}. Returns a transient
         encounter description (species, level, shiny, catch rates per
         ball) that the client must echo back to /api/world/catch.
         Nothing is stored until the catch succeeds.
@@ -542,6 +557,8 @@ def create_app() -> Flask:
         return render_template(
             "story_adventure.html",
             questlines=questlines,
+            areas=get_all_areas(),
+            region_labels=REGION_LABELS,
         )
 
     # ========================================================

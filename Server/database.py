@@ -73,8 +73,8 @@ CREATE TABLE IF NOT EXISTS players (
 CREATE TABLE IF NOT EXISTS player_progress (
     player_id INTEGER PRIMARY KEY,
 
-    current_region TEXT NOT NULL DEFAULT 'krampus',
-    current_area TEXT NOT NULL DEFAULT 'krampus_town',
+    current_region TEXT NOT NULL DEFAULT 'hollyhollow',
+    current_area TEXT NOT NULL DEFAULT 'hollyhollow_village',
 
     money INTEGER NOT NULL DEFAULT 1000,
     badges INTEGER NOT NULL DEFAULT 0,
@@ -862,6 +862,22 @@ PERMISSIONS = [
         "admin.database",
         "Perform database administration.",
     ),
+    (
+        "admin.krampus_points.view",
+        "View Krampus Points balances and transactions.",
+    ),
+    (
+        "admin.krampus_points.edit",
+        "Award, deduct, and manage Krampus Points for players.",
+    ),
+    (
+        "admin.kp_shop.view",
+        "View the Krampus Points shop configuration.",
+    ),
+    (
+        "admin.kp_shop.edit",
+        "Create, edit, and delete Krampus Points shop items.",
+    ),
 ]
 
 
@@ -892,6 +908,8 @@ ROLE_PERMISSIONS = {
         "admin.promos.edit",
         "admin.events.view",
         "admin.events.edit",
+        "admin.kp_shop.view",
+        "admin.kp_shop.edit",
     ],
 
     "admin": [
@@ -912,6 +930,10 @@ ROLE_PERMISSIONS = {
         "moderation.reports",
         "admin.reports.view",
         "admin.audit_log",
+        "admin.krampus_points.view",
+        "admin.krampus_points.edit",
+        "admin.kp_shop.view",
+        "admin.kp_shop.edit",
     ],
 
     "webmaster": [
@@ -1868,6 +1890,43 @@ def _migrate_players_role(
 
 
 # =============================================================================
+# LEGACY AREA MIGRATION
+# =============================================================================
+
+# Old default area ids from before the Hollyhollow/Frostpine world
+# (Quest Line 01) mapped onto their new equivalents.
+LEGACY_AREA_RENAMES = {
+    "krampus_town": "hollyhollow_village",
+    "frostbite_route": "frostpine_route",
+}
+
+
+def _migrate_legacy_area_ids(
+    db: sqlite3.Connection,
+) -> None:
+
+    if not table_exists(
+        db,
+        "player_progress",
+    ):
+        return
+
+    for old_id, new_id in LEGACY_AREA_RENAMES.items():
+
+        db.execute(
+            """
+            UPDATE player_progress
+            SET current_area = ?
+            WHERE current_area = ?
+            """,
+            (
+                new_id,
+                old_id,
+            ),
+        )
+
+
+# =============================================================================
 # ROLE SEEDING
 # =============================================================================
 
@@ -2184,6 +2243,17 @@ def init_db() -> None:
         )
 
         _migrate_players_role(
+            db
+        )
+
+        # ---------------------------------------------------------------------
+        # Rename old default areas to the Hollyhollow/Frostpine world
+        # (Quest Line 01). krampus_town -> hollyhollow_village and
+        # frostbite_route -> frostpine_route keep existing players in a
+        # real area instead of a dangling reference.
+        # ---------------------------------------------------------------------
+
+        _migrate_legacy_area_ids(
             db
         )
 

@@ -1172,6 +1172,78 @@ STORY ADVENTURE
 }
 
 
+.story-areas-row {
+    display: flex;
+
+    flex-wrap: wrap;
+    gap: 10px;
+
+    align-items: flex-start;
+
+    margin-top: 14px;
+    padding-top: 14px;
+
+    border-top: 1px solid var(--border);
+}
+
+
+.story-area-group {
+    display: flex;
+
+    flex-wrap: wrap;
+    gap: 8px;
+
+    align-items: center;
+}
+
+
+.story-area-region {
+    color: var(--muted);
+
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+
+.story-area-chip {
+    padding: 6px 10px;
+
+    background: var(--panel-light);
+
+    border: 1px solid var(--border);
+    border-radius: 6px;
+
+    text-decoration: none;
+
+    transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+
+.story-area-chip:hover {
+    border-color: var(--gold);
+
+    transform: translateY(-1px);
+}
+
+
+.story-area-chip strong {
+    display: block;
+
+    color: var(--text);
+
+    font-size: 12px;
+}
+
+
+.story-area-chip small {
+    color: var(--muted);
+
+    font-size: 10px;
+}
+
+
 .story-quest-chain {
     margin: 0;
     padding: 0;

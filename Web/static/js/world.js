@@ -438,6 +438,22 @@
 
     function initialize() {
         setupEvents();
+
+        // Deep link: /world-exploration?area=<id> preselects an area
+        // (used by the Story Adventure page's area links).
+        var wantedArea = new URLSearchParams(
+            window.location.search
+        ).get("area");
+
+        if (wantedArea && elements.areasGrid) {
+            var card = elements.areasGrid.querySelector(
+                '.world-area-card[data-area="' + wantedArea + '"]'
+            );
+
+            if (card && !card.disabled) {
+                card.click();
+            }
+        }
     }
 
 
