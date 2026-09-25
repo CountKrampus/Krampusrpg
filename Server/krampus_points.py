@@ -75,8 +75,7 @@ CREATE TABLE IF NOT EXISTS kp_shop_items (
     CHECK (price  >= 0),
     CHECK (stock  >= -1),
     CHECK (active IN (0, 1)),
-    CHECK (level  >= 1),
-    CHECK (level  <= 100)
+    CHECK (level  >= 1)
 );
 
 CREATE TABLE IF NOT EXISTS kp_area_unlocks (
@@ -510,6 +509,32 @@ def delete_shop_item(item_id: int) -> bool:
 # PURCHASE FLOW
 # =============================================================================
 
+def _delete_last_pokemon(owner_id: int, species_id: str) -> None:
+    """
+    Remove the most recently created Pokémon matching owner+species.
+    Used only to undo a just-created shop reward when the rest of the
+    purchase could not complete (e.g. a concurrent-spend race).
+    """
+
+    db = get_connection()
+    try:
+        row = db.execute(
+            """
+            SELECT id FROM pokemon
+            WHERE owner_id = ? AND species_id = ?
+            ORDER BY id DESC
+            LIMIT 1
+            """,
+            (owner_id, species_id),
+        ).fetchone()
+
+        if row is not None:
+            db.execute("DELETE FROM pokemon WHERE id = ?", (row["id"],))
+            db.commit()
+    finally:
+        db.close()
+
+
 def purchase_shop_item(player_id: int, shop_item_id: int) -> dict[str, Any]:
     """
     Execute a full KP shop purchase.
@@ -563,19 +588,64 @@ def purchase_shop_item(player_id: int, shop_item_id: int) -> dict[str, Any]:
             f"You have {balance:,} KP but this costs {price:,} KP."
         )
 
-    # --- All checks passed; now execute atomically. ---
+    # Validate Pokémon rewards BEFORE spending KP so a corrupted shop
+    # row (e.g. a malformed variant) can't take the player's KP with
+    # it when delivery fails.
+    if item["item_type"] == "pokemon":
+        from .services import get_variant
+
+        if get_variant(item["variant"] or "normal") is None:
+            raise ValueError(
+                "This shop item is misconfigured (unknown variant). "
+                "Please contact staff — you have not been charged."
+            )
+
+    # --- All checks passed; now execute. ---
+    #
+    # Ordering matters: the Pokémon reward is created BEFORE the KP is
+    # spent and before the write transaction below opens. create_pokemon()
+    # uses its own connection, and SQLite only allows one writer at a
+    # time — creating the Pokémon while this function holds an
+    # uncommitted write (the stock decrement) deadlocks with
+    # "database is locked".
+
+    item_type = item["item_type"]
+    item_ref  = item["item_ref"]
+
+    if item_type == "pokemon":
+        from .admin.services import admin_assign_pokemon
+
+        try:
+            admin_assign_pokemon(
+                owner_id=player_id,
+                species_id=item_ref,
+                level=item["level"],
+                shiny=False,
+                variant=item["variant"] or "normal",
+                nickname=None,
+            )
+        except Exception:
+            # KP has not been spent yet; nothing to refund.
+            raise ValueError(
+                "Purchase failed while creating your Pokémon. "
+                "You have not been charged — please contact staff."
+            )
+
+    # 1. Deduct KP (own connection, commits immediately).
+    success, new_balance = spend_points(
+        player_id,
+        price,
+        f"KP Shop: {item['name']}",
+    )
+    if not success:
+        # Unreachable after the balance check unless a concurrent
+        # purchase raced us; undo the Pokémon we just created.
+        if item_type == "pokemon":
+            _delete_last_pokemon(player_id, item_ref)
+        raise ValueError("Transaction failed: insufficient KP.")
 
     db = get_connection()
     try:
-        # 1. Deduct KP.
-        success, new_balance = spend_points(
-            player_id,
-            price,
-            f"KP Shop: {item['name']}",
-        )
-        if not success:
-            raise ValueError("Transaction failed: insufficient KP.")
-
         # 2. Decrement stock if limited.
         if item["stock"] != -1:
             db.execute(
@@ -583,10 +653,7 @@ def purchase_shop_item(player_id: int, shop_item_id: int) -> dict[str, Any]:
                 (shop_item_id,),
             )
 
-        # 3. Deliver reward.
-        item_type = item["item_type"]
-        item_ref  = item["item_ref"]
-
+        # 3. Deliver the non-Pokémon rewards.
         if item_type == "item":
             # Give the player one of the referenced item.
             db.execute(
@@ -597,19 +664,6 @@ def purchase_shop_item(player_id: int, shop_item_id: int) -> dict[str, Any]:
                     SET quantity = quantity + 1
                 """,
                 (player_id, item_ref),
-            )
-
-        elif item_type == "pokemon":
-            # Assign a Pokémon to the player's party / PC.
-            # Import inline to avoid circular import.
-            from .admin.services import admin_assign_pokemon
-            admin_assign_pokemon(
-                owner_id=player_id,
-                species_id=item_ref,
-                level=item["level"],
-                shiny=False,
-                variant=item["variant"] or "normal",
-                nickname=None,
             )
 
         elif item_type == "area_unlock":

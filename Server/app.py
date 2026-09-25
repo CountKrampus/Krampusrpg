@@ -118,7 +118,22 @@ from .profile_ribbons import (
 
 from . import quest_chain
 from . import krampus_points
+from . import story_battle
+from . import area_search_storage as area_search
+from . import pokemon_center as pokemon_center_service
 from .admin.kp_routes import kp_admin_bp
+
+
+def world_config_area_requirement(area: dict[str, Any]) -> int:
+    """
+    An area's unlock_searches requirement (0 = always open), read
+    defensively so hand-edited areas.json values can't crash the map.
+    """
+
+    try:
+        return max(0, int(area.get("unlock_searches", 0) or 0))
+    except (TypeError, ValueError):
+        return 0
 
 # ============================================================
 # APPLICATION FACTORY
@@ -303,6 +318,29 @@ def create_app() -> Flask:
                 }
             ), 400
 
+        # Progression gate: areas with an unlock_searches requirement
+        # stay locked until the player has searched enough times
+        # (anywhere) to meet it.
+        required = world_config_area_requirement(area)
+
+        if required > 0:
+            done = area_search.get_total_searches(player_id)
+
+            if done < required:
+                return jsonify(
+                    {
+                        "success": False,
+                        "error": (
+                            f"{area.get('name', area_id)} is still locked. "
+                            f"Complete {required - done} more search(es) "
+                            f"to unlock it."
+                        ),
+                        "locked": True,
+                        "searches_done": done,
+                        "searches_required": required,
+                    }
+                ), 403
+
         encounter = start_encounter(area_id)
 
         if encounter is None:
@@ -312,6 +350,41 @@ def create_app() -> Flask:
                     "encounter": None,
                     "message": "Nothing seems to be around here...",
                 }
+            )
+
+        # Count the search AFTER a successful roll so failed/locked
+        # attempts don't burn progression credit.
+        searches_done = area_search.record_area_search(player_id, area["id"])
+
+        # Live progression state so the client can refresh the unlock
+        # bar and lock badges without a page reload (Search Again).
+        areas_all = get_all_areas()
+        next_locked = None
+
+        for other in areas_all:
+            other_required = world_config_area_requirement(other)
+
+            if other_required <= searches_done:
+                continue
+
+            if (
+                next_locked is None
+                or other_required < next_locked["required"]
+            ):
+                next_locked = {
+                    "name": other.get("name"),
+                    "required": other_required,
+                }
+
+        if next_locked is not None:
+            next_locked["remaining"] = max(
+                0, next_locked["required"] - searches_done
+            )
+            next_locked["percent"] = round(
+                100
+                * searches_done
+                / max(1, next_locked["required"]),
+                1,
             )
 
         # Show the player what each of their balls would achieve.
@@ -338,6 +411,11 @@ def create_app() -> Flask:
                 "success": True,
                 "encounter": encounter,
                 "balls": ball_chances,
+                "searches_done": searches_done,
+                "progression": {
+                    "searches_done": searches_done,
+                    "next_locked": next_locked,
+                },
             }
         )
 
@@ -559,6 +637,243 @@ def create_app() -> Flask:
             region_labels=REGION_LABELS,
         )
 
+    @app.get("/story-adventure/quest/<questline>/<quest_id>")
+    def story_quest_detail(questline: str, quest_id: str):
+        """
+        One quest: dialogue, battles, and the player's live battle
+        session for this quest (if any).
+        """
+        player_id = current_player_id()
+
+        manifest = quest_chain.get_questline(questline)
+        if manifest is None:
+            return redirect(url_for("story_adventure"))
+
+        quest = quest_chain.get_quest(questline, quest_id)
+        if quest is None:
+            return redirect(url_for("story_adventure"))
+
+        battles = quest_chain.quest_battles(questline, quest)
+
+        # Prerequisite + completion state.
+        prereqs = quest.get("requirements") or []
+        completed_quests: set[str] = set()
+        active_quests: set[str] = set()
+        defeated: set[tuple[str, int]] = set()
+
+        if player_id is not None:
+            with get_connection() as db:
+                rows = db.execute(
+                    """
+                    SELECT quest_id, status FROM player_quests
+                    WHERE player_id = ?
+                    """,
+                    (player_id,),
+                ).fetchall()
+
+            for row in rows:
+                if row["status"] == "completed":
+                    completed_quests.add(row["quest_id"])
+                elif row["status"] == "active":
+                    active_quests.add(row["quest_id"])
+
+            defeated = story_battle.get_defeated_battles(player_id, questline)
+
+        is_completed = quest["id"] in completed_quests
+        is_available = (
+            all(p in completed_quests for p in prereqs) if prereqs else True
+        )
+
+        # Party health: warn before starting a battle with fainted
+        # Pokémon — the Center heals the party for free.
+        fainted_count = 0
+        party_size = 0
+
+        if player_id is not None:
+            party_members = get_party(player_id)
+            party_size = len(party_members)
+            fainted_count = sum(
+                1
+                for m in party_members
+                if int(m.get("current_hp", 0) or 0) <= 0
+            )
+
+        # The first battle step not yet defeated.
+        next_battle_index = next(
+            (
+                i
+                for i in range(len(battles))
+                if (quest["id"], i) not in defeated
+            ),
+            None,
+        )
+
+        session = None
+        current_battle = None
+        if (
+            player_id is not None
+            and not is_completed
+            and is_available
+            and next_battle_index is not None
+        ):
+            session = story_battle.get_story_battle(
+                player_id, questline, quest["id"], next_battle_index
+            )
+
+            # The battle card for the step in progress (or the first
+            # undefeated one) — supplies the NPC's sprite for the
+            # live battle header.
+            current_battle = battles[next_battle_index]
+
+        return render_template(
+            "story_quest.html",
+            questline=manifest,
+            quest=quest,
+            battles=battles,
+            defeated=defeated,
+            is_completed=is_completed,
+            is_available=is_available,
+            is_active=quest["id"] in active_quests,
+            next_battle_index=next_battle_index,
+            battle_session=session,
+            current_battle=current_battle,
+            fainted_count=fainted_count,
+            party_size=party_size,
+        )
+
+    @app.post("/story-adventure/quest/<questline>/<quest_id>/begin")
+    def story_quest_begin(questline: str, quest_id: str):
+        """Start (or resume) the next battle step of a quest."""
+        player_id = current_player_id()
+
+        if player_id is None:
+            flash("Log in to play the Story Adventure.", "error")
+            return redirect(url_for("login"))
+
+        battle_index_raw = request.form.get("battle_index", "0")
+
+        try:
+            battle_index = int(battle_index_raw)
+        except (TypeError, ValueError):
+            battle_index = 0
+
+        try:
+            story_battle.start_story_battle(
+                player_id, questline, quest_id, battle_index
+            )
+        except ValueError as exc:
+            flash(str(exc), "error")
+
+        return redirect(
+            url_for("story_quest_detail", questline=questline, quest_id=quest_id)
+        )
+
+    @app.post("/story-adventure/quest/<questline>/<quest_id>/claim")
+    def story_quest_claim(questline: str, quest_id: str):
+        """Claim rewards for a battle-free (story) quest."""
+        player_id = current_player_id()
+
+        if player_id is None:
+            flash("Log in to play the Story Adventure.", "error")
+            return redirect(url_for("login"))
+
+        try:
+            summary = story_battle.complete_quest(player_id, questline, quest_id)
+        except ValueError as exc:
+            flash(str(exc), "error")
+            return redirect(
+                url_for(
+                    "story_quest_detail",
+                    questline=questline,
+                    quest_id=quest_id,
+                )
+            )
+
+        if summary is None:
+            flash("Quest rewards were already claimed.", "error")
+        else:
+            bits = [f"Quest complete! +{summary['money']} Pokédollars"]
+            if summary["items"]:
+                bits.append("Received: " + ", ".join(summary["items"]))
+            if summary["xp"]:
+                bits.append(f"+{summary['xp']} XP each")
+            if summary.get("pokemon"):
+                bits.append(summary["pokemon"])
+            flash(" ".join(bits), "success")
+
+        return redirect(
+            url_for("story_quest_detail", questline=questline, quest_id=quest_id)
+        )
+
+    @app.post("/story-adventure/quest/<questline>/<quest_id>/turn")
+    def story_quest_turn(questline: str, quest_id: str):
+        """Take one battle turn: use a move or switch Pokémon."""
+        player_id = current_player_id()
+
+        if player_id is None:
+            return redirect(url_for("login"))
+
+        battle_index_raw = request.form.get("battle_index", "0")
+        move_id = (request.form.get("move_id") or "").strip() or None
+        switch_raw = (request.form.get("switch_to") or "").strip()
+        switch_to = int(switch_raw) if switch_raw.isdigit() else None
+
+        try:
+            battle_index = int(battle_index_raw)
+        except (TypeError, ValueError):
+            battle_index = 0
+
+        try:
+            result = story_battle.take_story_turn(
+                player_id,
+                questline,
+                quest_id,
+                battle_index,
+                move_id=move_id,
+                switch_to=switch_to,
+            )
+        except ValueError as exc:
+            flash(str(exc), "error")
+            return redirect(
+                url_for(
+                    "story_quest_detail",
+                    questline=questline,
+                    quest_id=quest_id,
+                )
+            )
+
+        outcome = result.get("outcome")
+
+        if outcome == "won":
+            try:
+                summary = story_battle.complete_quest(
+                    player_id, questline, quest_id
+                )
+            except ValueError:
+                summary = None
+
+            if summary is not None:
+                bits = [f"You won! +{summary['money']} Pokédollars"]
+                if summary["items"]:
+                    bits.append("Received: " + ", ".join(summary["items"]))
+                if summary["xp"]:
+                    bits.append(f"+{summary['xp']} XP each")
+                if summary.get("pokemon"):
+                    bits.append(summary["pokemon"])
+                flash(" ".join(bits), "success")
+            else:
+                flash("Battle won!", "success")
+
+        elif outcome == "lost":
+            flash(
+                "All your Pokémon fainted... heal up and try again!",
+                "error",
+            )
+
+        return redirect(
+            url_for("story_quest_detail", questline=questline, quest_id=quest_id)
+        )
+
     # ========================================================
     # WORLD EXPLORATION (CATCHING)
     # ========================================================
@@ -568,6 +883,11 @@ def create_app() -> Flask:
         """
         The wild area explorer: pick an area, search for wild
         Pokémon, and throw Poké Balls at what shows up.
+
+        Each area card shows its spawn table (species and weighted
+        odds). Areas with an unlock_searches requirement stay locked
+        until the player's total search count reaches the threshold;
+        the page also shows progress toward the next locked area.
         """
         player_id = current_player_id()
 
@@ -575,6 +895,7 @@ def create_app() -> Flask:
 
         player_area = None
         balls: list[dict[str, Any]] = []
+        searches_done = 0
 
         if player_id is not None:
             progress = get_player_progress(player_id)
@@ -583,12 +904,83 @@ def create_app() -> Flask:
                 player_area = progress.get("current_area")
 
             balls = get_player_balls(player_id)
+            searches_done = area_search.get_total_searches(player_id)
+
+        # Decorate every area: spawn table with share-of-weight odds,
+        # lock state, and, for locked areas, how far away unlocking is.
+        next_locked = None
+
+        for area in areas:
+            required = world_config_area_requirement(area)
+            locked = required > searches_done
+
+            area["_locked"] = locked
+            area["_unlock_searches"] = required
+
+            if locked:
+                area["_searches_remaining"] = required - searches_done
+
+                if next_locked is None or required < next_locked["_unlock_searches"]:
+                    next_locked = area
+
+            # Spawn odds: each entry's weight as a share of the
+            # area's total weight. Sorted rarest-last for reading order.
+            encounters = sorted(
+                area.get("encounters") or [],
+                key=lambda e: float(e.get("weight", 0) or 0),
+                reverse=True,
+            )
+            total_weight = sum(
+                float(e.get("weight", 0) or 0) for e in encounters
+            )
+
+            spawns: list[dict[str, Any]] = []
+            for entry in encounters:
+                weight = float(entry.get("weight", 0) or 0)
+                variant = str(entry.get("variant", "") or "").strip()
+                chance = entry.get("variant_chance") or {}
+
+                spawns.append(
+                    {
+                        "species_id": entry.get("species_id", ""),
+                        "min_level": entry.get("min_level", 1),
+                        "max_level": entry.get("max_level", 1),
+                        "variant": variant if variant and variant != "normal" else None,
+                        "rare_variant": bool(
+                            chance.get("odds")
+                            and int(chance.get("odds", 0) or 0) > 0
+                        ),
+                        "odds": (
+                            round(100 * weight / total_weight, 1)
+                            if total_weight > 0
+                            else 0.0
+                        ),
+                    }
+                )
+
+            area["_spawns"] = spawns
+
+        next_locked = None if next_locked is None else {
+            "name": next_locked.get("name"),
+            "required": next_locked["_unlock_searches"],
+            "remaining": next_locked["_searches_remaining"],
+            "percent": (
+                round(
+                    100 * searches_done / max(1, next_locked["_unlock_searches"]),
+                    1,
+                )
+                if next_locked["_unlock_searches"] > 0
+                else 100.0
+            ),
+        }
 
         return render_template(
             "world_exploration.html",
             areas=areas,
             player_area=player_area,
             balls=balls,
+            searches_done=searches_done,
+            next_locked=next_locked,
         )
 
     @app.get("/mines")
@@ -664,7 +1056,49 @@ def create_app() -> Flask:
 
     @app.get("/pokemon-center")
     def pokemon_center():
-        return redirect(url_for("coming_soon"))
+        """
+        The Pokémon Center: review your party's HP and fully heal the
+        team. PC-boxed Pokémon are not healed (they aren't battling).
+        """
+        player_id = current_player_id()
+
+        if player_id is None:
+            flash("Log in to visit the Pokémon Center.", "error")
+            return redirect(url_for("login"))
+
+        overview = pokemon_center_service.get_center_overview(player_id)
+
+        return render_template(
+            "pokemon_center.html",
+            **overview,
+        )
+
+    @app.post("/pokemon-center/heal")
+    def pokemon_center_heal():
+        """Heal All: restore every party member to full HP."""
+        player_id = current_player_id()
+
+        if player_id is None:
+            flash("Log in to visit the Pokémon Center.", "error")
+            return redirect(url_for("login"))
+
+        result = pokemon_center_service.heal_party(player_id)
+
+        if result["healed"]:
+            fee_note = (
+                f" Fee: {result['fee']:,} Pokédollars."
+                if result["fee"]
+                else ""
+            )
+            flash(
+                f"Your team is fighting fit! Healed {result['healed']} "
+                f"Pokémon ({result['hp_restored']} HP restored).{fee_note}",
+                "success",
+            )
+        else:
+            flash("Your team is already at full health!", "success")
+
+        return redirect(url_for("pokemon_center"))
 
     @app.get("/minigame-center")
     def minigame_center():

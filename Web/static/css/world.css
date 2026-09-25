@@ -405,6 +405,144 @@
    RESPONSIVE
    --------------------------------------------------------- */
 
+/*
+ * Progression-locked areas.
+ */
+.world-area-locked {
+    opacity: 0.55;
+
+    border-style: dashed;
+}
+
+.world-area-lock {
+    padding: 2px 8px;
+
+    background: rgba(196, 74, 74, 0.15);
+
+    border-radius: 999px;
+
+    color: var(--red-light, #e08a8a);
+
+    font-size: 10px;
+
+    letter-spacing: 0.08em;
+}
+
+/*
+ * Per-area spawn table (species + odds).
+ */
+.world-area-spawns {
+    margin: 10px 0 0;
+    padding: 0;
+
+    list-style: none;
+
+    border-top: 1px solid var(--border);
+}
+
+.world-area-spawns li {
+    display: flex;
+
+    align-items: center;
+
+    gap: 8px;
+
+    padding: 5px 0;
+
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+
+    font-size: 12px;
+}
+
+.world-area-spawns img {
+    width: 32px;
+    height: 32px;
+
+    image-rendering: pixelated;
+}
+
+.world-spawn-name {
+    flex: 1;
+}
+
+.world-spawn-odds {
+    min-width: 44px;
+
+    text-align: right;
+
+    color: var(--gold);
+
+    font-weight: 600;
+}
+
+.world-spawn-more {
+    color: var(--muted);
+
+    font-style: italic;
+}
+
+/*
+ * Unlock progress toward the next locked area.
+ */
+.world-unlock-progress {
+    margin-top: 14px;
+
+    padding: 12px 14px;
+
+    background: rgba(213, 173, 82, 0.06);
+
+    border: 1px solid var(--border);
+
+    border-radius: 8px;
+}
+
+.world-unlock-label {
+    display: flex;
+
+    justify-content: space-between;
+
+    gap: 10px;
+
+    font-size: 13px;
+}
+
+.world-unlock-bar {
+    height: 10px;
+
+    margin: 8px 0 6px;
+
+    background: #1a2027;
+
+    border-radius: 5px;
+
+    overflow: hidden;
+}
+
+.world-unlock-fill {
+    height: 100%;
+
+    background: linear-gradient(90deg, var(--gold), #d5ad52);
+
+    transition: width 0.3s ease;
+}
+
+.world-unlock-hint {
+    color: var(--muted);
+
+    font-size: 11px;
+}
+
+/*
+ * Encounter header actions (Search Again + Run Away).
+ */
+.world-encounter-header-actions {
+    display: flex;
+
+    flex-wrap: wrap;
+
+    gap: 8px;
+}
+
 @media (max-width: 640px) {
 
     .world-header-card {

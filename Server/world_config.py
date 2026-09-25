@@ -178,6 +178,7 @@ def create_area(
         "type": area_type,
         "description": str(description).strip(),
         "encounters": [],
+        "unlock_searches": 0,
     }
 
     areas.append(area)
@@ -230,6 +231,33 @@ def update_area(
     return area
 
 
+def set_area_unlock_searches(area_id: str, unlock_searches: int) -> dict[str, Any]:
+    """
+    Set how many searches (progression) an area requires before it
+    unlocks for a player. 0 keeps the area open to everyone.
+    """
+
+    area = get_area_by_id(area_id)
+
+    if area is None:
+        raise ValueError("Area not found.")
+
+    document = load_areas_document()
+
+    for candidate in document["areas"]:
+        if str(candidate.get("id", "")).lower() == str(area_id).strip().lower():
+            area = candidate
+            break
+    else:
+        raise ValueError("Area not found.")
+
+    area["unlock_searches"] = _parse_unlock_searches(unlock_searches)
+
+    save_areas_document(document)
+
+    return area
+
+
 def delete_area(area_id: str) -> None:
     """Remove an area and all of its encounters."""
 
@@ -259,7 +287,8 @@ def _parse_level(value: Any, default: int) -> int:
     except (TypeError, ValueError):
         return default
 
-    return max(1, min(100, level))
+    # No upper cap: encounter levels may exceed the classic 100.
+    return max(1, level)
 
 
 def _parse_weight(value: Any) -> float:
@@ -271,6 +300,29 @@ def _parse_weight(value: Any) -> float:
     return max(0.0, min(1000.0, weight))
 
 
+def _clean_variant(value: Any) -> str:
+    """
+    Normalize an encounter variant string; "normal"/empty collapse to
+    "normal". Validation against the pokemon_variants table happens in
+    set_area_encounters() (which can raise a helpful ValueError).
+    """
+
+    variant = str(value or "").strip().lower()
+
+    return variant if variant else "normal"
+
+
+def _parse_unlock_searches(value: Any) -> int:
+    """Area unlock requirement: how many searches it takes to open."""
+
+    try:
+        searches = int(value)
+    except (TypeError, ValueError):
+        return 0
+
+    return max(0, min(100_000, searches))
+
+
 def set_area_encounters(
     area_id: str,
     encounters: list[dict[str, Any]],
@@ -278,10 +330,11 @@ def set_area_encounters(
     """
     Replace an area's full encounter table with a validated list.
 
-    Each entry: {"species_id", "min_level", "max_level", "weight"}.
-    Unknown species ids are rejected so a typo can't silently create
-    an encounter that can never generate. Raises ValueError on any
-    invalid entry (nothing is written).
+    Each entry: {"species_id", "min_level", "max_level", "weight",
+    "variant"}. Unknown species ids and unknown (non-normal) variants
+    are rejected so a typo can't silently create an encounter that can
+    never generate. Raises ValueError on any invalid entry (nothing is
+    written).
     """
 
     area = get_area_by_id(area_id)
@@ -325,12 +378,27 @@ def set_area_encounters(
                 f"weight greater than 0."
             )
 
+        # Variants resolve against the live pokemon_variants table the
+        # same way create_pokemon() resolves them later — a typo can't
+        # silently create an encounter that always fails at catch time.
+        variant = _clean_variant(entry.get("variant"))
+
+        if variant != "normal":
+            from .services import get_variant
+
+            if get_variant(variant) is None:
+                raise ValueError(
+                    f"Encounter #{index}: unknown variant "
+                    f"'{variant}' for {species_id}."
+                )
+
         cleaned.append(
             {
                 "species_id": species_id,
                 "min_level": min_level,
                 "max_level": max_level,
                 "weight": weight,
+                "variant": variant,
             }
         )
 
@@ -362,6 +430,7 @@ def add_area_encounter(
     min_level: int = 1,
     max_level: int = 5,
     weight: float = 10.0,
+    variant: str = "normal",
 ) -> dict[str, Any]:
     """Append one validated encounter entry to an area."""
 
@@ -379,6 +448,7 @@ def add_area_encounter(
                 "min_level": min_level,
                 "max_level": max_level,
                 "weight": weight,
+                "variant": variant,
             },
         ],
     )

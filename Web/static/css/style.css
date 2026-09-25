@@ -1670,3 +1670,357 @@ border-color: var(--red-dark);
 
 color: var(--red-light);
 }
+
+
+/* =========================================================
+STORY QUEST PLAY + BATTLE UI
+========================================================= */
+
+.story-quest-play {
+margin-top: 10px;
+}
+
+.story-dialogue-line {
+padding: 6px 10px;
+
+border-left: 3px solid var(--gold);
+
+background: rgba(213, 173, 82, 0.07);
+
+font-size: 13px;
+
+font-style: italic;
+}
+
+.battle-start-row {
+display: flex;
+
+justify-content: space-between;
+
+align-items: center;
+
+gap: 12px;
+}
+
+.battle-start-row form {
+margin: 0;
+}
+
+.story-battle-live {
+border: 1px solid var(--gold);
+}
+
+.battle-arenas {
+display: grid;
+
+grid-template-columns: 1fr 1fr;
+
+gap: 14px;
+
+margin-bottom: 12px;
+}
+
+.battle-side h3 {
+margin: 0 0 8px;
+
+font-size: 12px;
+
+letter-spacing: 0.1em;
+text-transform: uppercase;
+
+color: var(--muted);
+}
+
+.battle-mon {
+padding: 6px 8px;
+
+margin-bottom: 6px;
+
+border: 1px solid var(--border);
+
+border-radius: 6px;
+
+font-size: 13px;
+}
+
+.battle-mon.active-mon {
+border-color: var(--gold);
+
+background: rgba(213, 173, 82, 0.08);
+}
+
+.battle-mon.fainted-mon {
+opacity: 0.45;
+}
+
+.hp-bar {
+height: 8px;
+
+margin: 4px 0 2px;
+
+background: #1a2027;
+
+border-radius: 4px;
+
+overflow: hidden;
+}
+
+.hp-fill {
+height: 100%;
+
+background: linear-gradient(
+    90deg,
+    var(--green),
+    #6faf85
+);
+}
+
+.battle-log {
+max-height: 180px;
+
+overflow-y: auto;
+
+padding: 8px 10px;
+
+margin-bottom: 12px;
+
+background: #151a21;
+
+border: 1px solid var(--border);
+
+border-radius: 6px;
+
+font-size: 12px;
+
+line-height: 1.6;
+}
+
+.battle-log p {
+margin: 0;
+}
+
+.battle-actions h4 {
+margin: 10px 0 6px;
+
+font-size: 12px;
+
+color: var(--muted);
+}
+
+.battle-move-buttons {
+display: flex;
+
+flex-wrap: wrap;
+
+gap: 8px;
+}
+
+.battle-move-buttons form {
+margin: 0;
+}
+
+.story-battle-card .story-battle-team li {
+display: flex;
+
+align-items: center;
+
+gap: 8px;
+}
+
+.story-battle-escape {
+font-size: 12px;
+
+color: var(--muted);
+
+font-style: italic;
+}
+
+@media (max-width: 700px) {
+.battle-arenas {
+grid-template-columns: 1fr;
+}
+}
+
+
+/* =========================================================
+POKEMON CENTER
+========================================================= */
+
+.center-header-card {
+display: flex;
+
+justify-content: space-between;
+
+align-items: center;
+
+gap: 16px;
+}
+
+.center-actions-row {
+display: flex;
+
+justify-content: space-between;
+
+align-items: center;
+
+gap: 12px;
+
+margin-bottom: 14px;
+}
+
+.center-status-hurt {
+color: var(--red-light, #e08a8a);
+}
+
+.center-status-healthy {
+color: var(--green);
+}
+
+.center-party-list {
+margin: 0;
+
+padding: 0;
+
+list-style: none;
+}
+
+.center-party-mon {
+display: flex;
+
+align-items: center;
+
+gap: 12px;
+
+padding: 10px;
+
+margin-bottom: 8px;
+
+border: 1px solid var(--border);
+
+border-radius: 8px;
+}
+
+.center-party-mon.center-mon-hurt {
+border-color: rgba(213, 173, 82, 0.5);
+}
+
+.center-party-mon.center-mon-fainted {
+border-color: rgba(196, 74, 74, 0.6);
+
+background: rgba(196, 74, 74, 0.05);
+}
+
+.center-mon-fainted .center-mon-sprite {
+filter: grayscale(1);
+
+opacity: 0.5;
+}
+
+.center-mon-sprite {
+width: 56px;
+
+height: 56px;
+
+image-rendering: pixelated;
+}
+
+.center-mon-info {
+flex: 1;
+}
+
+.center-mon-name {
+display: flex;
+
+align-items: baseline;
+
+gap: 6px;
+
+font-weight: 600;
+}
+
+.center-mon-name small {
+color: var(--muted);
+
+font-weight: 400;
+}
+
+.center-mon-hp {
+color: var(--muted);
+}
+
+.hp-fill.hp-low {
+background: linear-gradient(90deg, #d5a542, #c4a04a);
+}
+
+.hp-fill.hp-critical {
+background: linear-gradient(90deg, #c44a4a, #a83a3a);
+}
+
+.center-nav-card {
+display: flex;
+
+gap: 10px;
+}
+
+@media (max-width: 640px) {
+
+.center-header-card {
+flex-direction: column;
+
+align-items: flex-start;
+}
+
+.center-actions-row {
+flex-direction: column;
+
+align-items: flex-start;
+}
+
+}
+
+.story-fainted-warning {
+border-color: rgba(196, 74, 74, 0.6);
+
+background: rgba(196, 74, 74, 0.07);
+}
+
+.story-fainted-warning p {
+margin: 0;
+}
+
+
+/* =========================================================
+STORY NPC SPRITES
+========================================================= */
+
+.story-npc-header {
+display: flex;
+
+align-items: center;
+
+gap: 12px;
+}
+
+.story-npc-sprite {
+width: 72px;
+
+height: 72px;
+
+object-fit: contain;
+
+image-rendering: pixelated;
+
+background: rgba(213, 173, 82, 0.06);
+
+border: 1px solid var(--border);
+
+border-radius: 8px;
+
+padding: 4px;
+}
+
+.story-npc-sprite-live {
+width: 96px;
+
+height: 96px;
+}

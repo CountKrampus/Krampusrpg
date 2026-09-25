@@ -14,5 +14,77 @@
         "reward_money": 250,
         "reward_item": "poke_ball",
         "reward_quantity": 3
+    },
+    {
+        "id": "tk_001",
+        "name": "A Strange Beginning",
+        "description": "Quest Line 01 #1 — Speak with the village researcher and investigate reports of aggressive Pokémon near Frostpine Route.",
+        "reward_money": 300
+    },
+    {
+        "id": "tk_002",
+        "name": "Something in the Woods",
+        "description": "Quest Line 01 #2 — Track the marked Pokémon into the pines and face the Krampus Scout watching the treeline.",
+        "reward_money": 250
+    },
+    {
+        "id": "tk_003",
+        "name": "Marked",
+        "description": "Quest Line 01 #3 — Rescue a marked Pokémon from the Krampus Handlers' cages.",
+        "reward_money": 400
+    },
+    {
+        "id": "tk_004",
+        "name": "Stolen Pokémon",
+        "description": "Quest Line 01 #4 — Free the caged Pokémon at the Team Krampus camp before the Handlers return.",
+        "reward_money": 500
+    },
+    {
+        "id": "tk_005",
+        "name": "The Winter Relic",
+        "description": "Quest Line 01 #5 — Recover the Winter Relic from the old shrine before the Krampus Archaeologist does.",
+        "reward_money": 600
+    },
+    {
+        "id": "tk_006",
+        "name": "First Lieutenant",
+        "description": "Quest Line 01 #6 — Battle Lieutenant Noelle, field commander of Team Krampus.",
+        "reward_money": 1200
+    },
+    {
+        "id": "tk_007",
+        "name": "Missing Children",
+        "description": "Quest Line 01 #7 — Follow the Krampus Keepers to find the missing festival children.",
+        "reward_money": 800
+    },
+    {
+        "id": "tk_008",
+        "name": "Blackout",
+        "description": "Quest Line 01 #8 — Hollyhollow goes dark. Push the Krampus enforcers out of the plaza.",
+        "reward_money": 900
+    },
+    {
+        "id": "tk_009",
+        "name": "The Krampus Bell",
+        "description": "Quest Line 01 #9 — Learn the truth about the Krampus Bell and what rings beneath the fortress.",
+        "reward_money": 1000
+    },
+    {
+        "id": "tk_010",
+        "name": "Krampus Fortress",
+        "description": "Quest Line 01 #10 — Fight your way through the fortress corridors to the Bell Chamber.",
+        "reward_money": 1500
+    },
+    {
+        "id": "tk_011",
+        "name": "Truth Beneath the Mask",
+        "description": "Quest Line 01 #11 — The Director's mask comes off. The conspiracy is bigger than one region.",
+        "reward_money": 2000
+    },
+    {
+        "id": "tk_012",
+        "name": "The Bellringer",
+        "description": "Quest Line 01 #12 — The final battle: Director Krampus and his six-Pokémon team beneath the Krampus Bell.",
+        "reward_money": 5000
     }
 ]

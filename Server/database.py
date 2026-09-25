@@ -114,7 +114,6 @@ CREATE TABLE IF NOT EXISTS pokemon (
         ON DELETE CASCADE,
 
     CHECK (level >= 1),
-    CHECK (level <= 100),
     CHECK (experience >= 0),
     CHECK (shiny IN (0, 1)),
     CHECK (current_hp >= 0),
@@ -1515,7 +1514,7 @@ def _compute_stats_for_migration(
     species_map: dict[str, dict] | None = None,
 ) -> dict[str, int]:
     """Compute baseline stats for a Pokémon when rebuilding tables."""
-    level = max(1, min(100, int(level)))
+    level = max(1, int(level))
     base_stats = {
         "hp": 50,
         "attack": 50,
@@ -1588,7 +1587,7 @@ def rebuild_legacy_pokemon_tables(
         pokemon_sql = row_sql[0] if row_sql else ""
         missing_checks = (
             "CHECK (level >= 1)" not in pokemon_sql
-            or "CHECK (level <= 100)" not in pokemon_sql
+            or "CHECK (level <= 100)" in pokemon_sql
         )
         needs_pokemon_rebuild = has_legacy_cols or missing_checks
 
@@ -1668,7 +1667,6 @@ def rebuild_legacy_pokemon_tables(
                         REFERENCES players(id)
                         ON DELETE CASCADE,
                     CHECK (level >= 1),
-                    CHECK (level <= 100),
                     CHECK (experience >= 0),
                     CHECK (shiny IN (0, 1)),
                     CHECK (current_hp >= 0),
@@ -1679,7 +1677,7 @@ def rebuild_legacy_pokemon_tables(
 
             for p in pokemon_rows:
                 r = dict(p)
-                lvl = max(1, min(100, int(r.get("level") or 5)))
+                lvl = max(1, int(r.get("level") or 5))
                 exp = max(0, int(r.get("experience") or 0))
                 shiny = 1 if r.get("shiny") else 0
                 gender = str(r.get("gender") or "unknown").lower()

@@ -1023,8 +1023,8 @@ def admin_assign_pokemon(
     if not player:
         raise ValueError(f"Player ID #{owner_id} does not exist.")
 
-    # Clamp level
-    level = max(1, min(100, int(level)))
+    # No upper level cap (leaderboard progression).
+    level = max(1, int(level))
 
     # Use the game's official create_pokemon service
     from ..services import create_pokemon
@@ -1698,7 +1698,7 @@ def create_promo(
 ) -> int:
     """Create a new daily promo."""
     ensure_admin_tables()
-    level = max(1, min(100, int(level)))
+    level = max(1, int(level))
     db = get_connection()
     try:
         cursor = db.execute(

@@ -167,6 +167,7 @@ def resolve_battle(questline_id: str, battle: Any) -> dict[str, Any] | None:
         "escapes": bool(battle.get("escapes", npc.get("escapes", False))),
         "boss_mechanic": npc.get("boss_mechanic"),
         "team_size": len(npc.get("team", [])),
+        "sprite": str(npc.get("sprite", "") or ""),
     }
 
 

@@ -1,0 +1,177 @@
+{% extends "admin/base.html" %}
+
+{% block title %}NPC Editor{% endblock %}
+
+{% block content %}
+<div class="admin-page-header">
+    <div>
+        <h1>Quest NPC Editor</h1>
+        <p class="admin-subtitle">
+            Character sprites and battle teams for story NPCs. Edits save
+            directly to the quest line's encounters.json and take effect
+            immediately.
+        </p>
+    </div>
+    <a href="{{ url_for('admin.quests') }}" class="admin-button admin-button-small">
+        ← Quests
+    </a>
+</div>
+
+{% for line in questlines %}
+<section class="admin-section">
+
+    <div class="admin-section-header">
+        <div>
+            <h2>{{ line.title }}</h2>
+            <p>{{ line.npcs | length }} NPC{{ "s" if line.npcs | length != 1 else "" }} · quest line id: {{ line.id }}</p>
+        </div>
+    </div>
+
+    {% for npc in line.npcs %}
+
+    <div class="admin-card" style="margin-bottom: 18px;">
+
+        <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">
+
+            <div style="display: flex; align-items: center; gap: 12px;">
+
+                {% if npc.sprite %}
+                <img src="{{ url_for('static', filename=npc.sprite) }}"
+                     alt="{{ npc.name }}"
+                     style="width: 64px; height: 64px; object-fit: contain; image-rendering: pixelated; border: 1px solid var(--admin-border, #444); border-radius: 8px; padding: 4px;">
+                {% else %}
+                <div style="width: 64px; height: 64px; display: flex; align-items: center; justify-content: center; border: 1px dashed var(--admin-border, #444); border-radius: 8px; color: var(--admin-muted, #888); font-size: 11px;">
+                    no sprite
+                </div>
+                {% endif %}
+
+                <div>
+                    <h2 style="margin: 0;">{{ npc.name }}</h2>
+                    <small class="admin-form-help">
+                        id: {{ npc.id }}
+                        {% if npc.rank %} · rank: {{ npc.rank }}{% endif %}
+                        · {{ npc.team | length }} Pokémon
+                    </small>
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="admin-card-grid" style="grid-template-columns: 1fr 2fr; gap: 24px; align-items: start;">
+
+            <!-- SPRITE FORM -->
+            <form method="post"
+                  action="{{ url_for('admin.npc_sprite_save', questline_id=line.id, npc_id=npc.id) }}"
+                  class="admin-form">
+                <div class="admin-form-group">
+                    <label for="sprite-{{ line.id }}-{{ npc.id }}">Character Sprite</label>
+                    <input
+                        type="text"
+                        id="sprite-{{ line.id }}-{{ npc.id }}"
+                        name="sprite"
+                        value="{{ npc.sprite }}"
+                        maxlength="200"
+                        placeholder="sprites/npcs/krampus_scout.png"
+                    >
+                    <span class="admin-form-help">
+                        Path under /static (e.g. sprites/npcs/director.png).
+                        Leave blank for no sprite.
+                    </span>
+                </div>
+                <button type="submit" class="admin-button admin-button-small">
+                    Save Sprite
+                </button>
+            </form>
+
+            <!-- TEAM FORM -->
+            <form method="post"
+                  action="{{ url_for('admin.npc_team_save', questline_id=line.id, npc_id=npc.id) }}"
+                  class="admin-form">
+
+                <label style="display: block; margin-bottom: 6px;">Battle Team (1–6 Pokémon)</label>
+
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Species</th>
+                            <th>Level</th>
+                            <th>Variant</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for mon in npc.team %}
+                        <tr>
+                            <td>
+                                <input type="text" name="team_species"
+                                       value="{{ mon.species }}"
+                                       list="npc-species-list"
+                                       required
+                                       style="width: 160px;">
+                            </td>
+                            <td>
+                                <input type="number" name="team_level"
+                                       value="{{ mon.level }}"
+                                       min="1" max="1000000"
+                                       required
+                                       style="width: 80px;">
+                            </td>
+                            <td>
+                                <select name="team_variant" style="width: 120px;">
+                                    <option value="normal" {% if mon.variant | default('normal') == 'normal' %}selected{% endif %}>normal</option>
+                                    {% for v in variants %}
+                                    <option value="{{ v.id }}" {% if mon.variant == v.id %}selected{% endif %}>{{ v.id }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                        </tr>
+                        {% endfor %}
+
+                        <!-- One empty row for adding a member -->
+                        <tr>
+                            <td>
+                                <input type="text" name="team_species"
+                                       list="npc-species-list"
+                                       placeholder="add species…"
+                                       style="width: 160px;">
+                            </td>
+                            <td>
+                                <input type="number" name="team_level"
+                                       value="5" min="1" max="1000000"
+                                       style="width: 80px;">
+                            </td>
+                            <td>
+                                <select name="team_variant" style="width: 120px;">
+                                    <option value="normal">normal</option>
+                                    {% for v in variants %}
+                                    <option value="{{ v.id }}">{{ v.id }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <button type="submit" class="admin-button admin-button-small" style="margin-top: 10px;">
+                    Save Team
+                </button>
+
+            </form>
+
+        </div>
+
+    </div>
+
+    {% endfor %}
+
+</section>
+{% endfor %}
+
+<!-- Species autocomplete source -->
+<datalist id="npc-species-list">
+    {% for species in species_list %}
+    <option value="{{ species.id }}">
+    {% endfor %}
+</datalist>
+
+{% endblock %}

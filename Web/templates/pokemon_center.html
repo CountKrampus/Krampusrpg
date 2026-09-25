@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block title %}Pokémon Center - Krampus RPG{% endblock %}
+
+{% block content %}
+
+<div class="center-page">
+
+    <section class="card center-header-card">
+
+        <div>
+            <span class="world-kicker">POKÉMON CENTER</span>
+
+            <h1>Rest and Recover</h1>
+
+            <p>
+                The Center's nurses patch up your team free of charge.
+                Only your active party is healed — PC-boxed Pokémon keep
+                the HP they had when boxed.
+            </p>
+        </div>
+
+        <div class="world-ball-count">
+
+            <span>PARTY</span>
+
+            <strong>{{ party_size }}</strong>
+
+            <small>
+                {% if fainted %}
+                {{ fainted }} fainted
+                {% elif injured %}
+                {{ injured }} injured
+                {% elif party_size %}
+                all healthy
+                {% else %}
+                empty
+                {% endif %}
+            </small>
+
+        </div>
+
+    </section>
+
+    {% if party %}
+
+    <section class="card">
+
+        <div class="center-actions-row">
+
+            <div class="center-status">
+                {% if needs_heal %}
+                <strong class="center-status-hurt">
+                    Your team is missing {{ hp_missing }} HP.
+                    {% if heal_fee %}Healing costs <strong>{{ heal_fee }} Pokédollars</strong>.{% else %}Healing is free for young teams.{% endif %}
+                </strong>
+                {% else %}
+                <strong class="center-status-healthy">
+                    Your team is fighting fit!
+                </strong>
+                {% endif %}
+            </div>
+
+            <form method="post" action="{{ url_for('pokemon_center_heal') }}"
+                  onsubmit="{% if heal_fee %}return confirm('Heal your party for {{ heal_fee }} Pokédollars?');{% else %}return true;{% endif %}">
+                <button type="submit" class="button" {% if not needs_heal %}disabled{% endif %}>
+                    {% if heal_fee %}⛑ Heal All ({{ heal_fee }}¥){% else %}⛑ Heal All (Free){% endif %}
+                </button>
+            </form>
+
+        </div>
+
+        <ul class="center-party-list">
+
+            {% for mon in party %}
+
+            <li class="center-party-mon
+                {% if mon.is_fainted %}center-mon-fainted{% elif mon.needs_heal %}center-mon-hurt{% endif %}">
+
+                <img class="center-mon-sprite" src="{{ url_for('static', filename='sprites/' ~ mon.species_id ~ '.png') }}"
+                     alt="{{ mon.species_id | title }}" loading="lazy">
+
+                <div class="center-mon-info">
+
+                    <div class="center-mon-name">
+                        {{ mon.nickname or (mon.species_id | replace('_', ' ') | title) }}
+                        {% if mon.shiny %}<span title="Shiny">✨</span>{% endif %}
+                        <small>Lv. {{ mon.level }}</small>
+                    </div>
+
+                    <div class="hp-bar">
+                        <div class="hp-fill
+                            {% if mon.hp_percent <= 25 %}hp-critical{% elif mon.hp_percent <= 50 %}hp-low{% endif %}"
+                             style="width: {{ mon.hp_percent }}%;"></div>
+                    </div>
+
+                    <small class="center-mon-hp">
+                        {{ mon.current_hp }} / {{ mon.max_hp }} HP
+                        {% if mon.is_fainted %}· 💀 fainted{% elif mon.needs_heal %}· needs healing{% endif %}
+                    </small>
+
+                </div>
+
+            </li>
+
+            {% endfor %}
+
+        </ul>
+
+    </section>
+
+    {% else %}
+
+    <section class="card">
+        <h2>No Pokémon yet</h2>
+        <p>Go catch your first partner in the wild, or pick a starter.</p>
+        <a class="button secondary" href="{{ url_for('world_exploration') }}">Explore the World →</a>
+    </section>
+
+    {% endif %}
+
+    <section class="card center-nav-card">
+        <a class="button secondary" href="{{ url_for('world_exploration') }}">← World Exploration</a>
+        <a class="button secondary" href="{{ url_for('dashboard') }}">Dashboard</a>
+    </section>
+
+</div>
+
+{% endblock %}

@@ -159,11 +159,11 @@
                         Rewards:
                         {% if quest.rewards.money %}💰 {{ quest.rewards.money }} Pokécoins{% endif %}
                         {% if quest.rewards.xp %} · ✨ {{ quest.rewards.xp }} XP{% endif %}
-                        {% if quest.rewards['items'] %}
-                            {% for it in quest.rewards['items'] %} · 🎒 {{ it.quantity }}× {{ it.id | replace('_', ' ') | title }}{% endfor %}
+                        {% if quest.rewards.get('items') %}
+                            {% for it in quest.rewards.get('items') %} · 🎒 {{ it.quantity }}× {{ it.id | replace('_', ' ') | title }}{% endfor %}
                         {% endif %}
-                        {% if quest.rewards['quest_items'] %}
-                            {% for qi in quest.rewards['quest_items'] %} · 🔑 {{ qi | replace('_', ' ') | title }}{% endfor %}
+                        {% if quest.rewards.get('quest_items') %}
+                            {% for qi in quest.rewards.get('quest_items') %} · 🔑 {{ qi | replace('_', ' ') | title }}{% endfor %}
                         {% endif %}
                         {% if quest.rewards.pokemon_reward %}
                             · 🎁 {{ quest.rewards.pokemon_reward.species | default('Bonus Pokémon') | replace('_', ' ') | title }}
@@ -184,6 +184,19 @@
                     <p class="story-quest-locked">
                         Complete the previous quests to unlock this chapter.
                     </p>
+                    {% endif %}
+
+                    {% if not quest.is_locked %}
+                    <a class="button story-quest-play"
+                       href="{{ url_for('story_quest_detail', questline=line.id, quest_id=quest.id) }}">
+                        {% if quest.is_completed %}
+                        Review Chapter →
+                        {% elif quest.is_active %}
+                        ▶ Continue Quest
+                        {% else %}
+                        ▶ Start Quest
+                        {% endif %}
+                    </a>
                     {% endif %}
 
                 </div>

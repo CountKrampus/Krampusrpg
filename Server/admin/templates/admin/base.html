@@ -60,8 +60,28 @@
                     <a href="{{ url_for('admin.quests') }}" class="admin-nav-link {% if request.endpoint in ['admin.quests', 'admin.quests_edit'] %}active{% endif %}">
                         <span>Quests</span>
                     </a>
+                    <a href="{{ url_for('admin.npc_editor') }}" class="admin-nav-link {% if request.endpoint == 'admin.npc_editor' %}active{% endif %}">
+                        <span>NPC Editor</span>
+                    </a>
                     {% endif %}
                 </div>
+
+                {% if current_user_has_permission('admin.krampus_points.view') or current_user_has_permission('admin.kp_shop.view') %}
+                <div class="admin-nav-section">
+                    <div class="admin-nav-heading">Krampus Points</div>
+                    {% if current_user_has_permission('admin.krampus_points.view') %}
+                    <a href="{{ url_for('kp_admin.kp_overview') }}" class="admin-nav-link {% if request.endpoint in ['kp_admin.kp_overview', 'kp_admin.kp_transactions'] %}active{% endif %}">
+                        <span>KP Overview</span>
+                    </a>
+                    {% endif %}
+
+                    {% if current_user_has_permission('admin.kp_shop.view') %}
+                    <a href="{{ url_for('kp_admin.kp_shop') }}" class="admin-nav-link {% if request.endpoint == 'kp_admin.kp_shop' %}active{% endif %}">
+                        <span>KP Shop</span>
+                    </a>
+                    {% endif %}
+                </div>
+                {% endif %}
                 {% endif %}
 
                 {% if current_user_has_permission('admin.promos.view') or current_user_has_permission('admin.events.view') %}

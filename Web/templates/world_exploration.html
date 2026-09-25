@@ -65,40 +65,99 @@
 
         </div>
 
-        <div class="world-areas-grid" id="world-areas-grid">
+        <div class="world-areas-grid" id="world-areas-grid"
+             data-searches-done="{{ searches_done }}">
 
             {% for area in areas %}
 
             <button
                 type="button"
                 class="world-area-card
-                    {% if area.id == player_area %}world-area-active{% endif %}"
+                    {% if area.id == player_area %}world-area-active{% endif %}
+                    {% if area._locked %}world-area-locked{% endif %}"
                 data-area="{{ area.id }}"
+                data-required="{{ area._unlock_searches | default(0) }}"
+                data-species="{{ area.encounters | length }}"
                 {% if not area.encounters %}disabled
-                    title="No wild Pokémon here"{% endif %}
+                    title="No wild Pokémon here"
+                {% elif area._locked %}disabled
+                    title="Complete {{ area._unlock_searches - searches_done }} more search(es) to unlock"
+                {% endif %}
             >
 
                 <span class="world-area-type world-area-type-{{ area.type }}">
                     {{ area.type | capitalize }}
                 </span>
 
+                {% if area._locked %}
+                <span class="world-area-lock">🔒 LOCKED</span>
+                {% endif %}
+
                 <h3>{{ area.name }}</h3>
 
                 <p>{{ area.description }}</p>
 
                 <span class="world-area-species">
-                    {% if area.encounters %}
+                    {% if area._locked %}
+                        🔒 Unlocks at {{ area._unlock_searches }} searches
+                        (<span class="world-area-lock-count">{{ searches_done }}/{{ area._unlock_searches }}</span>)
+                    {% elif area.encounters %}
                         {{ area.encounters | length }} species
                     {% else %}
                         No wild Pokémon
                     {% endif %}
                 </span>
 
+                {% if area._spawns %}
+                <span class="world-area-spawns-toggle"
+                      data-area-name="{{ area.name }}"
+                      title="Show spawn table">
+                    👁 See Pokémon ({{ area._spawns | length }})
+                </span>
+
+                <template class="world-area-spawns-data">
+                    <ul class="world-area-spawns">
+                        {% for spawn in area._spawns %}
+                        <li>
+                            <img src="{{ url_for('static', filename='sprites/' ~ spawn.species_id ~ '.png') }}"
+                                 alt="{{ spawn.species_id | replace('_', ' ') | title }}" loading="lazy">
+                            <span class="world-spawn-name">
+                                {{ spawn.species_id | replace('_', ' ') | title }}{% if spawn.variant %} <em class="story-variant-tag">{{ spawn.variant }}</em>{% endif %}
+                            </span>
+                            <small>Lv. {{ spawn.min_level }}–{{ spawn.max_level }}</small>
+                            <span class="world-spawn-odds">{{ spawn.odds }}%</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </template>
+                {% endif %}
+
             </button>
 
             {% endfor %}
 
         </div>
+
+        {% if next_locked %}
+
+        <div class="world-unlock-progress" id="world-unlock-progress">
+
+            <div class="world-unlock-label">
+                <span>🔒 Next area: <strong id="world-unlock-next-name">{{ next_locked.name }}</strong></span>
+                <span id="world-unlock-remaining">{{ next_locked.remaining }} search{{ "es" if next_locked.remaining != 1 else "" }} to go</span>
+            </div>
+
+            <div class="world-unlock-bar">
+                <div class="world-unlock-fill" id="world-unlock-fill" style="width: {{ next_locked.percent }}%;"></div>
+            </div>
+
+            <small class="world-unlock-hint" id="world-unlock-hint">
+                {{ searches_done }} / {{ next_locked.required }} searches completed — every search in any area counts.
+            </small>
+
+        </div>
+
+        {% endif %}
 
     </section>
 
@@ -119,13 +178,25 @@
                 </h2>
             </div>
 
-            <button
-                type="button"
-                id="world-encounter-close"
-                class="button secondary"
-            >
-                Run Away
-            </button>
+            <div class="world-encounter-header-actions">
+
+                <button
+                    type="button"
+                    id="world-encounter-research"
+                    class="button secondary"
+                >
+                    🔄 Search Again
+                </button>
+
+                <button
+                    type="button"
+                    id="world-encounter-close"
+                    class="button secondary"
+                >
+                    Run Away
+                </button>
+
+            </div>
 
         </div>
 
@@ -178,6 +249,16 @@
                     <span>Type</span>
 
                     <strong id="world-encounter-type">
+                        —
+                    </strong>
+
+                </div>
+
+                <div class="world-encounter-stat" id="world-encounter-variant-stat" hidden>
+
+                    <span>Variant</span>
+
+                    <strong id="world-encounter-variant">
                         —
                     </strong>
 

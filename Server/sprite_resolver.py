@@ -147,7 +147,9 @@ def validate_sprite_exists(
     from pathlib import Path
 
     sprite_path = resolve_sprite(species_id, variant, shiny, form)
-    full_path = STATIC_DIR / sprite_path.lstrip("/static/")
+    prefix = "/static/"
+    relative = sprite_path[len(prefix):] if sprite_path.startswith(prefix) else sprite_path
+    full_path = STATIC_DIR / relative
 
     return full_path.exists()
 

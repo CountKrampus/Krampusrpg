@@ -6,7 +6,15 @@
       "region": "hollyhollow",
       "type": "town",
       "description": "A lantern-lit village preparing for its annual Winterwake Festival. Team Krampus struck here first — the festival lights have not been safe since.",
-      "encounters": []
+      "encounters": [
+        {
+          "species_id": "gastly",
+          "min_level": 3,
+          "max_level": 6,
+          "weight": 10.0,
+          "variant": "toxic"
+        }
+      ]
     },
     {
       "id": "frostpine_route",
@@ -15,14 +23,50 @@
       "type": "route",
       "description": "The snowy road out of Hollyhollow. Pokémon here have turned aggressive and territorial, and black-and-red markings stain the trees.",
       "encounters": [
-        { "species_id": "poochyena", "min_level": 3, "max_level": 6, "weight": 20 },
-        { "species_id": "zubat", "min_level": 3, "max_level": 6, "weight": 20 },
-        { "species_id": "pikachu", "min_level": 3, "max_level": 6, "weight": 15 },
-        { "species_id": "sneasel", "min_level": 4, "max_level": 7, "weight": 15 },
-        { "species_id": "eevee", "min_level": 3, "max_level": 6, "weight": 10 },
-        { "species_id": "murkrow", "min_level": 4, "max_level": 7, "weight": 10 },
-        { "species_id": "houndour", "min_level": 4, "max_level": 7, "weight": 5 }
-      ]
+        {
+          "species_id": "poochyena",
+          "min_level": 3,
+          "max_level": 6,
+          "weight": 20
+        },
+        {
+          "species_id": "zubat",
+          "min_level": 3,
+          "max_level": 6,
+          "weight": 20
+        },
+        {
+          "species_id": "pikachu",
+          "min_level": 3,
+          "max_level": 6,
+          "weight": 15
+        },
+        {
+          "species_id": "sneasel",
+          "min_level": 4,
+          "max_level": 7,
+          "weight": 15
+        },
+        {
+          "species_id": "eevee",
+          "min_level": 3,
+          "max_level": 6,
+          "weight": 10
+        },
+        {
+          "species_id": "murkrow",
+          "min_level": 4,
+          "max_level": 7,
+          "weight": 10
+        },
+        {
+          "species_id": "houndour",
+          "min_level": 4,
+          "max_level": 7,
+          "weight": 5
+        }
+      ],
+      "unlock_searches": 100
     },
     {
       "id": "frostpine_forest",
@@ -31,14 +75,50 @@
       "type": "forest",
       "description": "Deep evergreen woods where marked Pokémon prowl. The deeper you walk, the stranger the tracks become.",
       "encounters": [
-        { "species_id": "zubat", "min_level": 5, "max_level": 9, "weight": 20 },
-        { "species_id": "poochyena", "min_level": 5, "max_level": 9, "weight": 15 },
-        { "species_id": "sneasel", "min_level": 6, "max_level": 10, "weight": 15 },
-        { "species_id": "yamask", "min_level": 6, "max_level": 10, "weight": 10 },
-        { "species_id": "murkrow", "min_level": 6, "max_level": 10, "weight": 10 },
-        { "species_id": "houndour", "min_level": 7, "max_level": 11, "weight": 10 },
-        { "species_id": "pikachu", "min_level": 5, "max_level": 9, "weight": 10 }
-      ]
+        {
+          "species_id": "zubat",
+          "min_level": 5,
+          "max_level": 9,
+          "weight": 20
+        },
+        {
+          "species_id": "poochyena",
+          "min_level": 5,
+          "max_level": 9,
+          "weight": 15
+        },
+        {
+          "species_id": "sneasel",
+          "min_level": 6,
+          "max_level": 10,
+          "weight": 15
+        },
+        {
+          "species_id": "yamask",
+          "min_level": 6,
+          "max_level": 10,
+          "weight": 10
+        },
+        {
+          "species_id": "murkrow",
+          "min_level": 6,
+          "max_level": 10,
+          "weight": 10
+        },
+        {
+          "species_id": "houndour",
+          "min_level": 7,
+          "max_level": 11,
+          "weight": 10
+        },
+        {
+          "species_id": "pikachu",
+          "min_level": 5,
+          "max_level": 9,
+          "weight": 10
+        }
+      ],
+      "unlock_searches": 0
     },
     {
       "id": "frostpine_ridge",
@@ -47,13 +127,44 @@
       "type": "mountain",
       "description": "A wind-scoured ridge above the treeline. Lieutenant Noelle was sighted here, watching the shrine below.",
       "encounters": [
-        { "species_id": "sneasel", "min_level": 8, "max_level": 12, "weight": 20 },
-        { "species_id": "houndour", "min_level": 8, "max_level": 12, "weight": 15 },
-        { "species_id": "golbat", "min_level": 9, "max_level": 13, "weight": 15 },
-        { "species_id": "mightyena", "min_level": 9, "max_level": 13, "weight": 10 },
-        { "species_id": "absol", "min_level": 10, "max_level": 14, "weight": 5 },
-        { "species_id": "froslass", "min_level": 10, "max_level": 14, "weight": 5 }
-      ]
+        {
+          "species_id": "sneasel",
+          "min_level": 8,
+          "max_level": 12,
+          "weight": 20
+        },
+        {
+          "species_id": "houndour",
+          "min_level": 8,
+          "max_level": 12,
+          "weight": 15
+        },
+        {
+          "species_id": "golbat",
+          "min_level": 9,
+          "max_level": 13,
+          "weight": 15
+        },
+        {
+          "species_id": "mightyena",
+          "min_level": 9,
+          "max_level": 13,
+          "weight": 10
+        },
+        {
+          "species_id": "absol",
+          "min_level": 10,
+          "max_level": 14,
+          "weight": 5
+        },
+        {
+          "species_id": "froslass",
+          "min_level": 10,
+          "max_level": 14,
+          "weight": 5
+        }
+      ],
+      "unlock_searches": 500
     },
     {
       "id": "deep_frostpine",
@@ -62,14 +173,50 @@
       "type": "forest",
       "description": "The heart of the old forest, where the missing children were found. Something beneath the ice hums when the bells ring.",
       "encounters": [
-        { "species_id": "golbat", "min_level": 11, "max_level": 15, "weight": 20 },
-        { "species_id": "mightyena", "min_level": 11, "max_level": 15, "weight": 15 },
-        { "species_id": "weavile", "min_level": 12, "max_level": 16, "weight": 10 },
-        { "species_id": "yamask", "min_level": 11, "max_level": 15, "weight": 10 },
-        { "species_id": "froslass", "min_level": 12, "max_level": 16, "weight": 10 },
-        { "species_id": "houndour", "min_level": 11, "max_level": 15, "weight": 10 },
-        { "species_id": "absol", "min_level": 12, "max_level": 16, "weight": 5 }
-      ]
+        {
+          "species_id": "golbat",
+          "min_level": 11,
+          "max_level": 15,
+          "weight": 20
+        },
+        {
+          "species_id": "mightyena",
+          "min_level": 11,
+          "max_level": 15,
+          "weight": 15
+        },
+        {
+          "species_id": "weavile",
+          "min_level": 12,
+          "max_level": 16,
+          "weight": 10
+        },
+        {
+          "species_id": "yamask",
+          "min_level": 11,
+          "max_level": 15,
+          "weight": 10
+        },
+        {
+          "species_id": "froslass",
+          "min_level": 12,
+          "max_level": 16,
+          "weight": 10
+        },
+        {
+          "species_id": "houndour",
+          "min_level": 11,
+          "max_level": 15,
+          "weight": 10
+        },
+        {
+          "species_id": "absol",
+          "min_level": 12,
+          "max_level": 16,
+          "weight": 5
+        }
+      ],
+      "unlock_searches": 750
     },
     {
       "id": "krampus_hidden_camp",
@@ -78,13 +225,44 @@
       "type": "cave",
       "description": "A Team Krampus campsite buried in the pines, where stolen Pokémon were caged. Empty cages still rattle in the wind.",
       "encounters": [
-        { "species_id": "zubat", "min_level": 6, "max_level": 10, "weight": 20 },
-        { "species_id": "poochyena", "min_level": 6, "max_level": 10, "weight": 15 },
-        { "species_id": "houndour", "min_level": 7, "max_level": 11, "weight": 15 },
-        { "species_id": "sneasel", "min_level": 7, "max_level": 11, "weight": 10 },
-        { "species_id": "murkrow", "min_level": 7, "max_level": 11, "weight": 10 },
-        { "species_id": "mightyena", "min_level": 8, "max_level": 12, "weight": 10 }
-      ]
+        {
+          "species_id": "zubat",
+          "min_level": 6,
+          "max_level": 10,
+          "weight": 20
+        },
+        {
+          "species_id": "poochyena",
+          "min_level": 6,
+          "max_level": 10,
+          "weight": 15
+        },
+        {
+          "species_id": "houndour",
+          "min_level": 7,
+          "max_level": 11,
+          "weight": 15
+        },
+        {
+          "species_id": "sneasel",
+          "min_level": 7,
+          "max_level": 11,
+          "weight": 10
+        },
+        {
+          "species_id": "murkrow",
+          "min_level": 7,
+          "max_level": 11,
+          "weight": 10
+        },
+        {
+          "species_id": "mightyena",
+          "min_level": 8,
+          "max_level": 12,
+          "weight": 10
+        }
+      ],
+      "unlock_searches": 1000
     },
     {
       "id": "ancient_shrine",
@@ -93,13 +271,44 @@
       "type": "cave",
       "description": "A frozen shrine above the Winterheart seal. Archaeologists and keepers circle it, waiting for the six bells.",
       "encounters": [
-        { "species_id": "yamask", "min_level": 9, "max_level": 13, "weight": 25 },
-        { "species_id": "golbat", "min_level": 9, "max_level": 13, "weight": 15 },
-        { "species_id": "froslass", "min_level": 10, "max_level": 14, "weight": 10 },
-        { "species_id": "absol", "min_level": 10, "max_level": 14, "weight": 10 },
-        { "species_id": "sneasel", "min_level": 9, "max_level": 13, "weight": 10 },
-        { "species_id": "weavile", "min_level": 11, "max_level": 15, "weight": 5 }
-      ]
+        {
+          "species_id": "yamask",
+          "min_level": 9,
+          "max_level": 13,
+          "weight": 25
+        },
+        {
+          "species_id": "golbat",
+          "min_level": 9,
+          "max_level": 13,
+          "weight": 15
+        },
+        {
+          "species_id": "froslass",
+          "min_level": 10,
+          "max_level": 14,
+          "weight": 10
+        },
+        {
+          "species_id": "absol",
+          "min_level": 10,
+          "max_level": 14,
+          "weight": 10
+        },
+        {
+          "species_id": "sneasel",
+          "min_level": 9,
+          "max_level": 13,
+          "weight": 10
+        },
+        {
+          "species_id": "weavile",
+          "min_level": 11,
+          "max_level": 15,
+          "weight": 5
+        }
+      ],
+      "unlock_searches": 1250
     },
     {
       "id": "krampus_keep",
@@ -108,14 +317,50 @@
       "type": "mountain",
       "description": "The black fortress where Director Krampus rang the six bells. Its halls are crawling with his most loyal enforcers.",
       "encounters": [
-        { "species_id": "golbat", "min_level": 13, "max_level": 16, "weight": 20 },
-        { "species_id": "houndour", "min_level": 13, "max_level": 16, "weight": 15 },
-        { "species_id": "mightyena", "min_level": 14, "max_level": 17, "weight": 15 },
-        { "species_id": "sneasel", "min_level": 13, "max_level": 16, "weight": 10 },
-        { "species_id": "weavile", "min_level": 14, "max_level": 17, "weight": 10 },
-        { "species_id": "froslass", "min_level": 14, "max_level": 17, "weight": 10 },
-        { "species_id": "houndoom", "min_level": 15, "max_level": 18, "weight": 5 }
-      ]
+        {
+          "species_id": "golbat",
+          "min_level": 13,
+          "max_level": 16,
+          "weight": 20
+        },
+        {
+          "species_id": "houndour",
+          "min_level": 13,
+          "max_level": 16,
+          "weight": 15
+        },
+        {
+          "species_id": "mightyena",
+          "min_level": 14,
+          "max_level": 17,
+          "weight": 15
+        },
+        {
+          "species_id": "sneasel",
+          "min_level": 13,
+          "max_level": 16,
+          "weight": 10
+        },
+        {
+          "species_id": "weavile",
+          "min_level": 14,
+          "max_level": 17,
+          "weight": 10
+        },
+        {
+          "species_id": "froslass",
+          "min_level": 14,
+          "max_level": 17,
+          "weight": 10
+        },
+        {
+          "species_id": "houndoom",
+          "min_level": 15,
+          "max_level": 18,
+          "weight": 5
+        }
+      ],
+      "unlock_searches": 1500
     }
   ]
 }

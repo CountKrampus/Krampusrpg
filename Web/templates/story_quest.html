@@ -1,0 +1,268 @@
+{% extends "base.html" %}
+
+{% macro battle_card(battle, index) %}
+
+<div class="card story-battle-card">
+
+    <header class="story-line-header">
+        <div class="story-npc-header">
+            {% if battle.sprite %}
+            <img class="story-npc-sprite"
+                 src="{{ url_for('static', filename=battle.sprite) }}"
+                 alt="{{ battle.npc.name }}" loading="lazy">
+            {% endif %}
+            <div>
+                <span class="story-line-tag">BATTLE {{ index + 1 }}</span>
+                <h2>{{ battle.npc.name }}</h2>
+            </div>
+        </div>
+
+        <div class="story-line-progress">
+            <strong>{{ battle.team_size }}</strong>
+            <small>Pokémon</small>
+        </div>
+    </header>
+
+    {% if battle.npc.intro %}
+    <p class="story-premise">{{ battle.npc.intro }}</p>
+    {% endif %}
+
+    <div class="story-battle-team">
+        {% for mon in battle.npc.team %}
+        <li>
+            <span>{{ mon.species | replace("_", " ") | title }}</span>
+            <small>Lv. {{ mon.level }}</small>
+            {% if mon.variant and mon.variant != "normal" %}
+            <small class="story-variant-tag">{{ mon.variant }}</small>
+            {% endif %}
+        </li>
+        {% endfor %}
+    </div>
+
+    {% if battle.boss_mechanic %}
+    <p class="story-boss-mechanic">
+        <strong>⚔ {{ battle.boss_mechanic.name }}:</strong>
+        {{ battle.boss_mechanic.description }}
+    </p>
+    {% endif %}
+
+    {% if battle.escapes %}
+    <p class="story-battle-escape">This opponent may flee before the battle ends.</p>
+    {% endif %}
+
+</div>
+
+{% endmacro %}
+
+{% macro play_page() %}
+
+<div class="story-page">
+
+    <section class="card world-header-card">
+
+        <div>
+            <span class="world-kicker">{{ questline.title | upper }}</span>
+            <h1>{{ quest.name }}</h1>
+            <p>{{ quest.objective }}</p>
+        </div>
+
+        <div class="world-ball-count">
+            <span>QUEST</span>
+            <strong>#{{ "%02d" | format(quest.number | default(0)) }}</strong>
+            <small>{{ quest.location }}</small>
+        </div>
+
+    </section>
+
+    {% if is_completed %}
+
+    <section class="card">
+        <h2>✅ Quest Complete</h2>
+        <p>You've finished this chapter of the story. The next quest awaits on the quest line page.</p>
+        <a class="button secondary" href="{{ url_for('story_adventure') }}">← Back to Quest Lines</a>
+    </section>
+
+    {% elif not is_available %}
+
+    <section class="card">
+        <h2>🔒 Quest Locked</h2>
+        <p>Complete the previous quests in the line first.</p>
+        <a class="button secondary" href="{{ url_for('story_adventure') }}">← Back to Quest Lines</a>
+    </section>
+
+    {% else %}
+
+    {% if quest.intro %}
+    <section class="card">
+        <span class="story-line-tag">STORY</span>
+        <p class="story-premise">{{ quest.intro }}</p>
+    </section>
+    {% endif %}
+
+    {% if fainted_count and battles and not is_completed %}
+    <section class="card story-fainted-warning">
+        <p>
+            ⚠️ <strong>{{ fainted_count }}</strong> of your {{ party_size }}
+            party member{{ "s" if party_size != 1 else "" }} ha{{ "s" if fainted_count == 1 else "ve" }} fainted.
+            Starting a battle now is risky — the
+            <a href="{{ url_for('pokemon_center') }}">Pokémon Center</a>
+            will heal your team for free.
+        </p>
+    </section>
+    {% endif %}
+
+    {% if quest.dialogue %}
+    <section class="card">
+        <span class="story-line-tag">DIALOGUE</span>
+        {% for line in quest.dialogue %}
+        <p class="story-dialogue-line">{{ line }}</p>
+        {% endfor %}
+    </section>
+    {% endif %}
+
+    {% if battle_session %}
+
+    <section class="card story-battle-live">
+
+        <header class="story-line-header">
+            <div class="story-npc-header">
+                {% if current_battle and current_battle.sprite %}
+                <img class="story-npc-sprite story-npc-sprite-live"
+                     src="{{ url_for('static', filename=current_battle.sprite) }}"
+                     alt="{{ battle_session.npc_id | replace('_', ' ') | title }}" loading="lazy">
+                {% endif %}
+                <div>
+                    <span class="story-line-tag">LIVE BATTLE</span>
+                    <h2>{{ battle_session.npc_id | replace("_", " ") | title }}</h2>
+                </div>
+            </div>
+        </header>
+
+        <div class="battle-arenas">
+
+            <div class="battle-side">
+                <h3>Enemy</h3>
+                {% for mon in battle_session.npc_team %}
+                <div class="battle-mon {{ 'active-mon' if loop.index0 == battle_session.npc_slot }} {{ 'fainted-mon' if mon.hp <= 0 }}">
+                    <span>{{ mon.name }} <small>Lv. {{ mon.level }}</small></span>
+                    <div class="hp-bar">
+                        <div class="hp-fill" style="width: {{ (mon.hp / mon.max_hp * 100) | round | int }}%;"></div>
+                    </div>
+                    <small>{{ mon.hp }} / {{ mon.max_hp }} HP</small>
+                </div>
+                {% endfor %}
+            </div>
+
+            <div class="battle-side">
+                <h3>Your Party</h3>
+                {% for mon in battle_session.party %}
+                <div class="battle-mon {{ 'active-mon' if loop.index0 == battle_session.player_slot }} {{ 'fainted-mon' if mon.hp <= 0 }}">
+                    <span>{{ mon.name }} <small>Lv. {{ mon.level }}</small></span>
+                    <div class="hp-bar">
+                        <div class="hp-fill" style="width: {{ (mon.hp / mon.max_hp * 100) | round | int }}%;"></div>
+                    </div>
+                    <small>{{ mon.hp }} / {{ mon.max_hp }} HP</small>
+                </div>
+                {% endfor %}
+            </div>
+
+        </div>
+
+        {% if battle_session.log %}
+        <div class="battle-log">
+            {% for entry in battle_session.log %}
+            <p>{{ entry }}</p>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% set active_mon = battle_session.party[battle_session.player_slot] %}
+
+        <div class="battle-actions">
+            <h4>{{ active_mon.name }}'s moves</h4>
+            <div class="battle-move-buttons">
+                {% for move_id in active_mon.moves %}
+                <form method="post" action="{{ url_for('story_quest_turn', questline=questline.id, quest_id=quest.id) }}">
+                    <input type="hidden" name="battle_index" value="{{ next_battle_index }}">
+                    <input type="hidden" name="move_id" value="{{ move_id }}">
+                    <button type="submit" class="button">{{ move_id | replace("_", " ") | title }}</button>
+                </form>
+                {% endfor %}
+            </div>
+
+            {% set healthy_benched = battle_session.party | selectattr("hp", "gt", 0) | list %}
+            {% if healthy_benched | length > 1 %}
+            <h4>Switch</h4>
+            <div class="battle-move-buttons">
+                {% for mon in battle_session.party %}
+                {% if mon.hp > 0 and loop.index0 != battle_session.player_slot %}
+                <form method="post" action="{{ url_for('story_quest_turn', questline=questline.id, quest_id=quest.id) }}">
+                    <input type="hidden" name="battle_index" value="{{ next_battle_index }}">
+                    <input type="hidden" name="switch_to" value="{{ loop.index0 }}">
+                    <button type="submit" class="button secondary">↔ {{ mon.name }}</button>
+                </form>
+                {% endif %}
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+
+    </section>
+
+    {% elif next_battle_index is not none %}
+
+    <section class="card">
+        <div class="battle-start-row">
+            <p><strong>Battle {{ next_battle_index + 1 }} of {{ battles | length }} awaits.</strong></p>
+            <form method="post" action="{{ url_for('story_quest_begin', questline=questline.id, quest_id=quest.id) }}">
+                <input type="hidden" name="battle_index" value="{{ next_battle_index }}">
+                <button type="submit" class="button">⚔ Begin Battle</button>
+            </form>
+        </div>
+    </section>
+
+    {% elif battles %}
+
+    <section class="card">
+        <h2>✅ All battles won</h2>
+        <p>You've defeated every opponent in this quest.</p>
+        <a class="button secondary" href="{{ url_for('story_adventure') }}">← Back to Quest Lines</a>
+    </section>
+
+    {% else %}
+
+    <section class="card">
+        <h2>📝 Story Quest</h2>
+        {% if quest.lore_discovery %}
+        <p class="story-premise">{{ quest.lore_discovery }}</p>
+        {% endif %}
+        {% if quest.aftermath %}
+        <p class="story-premise">{{ quest.aftermath }}</p>
+        {% endif %}
+        <form method="post" action="{{ url_for('story_quest_claim', questline=questline.id, quest_id=quest.id) }}">
+            <input type="hidden" name="battle_index" value="-1">
+            <button type="submit" class="button">✅ Claim Quest Rewards</button>
+        </form>
+    </section>
+
+    {% endif %}
+
+    {% for battle in battles %}
+    {{ battle_card(battle, loop.index0) }}
+    {% endfor %}
+
+    <section class="card">
+        <a class="button secondary" href="{{ url_for('story_adventure') }}">← Back to Quest Lines</a>
+    </section>
+
+    {% endif %}
+
+</div>
+
+{% endmacro %}
+
+{% block title %}{{ quest.name }} - Krampus RPG{% endblock %}
+
+{% block content %}{{ play_page() }}{% endblock %}
+
+{% block public_content %}{{ play_page() }}{% endblock %}

@@ -257,6 +257,36 @@
             <em>(region: {{ area.region | default("—") }} · id: {{ area.id }})</em>
         </p>
 
+        <!-- Progression lock -->
+        <form
+            method="post"
+            action="{{ url_for('admin.world_area_unlock_searches', area_id=area.id) }}"
+            class="admin-form"
+            style="margin-bottom: 12px; display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end;"
+        >
+            <div class="admin-form-group" style="margin-bottom: 0;">
+                <label for="unlock-{{ area.id }}">Locked until searches</label>
+                <input
+                    type="number"
+                    id="unlock-{{ area.id }}"
+                    name="unlock_searches"
+                    value="{{ area.unlock_searches | default(0) }}"
+                    min="0"
+                    max="100000"
+                    step="1"
+                    style="width: 100px;"
+                >
+                <span class="admin-form-help">
+                    Players unlock this area after that many total searches
+                    (any area). 0 = always open.
+                </span>
+            </div>
+
+            <button type="submit" class="admin-button admin-button-small">
+                Save Unlock Requirement
+            </button>
+        </form>
+
         {% if area.encounters %}
 
         <form
@@ -269,6 +299,7 @@
                     <thead>
                         <tr>
                             <th>Species</th>
+                            <th>Variant</th>
                             <th>Min Level</th>
                             <th>Max Level</th>
                             <th>Weight</th>
@@ -293,12 +324,24 @@
                             </td>
 
                             <td>
+                                <select
+                                    name="enc_variant"
+                                    style="width: 120px;"
+                                >
+                                    <option value="normal" {% if entry.variant | default("normal") == "normal" %}selected{% endif %}>normal</option>
+                                    {% for v in variants %}
+                                    <option value="{{ v.id }}" {% if entry.variant | default("normal") == v.id %}selected{% endif %}>{{ v.id }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+
+                            <td>
                                 <input
                                     type="number"
                                     name="enc_min"
                                     value="{{ entry.min_level }}"
                                     min="1"
-                                    max="100"
+                                    max="1000000"
                                     required
                                     style="width: 70px;"
                                 >
@@ -310,7 +353,7 @@
                                     name="enc_max"
                                     value="{{ entry.max_level }}"
                                     min="1"
-                                    max="100"
+                                    max="1000000"
                                     required
                                     style="width: 70px;"
                                 >
@@ -388,13 +431,26 @@
             </div>
 
             <div class="admin-form-group" style="margin-bottom: 0;">
+                <label>Variant</label>
+                <select
+                    name="variant"
+                    style="width: 120px;"
+                >
+                    <option value="normal" selected>normal</option>
+                    {% for v in variants %}
+                    <option value="{{ v.id }}">{{ v.id }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="admin-form-group" style="margin-bottom: 0;">
                 <label>Min Lv</label>
                 <input
                     type="number"
                     name="min_level"
                     value="3"
                     min="1"
-                    max="100"
+                    max="1000000"
                     style="width: 70px;"
                 >
             </div>
@@ -406,7 +462,7 @@
                     name="max_level"
                     value="6"
                     min="1"
-                    max="100"
+                    max="1000000"
                     style="width: 70px;"
                 >
             </div>

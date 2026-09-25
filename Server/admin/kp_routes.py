@@ -50,6 +50,31 @@ from .services import (
 )
 
 
+def _clean_variant(value: str) -> str:
+    """
+    Validate a submitted variant id against the live pokemon_variants
+    table (the same resolution create_pokemon() uses), so a malformed
+    value can never be stored and blow up at purchase time.
+    """
+
+    variant = str(value or "").strip().lower()
+
+    if not variant or variant == "normal":
+        return "normal"
+
+    from ..services import get_variant
+
+    if get_variant(variant) is None:
+        valid = ", ".join(
+            sorted(v["id"] for v in get_available_variants())
+        )
+        raise ValueError(
+            f"Unknown variant '{variant}'. Valid variants: {valid}"
+        )
+
+    return variant
+
+
 # ============================================================
 # AUDIT CONSTANTS
 # ============================================================
@@ -221,7 +246,13 @@ def kp_shop_create():
         return redirect(url_for("kp_admin.kp_shop"))
 
     try:
-        level      = max(1, min(100, int(level_raw)))
+        variant = _clean_variant(variant)
+    except ValueError as exc:
+        flash(str(exc), "error")
+        return redirect(url_for("kp_admin.kp_shop"))
+
+    try:
+        level      = max(1, int(level_raw))
         price      = max(0, int(price_raw))
         stock      = max(-1, int(stock_raw))
         sort_order = int(sort_raw)
@@ -302,12 +333,18 @@ def kp_shop_edit(item_id: int):
     sort_raw    = request.form.get("sort_order", "0").strip()
 
     try:
-        level      = max(1, min(100, int(level_raw)))
+        level      = max(1, int(level_raw))
         price      = max(0, int(price_raw))
         stock      = max(-1, int(stock_raw))
         sort_order = int(sort_raw)
     except (TypeError, ValueError):
         flash("Invalid numeric values.", "error")
+        return redirect(url_for("kp_admin.kp_shop"))
+
+    try:
+        variant = _clean_variant(variant)
+    except ValueError as exc:
+        flash(str(exc), "error")
         return redirect(url_for("kp_admin.kp_shop"))
 
     success = kp.update_shop_item(

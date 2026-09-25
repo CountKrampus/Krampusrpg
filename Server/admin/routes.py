@@ -608,6 +608,135 @@ def quests_edit():
 
 
 # ============================================================
+# NPC EDITOR (SPRITES + TEAMS)
+# ============================================================
+
+@admin_bp.route("/quests/npcs")
+@quests_view_required
+def npc_editor():
+    """
+    Character sprites and battle teams for every NPC in every quest
+    line. Edits write straight to Data/quests/<line>/encounters.json.
+    """
+    from .. import quest_chain, npc_editor as npc_ed
+
+    questlines = []
+
+    for manifest in quest_chain.list_questlines():
+        npcs = npc_ed.list_npcs(manifest["id"])
+
+        for npc in npcs:
+            # Sprite previews resolve through the same lookup the
+            # battle pages use.
+            npc["sprite_exists"] = bool(npc["sprite"])
+
+        questlines.append(
+            {
+                "id": manifest["id"],
+                "title": manifest.get("title", manifest["id"]),
+                "npcs": npcs,
+            }
+        )
+
+    return render_template(
+        "admin/npc_editor.html",
+        questlines=questlines,
+        species_list=get_available_species(),
+        variants=get_available_variants(),
+    )
+
+
+@admin_bp.post("/quests/npcs/<questline_id>/<npc_id>/sprite")
+@quests_edit_required
+def npc_sprite_save(questline_id: str, npc_id: str):
+    """Set (or clear) an NPC's character sprite."""
+    staff_id = session.get("player_id")
+
+    sprite = request.form.get("sprite", "").strip()
+
+    try:
+        from .. import npc_editor as npc_ed
+
+        npc = npc_ed.set_npc_sprite(questline_id, npc_id, sprite)
+
+        log_action(
+            player_id=staff_id,
+            action=ACTION_UPDATE,
+            target_type="quest_npc",
+            target_id=npc_id,
+            details={
+                "questline": questline_id,
+                "sprite": npc.get("sprite", ""),
+            },
+        )
+        flash(
+            f"Sprite updated for {npc.get('name', npc_id)}.",
+            "success",
+        )
+    except ValueError as exc:
+        flash(str(exc), "error")
+
+    return redirect(url_for("admin.npc_editor"))
+
+
+@admin_bp.post("/quests/npcs/<questline_id>/<npc_id>/team")
+@quests_edit_required
+def npc_team_save(questline_id: str, npc_id: str):
+    """
+    Replace an NPC's team from the inline editor: parallel arrays of
+    species / level / variant per member.
+    """
+    staff_id = session.get("player_id")
+
+    species_ids = request.form.getlist("team_species")
+    levels = request.form.getlist("team_level")
+    variants = request.form.getlist("team_variant")
+
+    team = []
+
+    for index, species_id in enumerate(species_ids):
+        if not str(species_id).strip():
+            continue
+
+        team.append(
+            {
+                "species_id": species_id,
+                "level": levels[index] if index < len(levels) else "5",
+                "variant": (
+                    variants[index]
+                    if index < len(variants)
+                    else "normal"
+                ),
+            }
+        )
+
+    try:
+        from .. import npc_editor as npc_ed
+
+        npc = npc_ed.set_npc_team(questline_id, npc_id, team)
+
+        log_action(
+            player_id=staff_id,
+            action=ACTION_UPDATE,
+            target_type="quest_npc",
+            target_id=npc_id,
+            details={
+                "questline": questline_id,
+                "team_size": len(team),
+            },
+        )
+        flash(
+            f"Team updated for {npc.get('name', npc_id)} "
+            f"({len(team)} Pokémon).",
+            "success",
+        )
+    except ValueError as exc:
+        flash(str(exc), "error")
+
+    return redirect(url_for("admin.npc_editor"))
+
+
+# ============================================================
 # DAILY PROMOTIONS
 # ============================================================
 
@@ -846,6 +975,7 @@ def world():
         "admin/world.html",
         **_world_context(),
         species_list=get_available_species(),
+        variants=get_available_variants(),
     )
 
 
@@ -957,6 +1087,7 @@ def world_encounter_add(area_id: str):
             min_level=request.form.get("min_level", 1),
             max_level=request.form.get("max_level", 5),
             weight=request.form.get("weight", 10),
+            variant=request.form.get("variant", "normal"),
         )
 
         log_action(
@@ -966,6 +1097,7 @@ def world_encounter_add(area_id: str):
             target_id=area_id,
             details={
                 "encounter_added": request.form.get("species_id", ""),
+                "variant": request.form.get("variant", "normal"),
             },
         )
         flash("Encounter added.", "success")
@@ -988,11 +1120,12 @@ def world_encounters_save(area_id: str):
     min_levels = request.form.getlist("enc_min")
     max_levels = request.form.getlist("enc_max")
     weights = request.form.getlist("enc_weight")
+    variants = request.form.getlist("enc_variant")
 
     encounters = []
 
-    for species_id, min_level, max_level, weight in zip(
-        species_ids, min_levels, max_levels, weights
+    for index, (species_id, min_level, max_level, weight) in enumerate(
+        zip(species_ids, min_levels, max_levels, weights)
     ):
         encounters.append(
             {
@@ -1000,6 +1133,11 @@ def world_encounters_save(area_id: str):
                 "min_level": min_level,
                 "max_level": max_level,
                 "weight": weight,
+                "variant": (
+                    variants[index]
+                    if index < len(variants)
+                    else "normal"
+                ),
             }
         )
 
@@ -1037,6 +1175,41 @@ def world_encounter_delete(area_id: str, index: int):
             details={"encounter_index_removed": index},
         )
         flash("Encounter removed.", "success")
+    except ValueError as exc:
+        flash(str(exc), "error")
+
+    return redirect(url_for("admin.world"))
+
+
+@admin_bp.post("/world/areas/<area_id>/unlock-searches")
+@pokemon_edit_required
+def world_area_unlock_searches(area_id: str):
+    """
+    Set the progression gate for an area: how many completed searches
+    unlock it for players (0 = always open).
+    """
+    staff_id = session.get("player_id")
+
+    try:
+        area = world_config.set_area_unlock_searches(
+            area_id,
+            request.form.get("unlock_searches", 0),
+        )
+
+        log_action(
+            player_id=staff_id,
+            action=ACTION_UPDATE,
+            target_type="world_area",
+            target_id=area_id,
+            details={
+                "unlock_searches": area.get("unlock_searches", 0),
+            },
+        )
+        flash(
+            f"Unlock requirement for '{area['name']}' set to "
+            f"{area.get('unlock_searches', 0)} searches.",
+            "success",
+        )
     except ValueError as exc:
         flash(str(exc), "error")
 

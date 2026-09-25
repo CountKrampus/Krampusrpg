@@ -12,6 +12,116 @@
     "use strict";
 
     var currentEncounter = null;
+    var currentArea = null;
+    var searchesDone = 0;
+
+    /*
+     * Refresh the unlock-progress bar and per-area lock badges from
+     * the progression data returned by every encounter response.
+     * Newly-unlocked areas re-enable with their lock badge removed.
+     */
+    function updateProgression(progression) {
+        if (!progression) {
+            return;
+        }
+
+        searchesDone = progression.searches_done || 0;
+
+        var next = progression.next_locked || null;
+
+        // Unlock bar (only exists on the page when there is a locked
+        // area ahead; if everything is now open, hide it).
+        var progressBox = document.getElementById(
+            "world-unlock-progress"
+        );
+
+        if (progressBox) {
+            if (next) {
+                var nameEl = document.getElementById(
+                    "world-unlock-next-name"
+                );
+                var remainingEl = document.getElementById(
+                    "world-unlock-remaining"
+                );
+                var fillEl = document.getElementById(
+                    "world-unlock-fill"
+                );
+                var hintEl = document.getElementById(
+                    "world-unlock-hint"
+                );
+
+                if (nameEl) {
+                    nameEl.textContent = next.name || "";
+                }
+
+                if (remainingEl) {
+                    remainingEl.textContent =
+                        next.remaining +
+                        " search" +
+                        (next.remaining !== 1 ? "es" : "") +
+                        " to go";
+                }
+
+                if (fillEl) {
+                    fillEl.style.width = next.percent + "%";
+                }
+
+                if (hintEl) {
+                    hintEl.textContent =
+                        searchesDone + " / " + next.required +
+                        " searches completed — every search in any area counts.";
+                }
+            } else {
+                progressBox.hidden = true;
+            }
+        }
+
+        // Area cards: flip lock state as thresholds are crossed.
+        if (elements.areasGrid) {
+            elements.areasGrid
+                .querySelectorAll(".world-area-card")
+                .forEach(function (card) {
+                    var required = parseInt(
+                        card.dataset.required || "0",
+                        10
+                    );
+                    var nowUnlocked =
+                        required <= 0 || searchesDone >= required;
+
+                    var lockBadge = card.querySelector(
+                        ".world-area-lock"
+                    );
+                    var speciesEl = card.querySelector(
+                        ".world-area-species"
+                    );
+
+                    if (nowUnlocked && card.disabled) {
+                        card.disabled = false;
+
+                        card.title = "";
+
+                        if (lockBadge) {
+                            lockBadge.remove();
+                        }
+
+                        if (speciesEl) {
+                            var count = card.dataset.species || "";
+                            speciesEl.textContent = count
+                                ? count + " species"
+                                : "No wild Pokémon";
+                        }
+                    } else if (!nowUnlocked) {
+                        if (speciesEl) {
+                            speciesEl.innerHTML =
+                                "🔒 Unlocks at " + required +
+                                " searches (<span class=\"world-area-lock-count\">" +
+                                searchesDone + "/" + required +
+                                "</span>)";
+                        }
+                    }
+                });
+        }
+    }
 
     var elements = {
         areasGrid: document.getElementById(
@@ -46,8 +156,20 @@
             "world-encounter-type"
         ),
 
+        encounterVariantStat: document.getElementById(
+            "world-encounter-variant-stat"
+        ),
+
+        encounterVariant: document.getElementById(
+            "world-encounter-variant"
+        ),
+
         encounterClose: document.getElementById(
             "world-encounter-close"
+        ),
+
+        encounterResearch: document.getElementById(
+            "world-encounter-research"
         ),
 
         ballButtons: document.getElementById(
@@ -260,6 +382,18 @@
                     : "—";
         }
 
+        if (elements.encounterVariantStat) {
+            var variant = currentEncounter.variant || "normal";
+
+            elements.encounterVariantStat.hidden =
+                variant === "normal";
+
+            if (elements.encounterVariant) {
+                elements.encounterVariant.textContent =
+                    capitalize(variant);
+            }
+        }
+
         if (elements.encounterResult) {
             elements.encounterResult.hidden = true;
         }
@@ -300,11 +434,18 @@
             }
 
             showEncounter(data);
+
+            updateProgression(data.progression);
         } catch (error) {
+            // Locked areas answer with 403 + a progress hint.
             showMessage(
                 (error && error.message) ||
                 "The search failed."
             );
+
+            if (elements.encounterSection) {
+                elements.encounterSection.hidden = true;
+            }
         } finally {
             if (button) {
                 button.disabled = false;
@@ -340,12 +481,17 @@
             if (elements.encounterResult) {
                 if (data.caught) {
                     var pokemon = data.pokemon || {};
+                    var variantLabel =
+                        pokemon.variant && pokemon.variant !== "normal"
+                            ? capitalize(pokemon.variant) + " "
+                            : "";
 
                     elements.encounterResult.className =
                         "world-encounter-result caught";
 
                     elements.encounterResult.textContent =
                         "Gotcha! " +
+                        variantLabel +
                         (pokemon.species_name || "The Pokémon") +
                         " was caught" +
                         (pokemon.shiny ? " — and it's SHINY! ✨" : "") +
@@ -413,6 +559,8 @@
                         "world-area-active"
                     );
 
+                    currentArea = button.dataset.area;
+
                     searchArea(
                         button.dataset.area,
                         button
@@ -433,11 +581,35 @@
                 }
             );
         }
+
+        if (elements.encounterResearch) {
+            elements.encounterResearch.addEventListener(
+                "click",
+                function () {
+                    if (!currentArea) {
+                        return;
+                    }
+
+                    // Re-roll the same area. The button is disabled
+                    // inside searchArea() while the request runs.
+                    searchArea(currentArea, elements.encounterResearch);
+                }
+            );
+        }
     }
 
 
     function initialize() {
         setupEvents();
+
+        // Seed the running search count from the server-rendered
+        // value so lock badges stay accurate from the first click.
+        if (elements.areasGrid) {
+            searchesDone = parseInt(
+                elements.areasGrid.dataset.searchesDone || "0",
+                10
+            );
+        }
 
         // Deep link: /world-exploration?area=<id> preselects an area
         // (used by the Story Adventure page's area links).
