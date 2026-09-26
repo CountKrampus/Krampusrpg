@@ -36,6 +36,14 @@ from .database import get_connection
 from .quest_battle_storage import ensure_quest_battle_schema
 from .services import get_move, get_species
 
+# The full type chart, STAB, and effectiveness labels come from the
+# main battle engine so every battle mode shares one ruleset.
+from .battle import (
+    TYPE_CHART,
+    effectiveness_label,
+    type_effectiveness,
+)
+
 
 # ============================================================
 # TUNING
@@ -43,19 +51,8 @@ from .services import get_move, get_species
 
 RANDOM_SPREAD = 0.15          # ±15% damage variance
 STAB_MULTIPLIER = 1.5         # same-type attack bonus
-TYPE_CHART_BONUS = 1.3        # super-effective (simplified chart)
-TYPE_CHART_PENALTY = 0.75     # not-very-effective
-
-TYPE_CHART = {
-    "fire": {"grass": TYPE_CHART_BONUS, "ice": TYPE_CHART_BONUS, "water": TYPE_CHART_PENALTY, "fire": TYPE_CHART_PENALTY},
-    "water": {"fire": TYPE_CHART_BONUS, "water": TYPE_CHART_PENALTY, "grass": TYPE_CHART_PENALTY},
-    "grass": {"water": TYPE_CHART_BONUS, "grass": TYPE_CHART_PENALTY, "fire": TYPE_CHART_PENALTY},
-    "electric": {"water": TYPE_CHART_BONUS, "flying": TYPE_CHART_BONUS, "electric": TYPE_CHART_PENALTY, "grass": TYPE_CHART_PENALTY},
-    "ice": {"grass": TYPE_CHART_BONUS, "flying": TYPE_CHART_BONUS, "ice": TYPE_CHART_PENALTY, "fire": TYPE_CHART_PENALTY, "water": TYPE_CHART_PENALTY},
-    "dark": {"ghost": TYPE_CHART_BONUS, "dark": TYPE_CHART_PENALTY},
-    "ghost": {"ghost": TYPE_CHART_BONUS},
-    "flying": {"grass": TYPE_CHART_BONUS},
-}
+CRIT_CHANCE = 0.0625          # 1/16 critical hits
+CRIT_MULTIPLIER = 1.5
 
 
 # ============================================================
@@ -156,10 +153,7 @@ def _party_move_ids(pokemon_id: int) -> list[str]:
 
 
 def _type_effectiveness(move_type: str, defender_types: list[str]) -> float:
-    factor = 1.0
-    for dtype in defender_types:
-        factor *= TYPE_CHART.get(move_type, {}).get(dtype, 1.0)
-    return factor
+    return type_effectiveness(move_type, defender_types)
 
 
 def _compute_damage(
@@ -167,9 +161,28 @@ def _compute_damage(
     defender: dict[str, Any],
     move: dict[str, Any],
 ) -> tuple[int, str]:
-    """Damage for one hit. Returns (damage, effectiveness_note)."""
+    """
+    Damage for one hit, using the shared battle engine rules: full
+    type chart (stacking multipliers), STAB, critical hits, accuracy,
+    and the same formula as the Battle Arena.
+
+    Returns (damage, effectiveness_note).
+    """
     power = max(1, int(move.get("power") or 40))
     level = int(attacker.get("level", 5))
+
+    move_type = _move_type(move)
+
+    # Accuracy check: a miss deals no damage.
+    accuracy = int(move.get("accuracy") or 100)
+
+    if accuracy < 100 and random.random() * 100 > accuracy:
+        return 0, "The attack missed!"
+
+    eff = _type_effectiveness(move_type, defender.get("types") or [])
+
+    if eff == 0.0:
+        return 0, "It had no effect..."
 
     damage = (
         ((2 * level / 5.0 + 2) * power / 50.0)
@@ -177,19 +190,16 @@ def _compute_damage(
         * 2.0
     )
 
-    note = ""
-    move_type = _move_type(move)
-    eff = _type_effectiveness(move_type, defender.get("types") or [])
+    damage *= eff
 
-    if eff >= TYPE_CHART_BONUS:
-        note = "It's super effective!"
-        damage *= eff
-    elif eff <= TYPE_CHART_PENALTY:
-        note = "It's not very effective..."
-        damage *= eff
+    note = effectiveness_label(eff)
 
     if move_type in (attacker.get("types") or []):
         damage *= STAB_MULTIPLIER
+
+    if random.random() < CRIT_CHANCE:
+        damage *= CRIT_MULTIPLIER
+        note = ("A critical hit! " + note).strip()
 
     damage *= 1.0 + random.uniform(-RANDOM_SPREAD, RANDOM_SPREAD)
 
