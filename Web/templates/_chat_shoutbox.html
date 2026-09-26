@@ -40,10 +40,16 @@
 
         <form class="chat-input-row" autocomplete="off">
 
+            <button type="button"
+                    class="chat-avatar-btn"
+                    title="Change avatar">
+                <img class="chat-avatar-img" alt="avatar">
+            </button>
+
             <input type="text"
                    class="chat-input"
                    maxlength="300"
-                   placeholder="Message…"
+                   placeholder="Message… /help for commands"
                    autocomplete="off">
 
             <button type="submit" class="chat-send">
@@ -52,8 +58,25 @@
 
         </form>
 
+        <div class="chat-avatar-picker" hidden>
+
+            <div class="chat-avatar-picker-head">
+                <span>PICK YOUR AVATAR</span>
+                <button type="button" class="chat-avatar-close">×</button>
+            </div>
+
+            <div class="chat-avatar-grid"></div>
+
+            <div class="chat-avatar-type">
+                <input type="text" class="chat-avatar-custom"
+                       placeholder="…or type any Pokémon name">
+                <button type="button" class="chat-avatar-set">Set</button>
+            </div>
+
+        </div>
+
         <footer class="chat-footer">
-            <span>@Name mentions a player</span>
+            <span>@Name mentions a player · /help for commands</span>
         </footer>
 
     </div>
@@ -79,6 +102,8 @@
     var pending = false;
     var POLL_MS = 3000;
     var pollTimer = null;
+    var isStaff = false;
+    var myName = "";
 
     function esc(value) {
         var div = document.createElement("div");
@@ -100,16 +125,25 @@
         row.className = "chat-message";
         row.setAttribute("data-id", m.id);
 
-        if (m.is_system) {
-            row.className += " chat-system";
+        var contentRow = document.createElement("div");
+        contentRow.className = "chat-msg-row";
+
+        if (!m.is_system) {
+            var av = document.createElement("img");
+            av.className = "chat-msg-avatar";
+            av.alt = "";
+            av.src = m.avatar_url || "";
+            av.loading = "lazy";
+            contentRow.appendChild(av);
         } else {
-            if (m.role && m.role !== "player") {
-                row.className += " role-" + m.role;
-            }
-            if (m.is_mine) {
-                row.className += " chat-mine";
-            }
+            var sp = document.createElement("span");
+            sp.className = "chat-msg-avatar chat-msg-avatar-system";
+            sp.textContent = "⚙";
+            contentRow.appendChild(sp);
         }
+
+        var textCol = document.createElement("div");
+        textCol.className = "chat-msg-col";
 
         var head = document.createElement("div");
         head.className = "chat-msg-head";
@@ -117,7 +151,7 @@
         if (m.is_system) {
             var sysTag = document.createElement("span");
             sysTag.className = "chat-system-tag";
-            sysTag.textContent = "⚙ System";
+            sysTag.textContent = "System";
             head.appendChild(sysTag);
         } else {
             var name = document.createElement("a");
@@ -138,12 +172,38 @@
         time.className = "chat-time";
         time.textContent = m.created_at.slice(11, 16);
         head.appendChild(time);
-        row.appendChild(head);
+
+        textCol.appendChild(head);
 
         var body = document.createElement("div");
         body.className = "chat-msg-body";
         body.innerHTML = m.content_html || esc(m.content);
-        row.appendChild(body);
+        textCol.appendChild(body);
+
+        contentRow.appendChild(textCol);
+
+        // Staff delete control
+        if (isStaff && !m.is_system) {
+            var del = document.createElement("button");
+            del.type = "button";
+            del.className = "chat-msg-delete";
+            del.title = "Delete message";
+            del.textContent = "×";
+            del.addEventListener("click", function () {
+                if (!confirm("Delete this message?")) { return; }
+
+                fetch("/api/chat/delete/" + m.id, {
+                    method: "POST",
+                    credentials: "same-origin"
+                }).then(function () {
+                    row.remove();
+                });
+            });
+
+            contentRow.appendChild(del);
+        }
+
+        row.appendChild(contentRow);
 
         return row;
     }
@@ -204,8 +264,96 @@
 
     function startPolling() {
         if (pollTimer !== null) { return; }
+        loadContext();
         poll();
         pollTimer = setInterval(poll, POLL_MS);
+    }
+
+    // ------------------------------------------------------------
+    // CONTEXT + AVATAR PICKER
+    // ------------------------------------------------------------
+
+    var avatarBtn = box.querySelector(".chat-avatar-btn");
+    var avatarImg = box.querySelector(".chat-avatar-img");
+    var pickerEl = box.querySelector(".chat-avatar-picker");
+    var pickerGrid = box.querySelector(".chat-avatar-grid");
+    var pickerCustom = box.querySelector(".chat-avatar-custom");
+
+    function loadContext() {
+        fetch("/api/chat/context", { credentials: "same-origin" })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (!data.success) { return; }
+
+                isStaff = !!data.is_staff;
+                myName = data.role;
+
+                if (avatarImg && data.avatar_url) {
+                    avatarImg.src = data.avatar_url;
+                }
+
+                if (pickerGrid) {
+                    pickerGrid.innerHTML = "";
+
+                    (data.choices || []).forEach(function (c) {
+                        var opt = document.createElement("button");
+                        opt.type = "button";
+                        opt.className = "chat-avatar-option";
+                        opt.title = c.id;
+
+                        var img = document.createElement("img");
+                        img.src = c.url;
+                        img.alt = c.id;
+                        img.loading = "lazy";
+                        opt.appendChild(img);
+
+                        opt.addEventListener("click", function () {
+                            setAvatar(c.id);
+                        });
+
+                        pickerGrid.appendChild(opt);
+                    });
+                }
+            });
+    }
+
+    function setAvatar(avatarId) {
+        fetch("/api/chat/avatar", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ avatar: avatarId })
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data.success && avatarImg) {
+                    avatarImg.src = data.avatar_url;
+                    pickerEl.hidden = true;
+                } else {
+                    showNotice(data.error || "Could not set avatar.");
+                }
+            });
+    }
+
+    if (avatarBtn) {
+        avatarBtn.addEventListener("click", function () {
+            pickerEl.hidden = !pickerEl.hidden;
+        });
+    }
+
+    var pickerClose = box.querySelector(".chat-avatar-close");
+    if (pickerClose) {
+        pickerClose.addEventListener("click", function () {
+            pickerEl.hidden = true;
+        });
+    }
+
+    var pickerSet = box.querySelector(".chat-avatar-set");
+    if (pickerSet) {
+        pickerSet.addEventListener("click", function () {
+            var value = pickerCustom.value.trim().toLowerCase();
+            if (value) { setAvatar(value); }
+        });
     }
 
     function stopPolling() {
@@ -234,6 +382,11 @@
             .then(function (data) {
                 if (!data.success) {
                     showNotice(data.error || "Message could not be sent.");
+                } else if (!data.message) {
+                    // Slash command handled server-side; feedback arrives
+                    // as a system message via polling.
+                    hideNotice();
+                    inputEl.value = "";
                 } else {
                     hideNotice();
                     inputEl.value = "";

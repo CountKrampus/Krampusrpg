@@ -627,13 +627,122 @@ def create_app() -> Flask:
                 }
             ), 400
 
-        message["is_mine"] = True
-        message["is_system"] = bool(message["system"])
+        if message is not None:
+            message["is_mine"] = True
+            message["is_system"] = bool(message["system"])
+
+        # message is None when the text was a slash command fully
+        # handled server-side (feedback arrives as a system message).
 
         return jsonify(
             {
                 "success": True,
                 "message": message,
+            }
+        )
+
+    @app.get("/api/chat/context")
+    def api_chat_context():
+        """
+        The current player's chat context: avatar, staff flag, and the
+        avatar choices for the picker.
+        """
+
+        player_id = current_player_id()
+
+        if player_id is None:
+            return jsonify(
+                {
+                    "success": False,
+                    "error": "Authentication required.",
+                }
+            ), 401
+
+        from .admin.permissions import (
+            get_player_role,
+            is_staff_role,
+        )
+
+        with get_connection() as db:
+            role = get_player_role(db, player_id)
+
+        avatar = chat.get_chat_avatar(player_id)
+
+        # A curated starter set for the picker (fan favourites), plus
+        # any species can be typed with /avatar <name>.
+        featured = [
+            "pikachu",
+            "charmander",
+            "squirtle",
+            "bulbasaur",
+            "eevee",
+            "snorlax",
+            "gyarados",
+            "dragonite",
+            "umbreon",
+            "absol",
+            "ninetales",
+            "froslass",
+            "houndoom",
+            "weavile",
+            "gengar",
+            "lampent",
+        ]
+
+        all_ids = chat._avatar_species_ids()
+        choices = [a for a in featured if a in all_ids]
+
+        return jsonify(
+            {
+                "success": True,
+                "avatar": avatar,
+                "avatar_url": chat.avatar_url(avatar),
+                "choices": [
+                    {
+                        "id": a,
+                        "url": chat.avatar_url(a),
+                    }
+                    for a in choices
+                ],
+                "is_staff": is_staff_role(role),
+                "role": role,
+            }
+        )
+
+    @app.post("/api/chat/avatar")
+    def api_chat_avatar():
+        """Set the current player's chat avatar. JSON: {"avatar": "pikachu"}"""
+
+        player_id = current_player_id()
+
+        if player_id is None:
+            return jsonify(
+                {
+                    "success": False,
+                    "error": "Authentication required.",
+                }
+            ), 401
+
+        data = request.get_json(silent=True) or {}
+
+        try:
+            avatar = chat.set_chat_avatar(
+                player_id,
+                str(data.get("avatar", "")),
+            )
+        except chat.ChatError as exc:
+            return jsonify(
+                {
+                    "success": False,
+                    "error": str(exc),
+                }
+            ), 400
+
+        return jsonify(
+            {
+                "success": True,
+                "avatar": avatar,
+                "avatar_url": chat.avatar_url(avatar),
             }
         )
 

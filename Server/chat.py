@@ -51,6 +51,7 @@ CHAT_RATE_WINDOW_SECONDS = 20  # window length
 CHAT_HISTORY_LIMIT = 80        # messages returned to the client
 CHAT_ONLINE_WINDOW_SECONDS = 300  # heartbeat freshness (5 minutes)
 CHAT_MESSAGE_MAX_LENGTH = 300
+DEFAULT_AVATAR = "pikachu"
 
 VALID_ROLES = {"player", "moderator", "event_staff", "admin", "webmaster"}
 
@@ -118,6 +119,15 @@ CREATE INDEX IF NOT EXISTS idx_chat_bans_player
 CREATE TABLE IF NOT EXISTS chat_presence (
     player_id INTEGER PRIMARY KEY,
     last_seen TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (player_id)
+        REFERENCES players(id)
+        ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS chat_avatars (
+    player_id INTEGER PRIMARY KEY,
+    avatar TEXT NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (player_id)
         REFERENCES players(id)
         ON DELETE CASCADE
@@ -337,8 +347,48 @@ def get_messages(
             (after_id,),
         ).fetchall()
 
-    # Oldest first for display.
-    return [dict(row) for row in reversed(rows)]
+    messages = [dict(row) for row in reversed(rows)]
+
+    # Attach avatar URLs (batched, cached map from species -> avatar id).
+    avatar_ids = {
+        str(m["player_id"])
+        for m in messages
+        if not m["system"]
+    }
+
+    avatar_map: dict[int, str] = {}
+
+    if avatar_ids:
+        placeholders = ",".join("?" for _ in avatar_ids)
+
+        with get_connection() as db:
+            avatar_rows = db.execute(
+                f"""
+                SELECT player_id, avatar
+                FROM chat_avatars
+                WHERE player_id IN ({placeholders})
+                """,
+                tuple(int(pid) for pid in avatar_ids),
+            ).fetchall()
+
+        for row in avatar_rows:
+            avatar_map[int(row["player_id"])] = str(row["avatar"])
+
+    for m in messages:
+        if m["system"]:
+            m["avatar"] = None
+            m["avatar_url"] = None
+            continue
+
+        avatar = avatar_map.get(int(m["player_id"]), "")
+
+        if avatar not in _avatar_species_ids():
+            avatar = DEFAULT_AVATAR
+
+        m["avatar"] = avatar
+        m["avatar_url"] = avatar_url(avatar)
+
+    return messages
 
 
 def get_last_message_id() -> int:
@@ -398,11 +448,14 @@ def send_message(
     *,
     system: bool = False,
     skip_rate_limit: bool = False,
-) -> dict[str, Any]:
+) -> dict[str, Any] | None:
     """
     Post one chat message as the given player.
 
-    Returns the stored message row (rendered fields included).
+    Returns the stored message row (rendered fields included), or
+    None when the text was a command fully handled server-side
+    (e.g. /alert posts a system message instead).
+
     Raises ChatError subclasses with player-facing messages on
     failure; sqlite errors bubble up.
     """
@@ -418,6 +471,23 @@ def send_message(
         raise ChatError(
             f"Message is too long (max {CHAT_MESSAGE_MAX_LENGTH} characters)."
         )
+
+    # --------------------------------------------------------
+    # SLASH COMMANDS
+    # --------------------------------------------------------
+
+    parsed = _parse_command(text)
+
+    if parsed is not None:
+        command, args = parsed
+        handled, reply = _execute_command(player_id, command, args)
+
+        if handled:
+            if reply:
+                # Command feedback goes to chat as a system notice.
+                send_system_message(reply)
+
+            return None
 
     with get_connection() as db:
 
@@ -518,6 +588,288 @@ def render_markup(text: str) -> str:
     )
 
     return escaped
+
+
+# ============================================================
+# AVATARS (PREDEFINED POKEMON SPRITES)
+# ============================================================
+
+# The chat avatar is a predefined game sprite: any base species id is
+# accepted, since every species ships a sprite under Web/static/sprites.
+# Valid ids are validated against the species catalog; the same catalog
+# already powers the dex, so the list can never drift from real sprites.
+
+def _avatar_species_ids() -> set[str]:
+    """Every species id that has a chat-usable sprite."""
+
+    ids = _AVATAR_SPECIES_CACHE.get("ids")
+
+    if ids is not None:
+        return ids
+
+    ids: set[str] = set()
+
+    try:
+        from .services import load_data
+
+        for species in load_data("pokemon.json") or []:
+            if isinstance(species, dict):
+                species_id = str(species.get("id", "")).strip().lower()
+            else:
+                species_id = str(species).strip().lower()
+
+            if species_id:
+                ids.add(species_id)
+    except Exception:
+        pass
+
+    _AVATAR_SPECIES_CACHE["ids"] = ids
+
+    return ids
+
+
+_AVATAR_SPECIES_CACHE: dict[str, set[str]] = {}
+
+
+def get_chat_avatar(player_id: int) -> str:
+    """The player's chat avatar species id (default: pikachu)."""
+
+    ensure_chat_tables()
+
+    with get_connection() as db:
+        row = db.execute(
+            """
+            SELECT avatar
+            FROM chat_avatars
+            WHERE player_id = ?
+            """,
+            (player_id,),
+        ).fetchone()
+
+    if row is None:
+        return DEFAULT_AVATAR
+
+    avatar = str(row["avatar"] or "").strip().lower()
+
+    return avatar if avatar in _avatar_species_ids() else DEFAULT_AVATAR
+
+
+def set_chat_avatar(player_id: int, avatar: str) -> str:
+    """
+    Set the player's chat avatar. Returns the stored avatar id.
+    Raises ChatError for unknown species.
+    """
+
+    ensure_chat_tables()
+
+    avatar = str(avatar or "").strip().lower()
+
+    if avatar not in _avatar_species_ids():
+        raise ChatError("Unknown avatar. Pick one of the predefined sprites.")
+
+    with get_connection() as db:
+        db.execute(
+            """
+            INSERT INTO chat_avatars (player_id, avatar)
+            VALUES (?, ?)
+            ON CONFLICT(player_id)
+            DO UPDATE SET avatar = excluded.avatar
+            """,
+            (player_id, avatar),
+        )
+        db.commit()
+
+    return avatar
+
+
+def avatar_url(avatar: str) -> str:
+    """Static URL for a chat avatar sprite."""
+
+    return f"/static/sprites/{avatar}.png"
+
+
+# ============================================================
+# COMMANDS
+# ============================================================
+
+def _parse_command(text: str) -> tuple[str, list[str]] | None:
+    """'/mute Bob 30 spam' -> ('mute', ['Bob', '30', 'spam']) or None."""
+
+    text = str(text or "").strip()
+
+    if not text.startswith("/"):
+        return None
+
+    parts = text[1:].split()
+
+    if not parts:
+        return None
+
+    return parts[0].lower(), parts[1:]
+
+
+def _resolve_player(db, name: str):
+    """Find a player by username or display name (case-insensitive)."""
+
+    return db.execute(
+        """
+        SELECT id, display_name, username
+        FROM players
+        WHERE username = ? COLLATE NOCASE
+           OR display_name = ? COLLATE NOCASE
+        LIMIT 1
+        """,
+        (name, name),
+    ).fetchone()
+
+
+def _execute_command(
+    player_id: int,
+    command: str,
+    args: list[str],
+) -> tuple[bool, str | None]:
+    """
+    Run a slash command. Returns (handled, reply).
+
+    handled=False means the text should be posted as a normal message.
+    reply is a player-facing confirmation/error string.
+    """
+
+    # --------------------------------------------------------
+    # EVERYONE
+    # --------------------------------------------------------
+
+    if command == "help":
+        return True, (
+            "Commands: /help, /who, /online, /avatar <name> "
+            "| Staff: /mute <name> [minutes] [reason], /unmute <name>, "
+            "/ban <name> [minutes] [reason], /unban <name>, "
+            "/del <message_id>, /alert <message>"
+        )
+
+    if command in ("who", "online"):
+        players = get_online_players()
+        names = ", ".join(
+            p["display_name"] or p["username"] for p in players
+        )
+
+        if not names:
+            return True, "Nobody else is in chat right now."
+
+        return True, f"In chat ({len(players)}): {names}"
+
+    if command == "avatar":
+        if not args:
+            current = get_chat_avatar(player_id)
+            return True, f"Your avatar is {current}. Use /avatar <pokemon> to change it."
+
+        try:
+            avatar = set_chat_avatar(player_id, args[0])
+        except ChatError as exc:
+            return True, str(exc)
+
+        return True, f"Avatar set to {avatar}!"
+
+    # --------------------------------------------------------
+    # STAFF
+    # --------------------------------------------------------
+
+    if command in (
+        "mute",
+        "unmute",
+        "ban",
+        "unban",
+        "del",
+        "alert",
+    ):
+        try:
+            _require_staff(player_id)
+        except ChatError as exc:
+            return True, str(exc)
+
+        if command in ("mute", "ban"):
+            if not args:
+                return True, f"Usage: /{command} <player> [minutes] [reason]"
+
+            with get_connection() as db:
+                target = _resolve_player(db, args[0])
+
+            if target is None:
+                return True, f"No player named '{args[0]}'."
+
+            duration: int | None = None
+            reason_parts: list[str] = args[1:]
+
+            if reason_parts and reason_parts[0].isdigit():
+                duration = max(1, int(reason_parts[0]))
+                reason_parts = reason_parts[1:]
+
+            reason = " ".join(reason_parts) or None
+
+            if command == "mute":
+                mute_player(
+                    target["id"],
+                    player_id,
+                    duration_minutes=duration,
+                    reason=reason,
+                )
+
+                length = f" for {duration} minutes" if duration else " permanently"
+                return True, (
+                    f"Muted {target['display_name']}{length}."
+                )
+
+            ban_player(
+                target["id"],
+                player_id,
+                duration_minutes=duration,
+                reason=reason,
+            )
+
+            length = f" for {duration} minutes" if duration else " permanently"
+            return True, (
+                f"Banned {target['display_name']} from chat{length}."
+            )
+
+        if command in ("unmute", "unban"):
+            if not args:
+                return True, f"Usage: /{command} <player>"
+
+            with get_connection() as db:
+                target = _resolve_player(db, args[0])
+
+            if target is None:
+                return True, f"No player named '{args[0]}'."
+
+            if command == "unmute":
+                unmute_player(target["id"], player_id)
+                return True, f"Unmuted {target['display_name']}."
+
+            unban_player(target["id"], player_id)
+            return True, f"Unbanned {target['display_name']}."
+
+        if command == "del":
+            if not args or not args[0].isdigit():
+                return True, "Usage: /del <message_id>"
+
+            deleted = delete_message(int(args[0]), player_id)
+
+            return True, (
+                "Message deleted." if deleted
+                else f"No undeleted message #{args[0]}."
+            )
+
+        if command == "alert":
+            text = " ".join(args)
+
+            if not text:
+                return True, "Usage: /alert <message>"
+
+            send_system_message(text)
+            return True, None  # posted as a system message
+
+    # Not a command we know — treat as a normal message.
+    return False, None
 
 
 # ============================================================
