@@ -1776,6 +1776,10 @@ def create_app() -> Flask:
             searches_done=searches_done,
         )
 
+    @app.get("/locations")
+    def locations():
+        return redirect(url_for("world_map"))
+
     @app.get("/mines")
     def mines():
         return redirect(url_for("coming_soon"))
@@ -1937,9 +1941,6 @@ def create_app() -> Flask:
     def pokemon_trades():
         return redirect(url_for("coming_soon"))
 
-    @app.get("/locations")
-    def locations():
-        return redirect(url_for("coming_soon"))
 
     @app.get("/special-areas")
     def special_areas():
