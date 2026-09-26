@@ -58,6 +58,12 @@ http://127.0.0.1:5000
 - Badges
 - Transaction logging
 
+## Tests
+
+```text
+python -m unittest discover
+```
+
 ## Sprite convention
 
 Sprites are expected to use names such as:
