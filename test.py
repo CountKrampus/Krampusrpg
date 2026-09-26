@@ -125,13 +125,14 @@ class TestPokemonCreation(BaseTestCase):
         )
         self.assertEqual(mon_low["level"], 1)
 
-        # Level above 100 must clamp to 100
+        # Level above 100 is preserved: no upper level cap (leaderboard
+        # progression allows Pokémon to exceed the classic limit).
         mon_high = create_pokemon(
             owner_id=self.player1_id,
             species_id="charmander",
             level=500000,
         )
-        self.assertEqual(mon_high["level"], 100)
+        self.assertEqual(mon_high["level"], 500000)
 
     def test_create_pokemon_stats_persisted(self) -> None:
         mon = create_pokemon(
@@ -1010,7 +1011,7 @@ class TestDatabaseMigration(BaseTestCase):
             # Check constraints present in schema
             sql = db.execute("SELECT sql FROM sqlite_master WHERE name='pokemon'").fetchone()[0]
             self.assertIn("CHECK (level >= 1)", sql)
-            self.assertIn("CHECK (level <= 100)", sql)
+            self.assertNotIn("CHECK (level <= 100)", sql)
             self.assertIn("CHECK (shiny IN (0, 1))", sql)
 
     def test_rebuild_migrates_legacy_is_active_and_missing_stats(self) -> None:
@@ -1083,10 +1084,11 @@ class TestDatabaseMigration(BaseTestCase):
         problems = verify_storage_invariant()
         self.assertEqual(problems, [])
 
-        # Verify level 500 was clamped to 100
+        # Level 500 is preserved (no upper level cap), and the migration
+        # must still populate stats for it.
         p1 = get_pokemon(1, 1)
         self.assertIsNotNone(p1)
-        self.assertEqual(p1["level"], 100)
+        self.assertEqual(p1["level"], 500)
 
         # Verify stats were calculated and populated
         with get_connection() as db:
