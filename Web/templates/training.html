@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+
+{% block title %}Training - Krampus RPG{% endblock %}
+
+{% block content %}
+
+<div class="training-page">
+
+    <section class="card training-header-card">
+
+        <div>
+            <span class="world-kicker">KRAMPUS RPG</span>
+            <h1>Training Hall</h1>
+            <p>
+                Put your Pokémon through focused training. Each session
+                adds permanent effort to one stat — trained Pokémon hit
+                harder, tank more, and move faster in battle.
+            </p>
+        </div>
+
+        <div class="training-money">
+            <span>POKÉDOLLARS</span>
+            <strong>{{ money }}</strong>
+        </div>
+
+    </section>
+
+    {% for mon in members %}
+
+    <section class="card training-card">
+
+        <header class="training-mon-header">
+
+            <img src="{{ url_for('static', filename='sprites/' ~ mon.species_id ~ '.png') }}"
+                 alt="{{ mon.name }}" loading="lazy">
+
+            <div>
+
+                <h2>{{ mon.name }}</h2>
+                <small>
+                    Lv. {{ mon.level }} ·
+                    {{ mon.hp }}/{{ mon.max_hp }} HP ·
+                    {{ mon.effort_total }}/{{ mon.effort_max }} effort spent
+                </small>
+
+            </div>
+
+            <div class="training-cost">
+                {{ mon.cost }} per session
+            </div>
+
+        </header>
+
+        <div class="training-stat-grid" data-pokemon="{{ mon.pokemon_id }}">
+
+            {% for stat in stats %}
+
+            {% set info = mon.stats[stat] %}
+
+            <div class="training-stat">
+
+                <div class="training-stat-head">
+
+                    <strong>{{ stat | replace('_', ' ') | title }}</strong>
+                    <span class="training-stat-value">{{ info.value }}</span>
+
+                </div>
+
+                <div class="hp-bar training-effort-bar">
+                    <div class="hp-fill ok"
+                         style="width: {{ (100 * info.effort / info.max) | round(1) }}%"></div>
+                </div>
+
+                <small>{{ info.effort }}/{{ info.max }} effort</small>
+
+                <button type="button"
+                        class="battle-btn training-btn"
+                        data-pokemon="{{ mon.pokemon_id }}"
+                        data-stat="{{ stat }}"
+                        {% if info.effort >= info.max or mon.effort_total >= mon.effort_max %}
+                        disabled
+                        {% endif %}>
+                    Train
+                </button>
+
+            </div>
+
+            {% endfor %}
+
+        </div>
+
+    </section>
+
+    {% else %}
+
+    <section class="card">
+
+        <h2>No Pokémon to train</h2>
+        <p>Add a Pokémon to your party first, then come back.</p>
+
+    </section>
+
+    {% endfor %}
+
+</div>
+
+<script>
+(function () {
+    "use strict";
+
+    var moneyEl = document.querySelector(".training-money strong");
+
+    document.querySelectorAll(".training-btn").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+            if (btn.disabled) { return; }
+
+            btn.disabled = true;
+
+            fetch("/api/training/session", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    pokemon_id: parseInt(btn.dataset.pokemon, 10),
+                    stat: btn.dataset.stat
+                })
+            })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (!data.success) {
+                        alert(data.error || "Training failed.");
+                        btn.disabled = false;
+                        return;
+                    }
+
+                    // Refresh: simplest correct update for stats + money.
+                    window.location.reload();
+                })
+                .catch(function () {
+                    btn.disabled = false;
+                });
+        });
+    });
+})();
+</script>
+
+{% endblock %}

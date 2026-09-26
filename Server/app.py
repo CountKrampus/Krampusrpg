@@ -126,6 +126,11 @@ from .chat import (
 from . import battle_store
 from .battle import BattleError
 
+from . import gyms
+
+from . import training
+from .training import TrainingError
+
 from . import krampus_points
 from . import story_battle
 from . import area_search_storage as area_search
@@ -185,6 +190,9 @@ def create_app() -> Flask:
 
     # Battles are database-backed.
     battle_store.ensure_battle_tables()
+
+    # Training effort is database-backed.
+    training.ensure_training_tables()
 
     # The development roadmap is database-backed.
     ensure_roadmap_tables()
@@ -650,6 +658,146 @@ def create_app() -> Flask:
     # ========================================================
     # BATTLES
     # ========================================================
+
+    # ========================================================
+    # GYMS
+    # ========================================================
+
+    @app.get("/gyms")
+    def gyms_page():
+        """The gym challenge hub: leaders, badges, prerequisites."""
+
+        player_id = current_player_id()
+
+        held_badges: list[str] = []
+
+        if player_id is not None:
+            held_badges = gyms.get_player_badges(player_id)
+
+        badge_defs = gyms.get_badge_definitions()
+
+        decorated = []
+
+        for gym in gyms.get_gyms():
+            item = dict(gym)
+            item["_badge_held"] = (
+                gym.get("badge") in held_badges
+                if gym.get("badge")
+                else False
+            )
+
+            if player_id is not None:
+                available, reason = gyms.gym_available(gym, player_id)
+                item["_available"] = available
+                item["_lock_reason"] = reason
+            else:
+                item["_available"] = False
+                item["_lock_reason"] = "Sign in to challenge gyms."
+
+            decorated.append(item)
+
+        return render_template(
+            "gyms.html",
+            gyms=decorated,
+            badge_defs=badge_defs,
+            held_badges=held_badges,
+        )
+
+    @app.post("/api/gym/challenge")
+    def api_gym_challenge():
+        """Start a gym battle. JSON: {"gym_id": "frostpine_gym"}"""
+
+        player_id = current_player_id()
+
+        if player_id is None:
+            return jsonify(
+                {
+                    "success": False,
+                    "error": "Authentication required.",
+                }
+            ), 401
+
+        data = request.get_json(silent=True) or {}
+        gym_id = str(data.get("gym_id", "")).strip()
+
+        try:
+            battle = gyms.start_gym_battle(player_id, gym_id)
+        except ValueError as exc:
+            return jsonify(
+                {
+                    "success": False,
+                    "error": str(exc),
+                }
+            ), 400
+        except BattleError as exc:
+            return jsonify(
+                {
+                    "success": False,
+                    "error": str(exc),
+                }
+            ), 400
+
+        return jsonify(
+            {
+                "success": True,
+                "battle": battle,
+            }
+        )
+
+    @app.get("/api/gym/context/<int:battle_id>")
+    def api_gym_context(battle_id: int):
+        """Battle context for the fight page (gym tag, etc.)."""
+
+        player_id = current_player_id()
+
+        if player_id is None:
+            return jsonify(
+                {
+                    "success": False,
+                    "error": "Authentication required.",
+                }
+            ), 401
+
+        return jsonify(
+            {
+                "success": True,
+                "context": gyms.read_battle_context(battle_id),
+            }
+        )
+
+    @app.post("/api/gym/resolve/<int:battle_id>")
+    def api_gym_resolve(battle_id: int):
+        """
+        After a gym battle finishes, award badge/money once. The
+        battle page calls this when the battle it just fought ends.
+        """
+
+        player_id = current_player_id()
+
+        if player_id is None:
+            return jsonify(
+                {
+                    "success": False,
+                    "error": "Authentication required.",
+                }
+            ), 401
+
+        try:
+            award = gyms.award_gym_victory(player_id, battle_id)
+        except Exception:
+            return jsonify(
+                {
+                    "success": False,
+                    "error": "Could not resolve gym battle.",
+                }
+            ), 500
+
+        return jsonify(
+            {
+                "success": True,
+                "award": award,
+            }
+        )
 
     @app.get("/battle")
     def battle_page():
@@ -1922,8 +2070,75 @@ def create_app() -> Flask:
         return redirect(url_for("coming_soon"))
 
     @app.get("/training")
-    def training():
-        return redirect(url_for("coming_soon"))
+    def training_page():
+        """Focused training: party Pokémon, effort state, costs."""
+
+        player_id = current_player_id()
+
+        if player_id is None:
+            return redirect(url_for("login"))
+
+        members = training.get_training_view(player_id)
+
+        progress = get_player_progress(player_id)
+        money = int(progress.get("money", 0)) if progress else 0
+
+        return render_template(
+            "training.html",
+            members=members,
+            money=money,
+            stats=training.TRAINABLE_STATS,
+        )
+
+    @app.post("/api/training/session")
+    def api_training_session():
+        """
+        One training session.
+        JSON: {"pokemon_id": N, "stat": "attack"}
+        """
+
+        player_id = current_player_id()
+
+        if player_id is None:
+            return jsonify(
+                {
+                    "success": False,
+                    "error": "Authentication required.",
+                }
+            ), 401
+
+        data = request.get_json(silent=True) or {}
+
+        try:
+            pokemon_id = int(data.get("pokemon_id", 0))
+        except (TypeError, ValueError):
+            return jsonify(
+                {
+                    "success": False,
+                    "error": "pokemon_id is required.",
+                }
+            ), 400
+
+        try:
+            result = training.train(
+                player_id,
+                pokemon_id,
+                str(data.get("stat", "")),
+            )
+        except TrainingError as exc:
+            return jsonify(
+                {
+                    "success": False,
+                    "error": str(exc),
+                }
+            ), 400
+
+        return jsonify(
+            {
+                "success": True,
+                "result": result,
+            }
+        )
 
     @app.get("/main-plaza")
     def main_plaza():

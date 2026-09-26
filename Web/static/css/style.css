@@ -2874,6 +2874,444 @@ BATTLE ARENA
     font-size: 24px;
 }
 
+/* =========================================================
+GYMS
+========================================================= */
+
+.gyms-page {
+    display: flex;
+
+    flex-direction: column;
+    gap: 18px;
+}
+
+
+.gyms-header-card {
+    display: flex;
+
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+
+    flex-wrap: wrap;
+}
+
+
+.gyms-badge-case {
+    min-width: 220px;
+}
+
+
+.gyms-badge-case > span {
+    color: var(--muted);
+
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: 2px;
+}
+
+
+.gyms-badge-row {
+    display: flex;
+
+    flex-wrap: wrap;
+    gap: 8px;
+
+    margin-top: 8px;
+}
+
+
+.gyms-badge {
+    display: flex;
+
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+
+    padding: 8px 10px;
+
+    background: var(--panel-light);
+
+    border: 1px solid var(--border);
+    border-radius: 8px;
+
+    opacity: 0.5;
+}
+
+
+.gyms-badge.earned {
+    opacity: 1;
+
+    border-color: var(--gold);
+}
+
+
+.gyms-badge small {
+    color: var(--muted);
+
+    font-size: 9px;
+
+    text-align: center;
+}
+
+
+.gyms-badge.earned small {
+    color: var(--gold);
+}
+
+
+.gym-card {
+    display: flex;
+
+    flex-direction: column;
+    gap: 12px;
+}
+
+
+.gym-card.gym-locked {
+    opacity: 0.65;
+}
+
+
+.gym-card.gym-beaten {
+    border-color: var(--green);
+}
+
+
+.gym-header {
+    display: flex;
+
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+
+    flex-wrap: wrap;
+}
+
+
+.gym-header h2 {
+    margin: 4px 0 2px;
+
+    font-size: 18px;
+}
+
+
+.gym-type-badge {
+    color: var(--gold);
+
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 2px;
+}
+
+
+.gym-leader {
+    margin: 0;
+
+    color: var(--muted);
+
+    font-size: 13px;
+}
+
+
+.gym-badge-slot {
+    display: flex;
+
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+
+    padding: 10px 14px;
+
+    background: var(--panel-light);
+
+    border: 1px solid var(--border);
+    border-radius: 10px;
+}
+
+
+.gym-badge-slot.earned {
+    border-color: var(--gold);
+}
+
+
+.gym-badge-slot span {
+    font-size: 20px;
+}
+
+
+.gym-badge-slot small {
+    color: var(--muted);
+
+    font-size: 9px;
+}
+
+
+.gym-quote {
+    margin: 0;
+
+    padding: 8px 12px;
+
+    background: rgba(213, 173, 82, 0.08);
+
+    border-left: 3px solid var(--gold);
+    border-radius: 0 6px 6px 0;
+
+    color: var(--muted);
+
+    font-size: 12px;
+    font-style: italic;
+}
+
+
+.gym-team-row {
+    display: flex;
+
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+
+.gym-team-member {
+    display: flex;
+
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+
+    padding: 8px 10px;
+
+    background: var(--panel-light);
+
+    border: 1px solid var(--border);
+    border-radius: 8px;
+
+    min-width: 96px;
+}
+
+
+.gym-team-member img {
+    width: 52px;
+    height: 52px;
+
+    image-rendering: pixelated;
+}
+
+
+.gym-team-member small {
+    color: var(--muted);
+
+    font-size: 10px;
+
+    text-align: center;
+}
+
+
+.gym-footer {
+    display: flex;
+
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+
+    flex-wrap: wrap;
+}
+
+
+.gym-reward {
+    color: var(--gold);
+
+    font-weight: 700;
+
+    font-size: 13px;
+}
+
+
+.gym-status {
+    font-size: 12px;
+    font-weight: 700;
+}
+
+
+.gym-status.beaten {
+    color: var(--green);
+}
+
+
+.gym-status.locked {
+    color: var(--muted);
+}
+
+/* =========================================================
+TRAINING HALL
+========================================================= */
+
+.training-page {
+    display: flex;
+
+    flex-direction: column;
+    gap: 18px;
+}
+
+
+.training-header-card {
+    display: flex;
+
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+
+    flex-wrap: wrap;
+}
+
+
+.training-money {
+    padding: 10px 16px;
+
+    background: var(--panel-light);
+
+    border: 1px solid var(--gold);
+    border-radius: 8px;
+
+    text-align: center;
+}
+
+
+.training-money span {
+    display: block;
+
+    color: var(--muted);
+
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: 2px;
+}
+
+
+.training-money strong {
+    color: var(--gold);
+
+    font-size: 18px;
+}
+
+
+.training-mon-header {
+    display: flex;
+
+    align-items: center;
+    gap: 12px;
+}
+
+
+.training-mon-header img {
+    width: 56px;
+    height: 56px;
+
+    image-rendering: pixelated;
+}
+
+
+.training-mon-header h2 {
+    margin: 0 0 2px;
+
+    font-size: 16px;
+}
+
+
+.training-mon-header small {
+    color: var(--muted);
+
+    font-size: 11px;
+}
+
+
+.training-cost {
+    margin-left: auto;
+
+    color: var(--gold);
+
+    font-size: 12px;
+    font-weight: 700;
+}
+
+
+.training-stat-grid {
+    display: grid;
+
+    grid-template-columns:
+        repeat(
+            auto-fill,
+            minmax(150px, 1fr)
+        );
+
+    gap: 10px;
+}
+
+
+.training-stat {
+    padding: 10px;
+
+    background: var(--panel-light);
+
+    border: 1px solid var(--border);
+    border-radius: 8px;
+
+    display: flex;
+
+    flex-direction: column;
+    gap: 6px;
+}
+
+
+.training-stat-head {
+    display: flex;
+
+    align-items: baseline;
+    justify-content: space-between;
+}
+
+
+.training-stat-head strong {
+    font-size: 12px;
+    text-transform: capitalize;
+}
+
+
+.training-stat-value {
+    color: var(--gold);
+
+    font-weight: 900;
+    font-size: 14px;
+}
+
+
+.training-effort-bar {
+    height: 6px;
+}
+
+
+.training-stat small {
+    color: var(--muted);
+
+    font-size: 10px;
+}
+
+
+.training-btn {
+    padding: 7px 0;
+
+    font-size: 12px;
+
+    text-align: center;
+}
+
+
+.training-btn:disabled {
+    opacity: 0.4;
+
+    cursor: default;
+}
+
 
 /* =========================================================
 KRAMPUS POINTS SHOP

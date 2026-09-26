@@ -181,6 +181,26 @@
 
     var battleId = null;
     var busy = false;
+    var activeGym = null; // gym_id when the current battle is a gym challenge
+
+    function maybeResolveGym(b) {
+        if (!b.over || b.winner !== "player" || !activeGym) { return; }
+
+        fetch("/api/gym/resolve/" + b.battle_id, {
+            method: "POST",
+            credentials: "same-origin"
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data.success && data.award) {
+                    var a = data.award;
+                    var lines = [a.leader_defeat || ""];
+                    if (a.badge_name) { lines.push("🏅 " + a.badge_name + " earned!"); }
+                    if (a.money) { lines.push("+" + a.money + " Pokédollars"); }
+                    alert(lines.filter(Boolean).join("\n"));
+                }
+            });
+    }
 
     function hpBar(current, max) {
         var pct = max > 0 ? Math.max(0, Math.min(100, (current / max) * 100)) : 0;
@@ -234,6 +254,14 @@
     function render(b) {
         battleId = b.battle_id;
 
+        fetch("/api/gym/context/" + b.battle_id, { credentials: "same-origin" })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                activeGym = (data.success && data.context && data.context.gym_id)
+                    ? data.context.gym_id
+                    : null;
+            });
+
         setupEl.hidden = true;
         screenEl.hidden = false;
         resultEl.hidden = !b.over;
@@ -270,6 +298,8 @@
             } else {
                 resultTitle.textContent = "The battle ended.";
             }
+
+            maybeResolveGym(b);
         }
     }
 

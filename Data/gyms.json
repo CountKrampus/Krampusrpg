@@ -1,0 +1,78 @@
+{
+  "gyms": [
+    {
+      "id": "frostpine_gym",
+      "name": "Frostpine Gym",
+      "region": "frostpine",
+      "type": "ice",
+      "leader": "Captain Isolde",
+      "leader_title": "The Frostpine Warden",
+      "leader_intro": "\"My Pokémon and I grew up in this cold. Show me you can stand it.\"",
+      "leader_defeat": "\"The cold showed you mercy. Take the Frostpike Badge.\"",
+      "badge": "frostpike_badge",
+      "required_badges": 0,
+      "rewards": {"money": 2000},
+      "team": [
+        {"species": "sneasel", "level": 12},
+        {"species": "froslass", "level": 14},
+        {"species": "weavile", "level": 15}
+      ]
+    },
+    {
+      "id": "hollyhollow_gym",
+      "name": "Hollyhollow Gym",
+      "region": "hollyhollow",
+      "type": "ghost",
+      "leader": "Lantern Keeper Bram",
+      "leader_title": "Keeper of the Unlitten Flame",
+      "leader_intro": "\"The festival lights flicker for a reason. Let's see if you can keep your footing in the dark.\"",
+      "leader_defeat": "\"The lanterns burn brighter for you now. The Hollowwick Badge is yours.\"",
+      "badge": "hollowwick_badge",
+      "required_badges": 1,
+      "rewards": {"money": 3000},
+      "team": [
+        {"species": "yamask", "level": 14},
+        {"species": "golbat", "level": 15},
+        {"species": "murkrow", "level": 17}
+      ]
+    },
+    {
+      "id": "krampus_keep_gym",
+      "name": "Krampus Keep Gym",
+      "region": "frostpine",
+      "type": "dark",
+      "leader": "Director Krampus",
+      "leader_title": "The Bellringer",
+      "leader_intro": "\"So you have chosen the hard path. Ring the bell if you dare.\"",
+      "leader_defeat": "\"You think you've stopped us? You've only rung the first bell.\"",
+      "badge": "bellringer_badge",
+      "required_badges": 2,
+      "rewards": {"money": 5000},
+      "team": [
+        {"species": "mightyena", "level": 16},
+        {"species": "golbat", "level": 16},
+        {"species": "houndoom", "level": 17},
+        {"species": "weavile", "level": 17},
+        {"species": "froslass", "level": 18},
+        {"species": "krampus_houndoom", "level": 20, "variant": "krampus"}
+      ]
+    }
+  ],
+  "badges": {
+    "frostpike_badge": {
+      "id": "frostpike_badge",
+      "name": "Frostpike Badge",
+      "description": "Awarded for defeating Captain Isolde of the Frostpine Gym."
+    },
+    "hollowwick_badge": {
+      "id": "hollowwick_badge",
+      "name": "Hollowwick Badge",
+      "description": "Awarded for defeating Lantern Keeper Bram of the Hollyhollow Gym."
+    },
+    "bellringer_badge": {
+      "id": "bellringer_badge",
+      "name": "Bellringer Badge",
+      "description": "Awarded for defeating Director Krampus of the Krampus Keep Gym."
+    }
+  }
+}

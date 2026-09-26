@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+
+{% block title %}Gyms - Krampus RPG{% endblock %}
+
+{% block content %}
+
+<div class="gyms-page">
+
+    <section class="card gyms-header-card">
+
+        <div>
+            <span class="world-kicker">KRAMPUS RPG</span>
+            <h1>Gym Challenge</h1>
+            <p>
+                Face the region's gym leaders. Each badge unlocks the
+                next challenge — and gyms hit hard, so heal up first.
+            </p>
+        </div>
+
+        <div class="gyms-badge-case">
+
+            <span>BADGE CASE</span>
+
+            <div class="gyms-badge-row">
+
+                {% for badge_id, badge in badge_defs.items() %}
+
+                <div class="gyms-badge
+                            {% if badge_id in held_badges %}earned{% endif %}"
+                     title="{{ badge.description }}">
+
+                    <span class="gyms-badge-icon">
+                        {% if badge_id in held_badges %}🏅{% else %}🔒{% endif %}
+                    </span>
+
+                    <small>{{ badge.name }}</small>
+
+                </div>
+
+                {% endfor %}
+
+            </div>
+
+        </div>
+
+    </section>
+
+    {% for gym in gyms %}
+
+    <section class="card gym-card
+                    {% if gym._badge_held %}gym-beaten{% elif not gym._available %}gym-locked{% endif %}">
+
+        <header class="gym-header">
+
+            <div>
+
+                <span class="gym-type-badge">{{ gym.type | upper }} GYM</span>
+
+                <h2>{{ gym.name }}</h2>
+
+                <p class="gym-leader">
+                    <strong>{{ gym.leader }}</strong>
+                    — {{ gym.leader_title }}
+                </p>
+
+            </div>
+
+            <div class="gym-badge-slot
+                        {% if gym._badge_held %}earned{% endif %}">
+
+                {% if gym._badge_held %}
+                <span>🏅</span>
+                <small>{{ badge_defs[gym.badge].name }}</small>
+                {% else %}
+                <span>🔒</span>
+                <small>{{ badge_defs[gym.badge].name if gym.badge else '' }}</small>
+                {% endif %}
+
+            </div>
+
+        </header>
+
+        {% if gym.leader_intro %}
+        <p class="gym-quote">“{{ gym.leader_intro }}”</p>
+        {% endif %}
+
+        <div class="gym-team-row">
+
+            {% for mon in gym.team %}
+
+            <div class="gym-team-member">
+
+                <img src="{{ url_for('static', filename='sprites/' ~ mon.species ~ '.png') }}"
+                     alt="{{ mon.species | replace('_', ' ') | title }}"
+                     loading="lazy">
+
+                <small>
+                    {{ mon.species | replace('_', ' ') | title }}
+                    · Lv. {{ mon.level }}
+                </small>
+
+                {% if mon.variant and mon.variant != 'normal' %}
+                <em class="story-variant-tag">{{ mon.variant }}</em>
+                {% endif %}
+
+            </div>
+
+            {% endfor %}
+
+        </div>
+
+        <footer class="gym-footer">
+
+            <div class="gym-reward">
+                💰 {{ gym.rewards.money | default(0) }} Pokédollars
+            </div>
+
+            <div class="gym-actions">
+
+                {% if gym._badge_held %}
+
+                <span class="gym-status beaten">Badge earned</span>
+
+                {% elif not gym._available %}
+
+                <span class="gym-status locked">
+                    🔒 {{ gym._lock_reason }}
+                </span>
+
+                {% else %}
+
+                <button type="button"
+                        class="battle-btn gym-challenge-btn"
+                        data-gym="{{ gym.id }}">
+                    Challenge {{ gym.leader }}
+                </button>
+
+                {% endif %}
+
+            </div>
+
+        </footer>
+
+    </section>
+
+    {% endfor %}
+
+</div>
+
+<script>
+(function () {
+    "use strict";
+
+    document.querySelectorAll(".gym-challenge-btn").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+            if (btn.disabled) { return; }
+
+            btn.disabled = true;
+
+            fetch("/api/gym/challenge", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ gym_id: btn.dataset.gym })
+            })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (!data.success) {
+                        alert(data.error || "Could not start the gym battle.");
+                        btn.disabled = false;
+                        return;
+                    }
+
+                    // Hand off to the Battle Arena, which resumes the
+                    // in-progress battle automatically.
+                    window.location.href = "/battle";
+                })
+                .catch(function () {
+                    btn.disabled = false;
+                });
+        });
+    });
+})();
+</script>
+
+{% endblock %}
