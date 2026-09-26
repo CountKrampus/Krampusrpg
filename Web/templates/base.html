@@ -262,6 +262,11 @@
                         Battle Arena
                     </a>
 
+                    <a href="{{ url_for('chat_page') }}">
+                        <span>💬</span>
+                        Krampus Chat
+                    </a>
+
                     <a href="{{ url_for('story_adventure') }}">
                         <span>📖</span>
                         Story Adventure
@@ -632,6 +637,30 @@
     <div id="sidebar-overlay" class="sidebar-overlay"></div>
 
 
+    {% if session.get("player_id") %}
+
+    <div class="chat-dock" id="chat-dock">
+
+        <div class="chat-dock-panel" id="chat-dock-panel">
+
+            {% with chat_mode = "dock" %}
+                {% include "_chat_shoutbox.html" %}
+            {% endwith %}
+
+        </div>
+
+        <button type="button"
+                class="chat-dock-toggle"
+                id="chat-dock-toggle"
+                title="Krampus Chat">
+            💬
+        </button>
+
+    </div>
+
+    {% endif %}
+
+
     {% else %}
 
     <main class="public-main">
@@ -773,6 +802,61 @@
                             closeSidebar(
                                 "right-sidebar"
                             );
+
+                        }
+                    );
+
+                }
+
+
+                // ----------------------------------------
+                // KRAMPUS CHAT DOCK
+                // ----------------------------------------
+
+                var chatDock =
+                    document.getElementById(
+                        "chat-dock"
+                    );
+
+                var chatPanel =
+                    document.getElementById(
+                        "chat-dock-panel"
+                    );
+
+                var chatToggle =
+                    document.getElementById(
+                        "chat-dock-toggle"
+                    );
+
+                if (chatDock && chatPanel && chatToggle) {
+
+                    chatToggle.addEventListener(
+                        "click",
+                        function () {
+
+                            var isOpen =
+                                chatDock.classList.toggle(
+                                    "chat-dock-open"
+                                );
+
+                            var chatBox =
+                                document.getElementById(
+                                    "chat-box-dock"
+                                );
+
+                            if (chatBox) {
+
+                                if (isOpen) {
+                                    chatBox.classList.add(
+                                        "chat-open"
+                                    );
+                                } else {
+                                    chatBox.classList.remove(
+                                        "chat-open"
+                                    );
+                                }
+
+                            }
 
                         }
                     );

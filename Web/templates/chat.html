@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block title %}Krampus Chat - Krampus RPG{% endblock %}
+
+{% block content %}
+
+<div class="chat-page">
+
+    {% with chat_mode = "page" %}
+        {% include "_chat_shoutbox.html" %}
+    {% endwith %}
+
+</div>
+
+{% endblock %}

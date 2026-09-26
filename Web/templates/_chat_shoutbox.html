@@ -1,0 +1,271 @@
+{#
+    Krampus Chat shoutbox component.
+
+    Expects one variable:
+        chat_mode — "page" (full page view) or "dock" (floating corner panel)
+
+    Uses the player's existing Krampus RPG session; all data comes from
+    /api/chat/*.
+#}
+
+<section class="chat-box chat-{{ chat_mode }}-box"
+         id="chat-box-{{ chat_mode }}"
+         data-mode="{{ chat_mode }}">
+
+    <header class="chat-header
+                   {% if chat_mode == 'dock' %}chat-dock-header{% endif %}">
+
+        <div class="chat-title">
+            <span class="chat-flame">🔥</span>
+            <span class="chat-title-text">KRAMPUS CHAT</span>
+        </div>
+
+        <div class="chat-online">
+            <span class="online-dot"></span>
+            <span class="chat-online-count">…</span>
+            <small>online</small>
+        </div>
+
+    </header>
+
+    <div class="chat-dock-body">
+
+        <div class="chat-messages">
+
+            <div class="chat-empty">Loading chat…</div>
+
+        </div>
+
+        <div class="chat-notice" hidden></div>
+
+        <form class="chat-input-row" autocomplete="off">
+
+            <input type="text"
+                   class="chat-input"
+                   maxlength="300"
+                   placeholder="Message…"
+                   autocomplete="off">
+
+            <button type="submit" class="chat-send">
+                ➤
+            </button>
+
+        </form>
+
+        <footer class="chat-footer">
+            <span>@Name mentions a player</span>
+        </footer>
+
+    </div>
+
+</section>
+
+<script>
+(function () {
+    "use strict";
+
+    var box = document.getElementById("chat-box-{{ chat_mode }}");
+    if (!box || box.dataset.chatReady === "1") { return; }
+    box.dataset.chatReady = "1";
+
+    var messagesEl = box.querySelector(".chat-messages");
+    var formEl = box.querySelector(".chat-input-row");
+    var inputEl = box.querySelector(".chat-input");
+    var sendEl = box.querySelector(".chat-send");
+    var noticeEl = box.querySelector(".chat-notice");
+    var onlineCountEl = box.querySelector(".chat-online-count");
+
+    var lastId = 0;
+    var pending = false;
+    var POLL_MS = 3000;
+    var pollTimer = null;
+
+    function esc(value) {
+        var div = document.createElement("div");
+        div.textContent = value == null ? "" : String(value);
+        return div.innerHTML;
+    }
+
+    function showNotice(text) {
+        noticeEl.textContent = text;
+        noticeEl.hidden = false;
+    }
+
+    function hideNotice() {
+        noticeEl.hidden = true;
+    }
+
+    function renderMessage(m) {
+        var row = document.createElement("div");
+        row.className = "chat-message";
+        row.setAttribute("data-id", m.id);
+
+        if (m.is_system) {
+            row.className += " chat-system";
+        } else {
+            if (m.role && m.role !== "player") {
+                row.className += " role-" + m.role;
+            }
+            if (m.is_mine) {
+                row.className += " chat-mine";
+            }
+        }
+
+        var head = document.createElement("div");
+        head.className = "chat-msg-head";
+
+        if (m.is_system) {
+            var sysTag = document.createElement("span");
+            sysTag.className = "chat-system-tag";
+            sysTag.textContent = "⚙ System";
+            head.appendChild(sysTag);
+        } else {
+            var name = document.createElement("a");
+            name.className = "chat-name role-" + (m.role || "player");
+            name.href = "/profile/" + encodeURIComponent(m.username);
+            name.textContent = m.display_name || m.username;
+            head.appendChild(name);
+
+            if (m.role && m.role !== "player") {
+                var badge = document.createElement("span");
+                badge.className = "chat-role-badge role-" + m.role;
+                badge.textContent = m.role.replace("_", " ");
+                head.appendChild(badge);
+            }
+        }
+
+        var time = document.createElement("span");
+        time.className = "chat-time";
+        time.textContent = m.created_at.slice(11, 16);
+        head.appendChild(time);
+        row.appendChild(head);
+
+        var body = document.createElement("div");
+        body.className = "chat-msg-body";
+        body.innerHTML = m.content_html || esc(m.content);
+        row.appendChild(body);
+
+        return row;
+    }
+
+    function renderOnline(players) {
+        onlineCountEl.textContent = players.length;
+    }
+
+    function scrollBottom() {
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    function poll() {
+        fetch("/api/chat/messages?after=" + lastId, {
+            credentials: "same-origin"
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (!data.success) {
+                    if (data.banned) {
+                        messagesEl.innerHTML = "";
+                        var banned = document.createElement("div");
+                        banned.className = "chat-empty";
+                        banned.textContent = data.error;
+                        messagesEl.appendChild(banned);
+                        inputEl.disabled = true;
+                        sendEl.disabled = true;
+                    }
+                    return;
+                }
+
+                hideNotice();
+                renderOnline(data.online || []);
+
+                if (data.muted) {
+                    inputEl.disabled = true;
+                    showNotice(data.mute_reason || "You are muted.");
+                } else {
+                    inputEl.disabled = false;
+                }
+
+                if (!data.messages || !data.messages.length) {
+                    return;
+                }
+
+                var emptyEl = messagesEl.querySelector(".chat-empty");
+                if (emptyEl) { emptyEl.remove(); }
+
+                data.messages.forEach(function (m) {
+                    messagesEl.appendChild(renderMessage(m));
+                    if (m.id > lastId) { lastId = m.id; }
+                });
+
+                scrollBottom();
+            })
+            .catch(function () { /* transient network error; retry */ });
+    }
+
+    function startPolling() {
+        if (pollTimer !== null) { return; }
+        poll();
+        pollTimer = setInterval(poll, POLL_MS);
+    }
+
+    function stopPolling() {
+        if (pollTimer !== null) {
+            clearInterval(pollTimer);
+            pollTimer = null;
+        }
+    }
+
+    formEl.addEventListener("submit", function (e) {
+        e.preventDefault();
+
+        var text = inputEl.value.trim();
+        if (!text || pending) { return; }
+
+        pending = true;
+        sendEl.disabled = true;
+
+        fetch("/api/chat/send", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ content: text })
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (!data.success) {
+                    showNotice(data.error || "Message could not be sent.");
+                } else {
+                    hideNotice();
+                    inputEl.value = "";
+                }
+            })
+            .catch(function () {
+                showNotice("Network error — message not sent.");
+            })
+            .finally(function () {
+                pending = false;
+                sendEl.disabled = false;
+                poll();
+            });
+    });
+
+    // ------------------------------------------------------------
+    // Dock mode: only poll while the panel is open. The dock starts
+    // collapsed, so it costs nothing until the player opens it.
+    // ------------------------------------------------------------
+
+    if (box.dataset.mode === "dock") {
+        var observer = new MutationObserver(function () {
+            if (box.classList.contains("chat-open")) {
+                startPolling();
+            } else {
+                stopPolling();
+            }
+        });
+
+        observer.observe(box, { attributes: true, attributeFilter: ["class"] });
+    } else {
+        startPolling();
+    }
+})();
+</script>

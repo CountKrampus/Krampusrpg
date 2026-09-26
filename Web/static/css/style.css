@@ -1584,6 +1584,577 @@ STORY ADVENTURE
     line-height: 1.5;
 }
 
+/* =========================================================
+KRAMPUS CHAT (SHOUTBOX)
+========================================================= */
+
+.chat-page {
+    max-width: 720px;
+
+    margin: 0 auto;
+}
+
+
+.chat-box {
+    background: var(--panel);
+
+    border: 1px solid var(--border);
+    border-radius: 10px;
+
+    overflow: hidden;
+
+    display: flex;
+    flex-direction: column;
+}
+
+
+.chat-header {
+    display: flex;
+
+    align-items: center;
+    justify-content: space-between;
+
+    padding: 12px 16px;
+
+    background: linear-gradient(
+        180deg,
+        #1a0d0f,
+        #141014
+    );
+
+    border-bottom: 2px solid var(--red-dark);
+}
+
+
+.chat-title {
+    display: flex;
+
+    align-items: center;
+    gap: 8px;
+
+    font-weight: 900;
+    letter-spacing: 2px;
+    font-size: 14px;
+}
+
+
+.chat-online {
+    display: flex;
+
+    align-items: baseline;
+    gap: 5px;
+
+    color: var(--muted);
+
+    font-size: 12px;
+}
+
+
+.chat-online #chat-online-count {
+    color: var(--gold);
+
+    font-weight: 900;
+    font-size: 14px;
+}
+
+
+.online-dot {
+    width: 8px;
+    height: 8px;
+
+    align-self: center;
+
+    background: #4caf6d;
+
+    border-radius: 50%;
+
+    box-shadow: 0 0 6px #4caf6d;
+}
+
+
+.chat-messages {
+    height: 420px;
+
+    padding: 12px;
+
+    overflow-y: auto;
+
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+
+.chat-empty {
+    color: var(--muted);
+
+    text-align: center;
+
+    font-size: 13px;
+    font-style: italic;
+
+    padding: 24px 0;
+}
+
+
+.chat-message {
+    padding: 8px 10px;
+
+    background: var(--panel-light);
+
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--muted);
+    border-radius: 6px;
+}
+
+
+.chat-message.chat-mine {
+    border-left-color: var(--gold);
+}
+
+
+.chat-message.role-moderator,
+.chat-message.role-admin,
+.chat-message.role-webmaster {
+    border-left-color: var(--red);
+}
+
+
+.chat-message.chat-system {
+    border-left-color: var(--blue);
+
+    background: rgba(93, 156, 201, 0.08);
+}
+
+
+.chat-msg-head {
+    display: flex;
+
+    align-items: baseline;
+    gap: 8px;
+
+    margin-bottom: 3px;
+}
+
+
+.chat-name {
+    font-weight: 900;
+
+    font-size: 13px;
+
+    text-decoration: none;
+}
+
+
+.chat-name:hover {
+    text-decoration: underline;
+}
+
+
+.chat-name.role-moderator { color: #6fb3e0; }
+.chat-name.role-admin { color: var(--red-light); }
+.chat-name.role-webmaster { color: var(--gold); }
+.chat-name.role-event_staff { color: #7fd0a8; }
+
+
+.chat-role-badge {
+    padding: 1px 7px;
+
+    border-radius: 8px;
+
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+
+.chat-role-badge.role-moderator {
+    background: rgba(111, 179, 224, 0.18);
+
+    color: #6fb3e0;
+}
+
+.chat-role-badge.role-admin {
+    background: rgba(196, 71, 80, 0.2);
+
+    color: var(--red-light);
+}
+
+.chat-role-badge.role-webmaster {
+    background: rgba(213, 173, 82, 0.2);
+
+    color: var(--gold);
+}
+
+.chat-role-badge.role-event_staff {
+    background: rgba(127, 208, 168, 0.18);
+
+    color: #7fd0a8;
+}
+
+
+.chat-time {
+    margin-left: auto;
+
+    color: var(--muted);
+
+    font-size: 10px;
+}
+
+
+.chat-system-tag {
+    color: var(--blue);
+
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+
+.chat-msg-body {
+    font-size: 13px;
+
+    line-height: 1.5;
+
+    word-wrap: break-word;
+}
+
+
+.chat-msg-body a {
+    color: var(--blue);
+}
+
+
+.chat-mention {
+    color: var(--gold);
+
+    font-weight: 700;
+
+    text-decoration: none;
+}
+
+
+.chat-mention:hover {
+    text-decoration: underline;
+}
+
+
+.chat-notice {
+    padding: 8px 14px;
+
+    background: rgba(165, 47, 56, 0.2);
+
+    border-top: 1px solid var(--red-dark);
+
+    color: var(--red-light);
+
+    font-size: 12px;
+}
+
+
+.chat-input-row {
+    display: flex;
+
+    gap: 8px;
+
+    padding: 10px 12px;
+
+    border-top: 2px solid var(--red-dark);
+
+    background: var(--panel-light);
+}
+
+
+.chat-input {
+    flex: 1;
+
+    padding: 10px 12px;
+
+    background: var(--bg);
+
+    border: 1px solid var(--border);
+    border-radius: 6px;
+
+    color: var(--text);
+
+    font-size: 13px;
+}
+
+
+.chat-input:focus {
+    outline: none;
+
+    border-color: var(--red);
+}
+
+
+.chat-input:disabled {
+    opacity: 0.5;
+}
+
+
+.chat-send {
+    width: 46px;
+
+    background: var(--red);
+
+    border: 1px solid var(--red-dark);
+    border-radius: 6px;
+
+    color: #fff;
+
+    font-size: 15px;
+
+    cursor: pointer;
+}
+
+
+.chat-send:hover:not(:disabled) {
+    background: var(--red-light);
+}
+
+
+.chat-send:disabled {
+    opacity: 0.5;
+
+    cursor: default;
+}
+
+
+.chat-footer {
+    padding: 6px 12px;
+
+    border-top: 1px solid var(--border);
+
+    color: var(--muted);
+
+    font-size: 10px;
+    text-align: center;
+}
+
+
+.chat-online-list {
+    padding: 8px 14px;
+
+    border-top: 1px solid var(--border);
+
+    background: var(--bg-light);
+}
+
+
+.chat-online-list-title {
+    color: var(--muted);
+
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: 2px;
+
+    margin-bottom: 6px;
+}
+
+
+.chat-online-players {
+    display: flex;
+
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+
+.chat-online-chip {
+    padding: 3px 9px;
+
+    background: var(--panel-light);
+
+    border: 1px solid var(--border);
+    border-radius: 10px;
+
+    color: var(--text);
+
+    font-size: 11px;
+
+    text-decoration: none;
+}
+
+
+.chat-online-chip:hover {
+    border-color: var(--border-light);
+}
+
+
+.chat-online-chip.staff {
+    border-color: var(--red-dark);
+
+    color: var(--red-light);
+}
+
+/* =========================================================
+KRAMPUS CHAT — FLOATING DOCK
+========================================================= */
+
+.chat-dock {
+    position: fixed;
+
+    right: 16px;
+    bottom: 16px;
+
+    z-index: 500;
+
+    display: flex;
+
+    flex-direction: column;
+
+    align-items: flex-end;
+    gap: 10px;
+
+    pointer-events: none;
+}
+
+
+.chat-dock-panel {
+    width: min(360px, calc(100vw - 32px));
+
+    max-height: 0;
+
+    overflow: hidden;
+
+    opacity: 0;
+
+    transform: translateY(8px);
+
+    transition:
+        max-height 0.25s ease,
+        opacity 0.2s ease,
+        transform 0.25s ease;
+
+    pointer-events: none;
+}
+
+
+.chat-dock.chat-dock-open .chat-dock-panel {
+    max-height: min(560px, calc(100vh - 140px));
+
+    opacity: 1;
+
+    transform: translateY(0);
+
+    pointer-events: auto;
+}
+
+
+.chat-dock-toggle {
+    width: 54px;
+    height: 54px;
+
+    background: linear-gradient(
+        160deg,
+        var(--red),
+        var(--red-dark)
+    );
+
+    border: 1px solid var(--red-light);
+    border-radius: 50%;
+
+    box-shadow:
+        0 4px 16px rgba(0, 0, 0, 0.5),
+        0 0 0 3px rgba(165, 47, 56, 0.25);
+
+    color: #fff;
+
+    font-size: 22px;
+    line-height: 1;
+
+    cursor: pointer;
+
+    pointer-events: auto;
+
+    transition:
+        transform 0.15s ease,
+        box-shadow 0.15s ease;
+}
+
+
+.chat-dock-toggle:hover {
+    transform: scale(1.08);
+
+    box-shadow:
+        0 6px 20px rgba(0, 0, 0, 0.6),
+        0 0 0 4px rgba(196, 71, 80, 0.35);
+}
+
+
+.chat-dock.chat-dock-open .chat-dock-toggle {
+    background: var(--panel-light);
+
+    border-color: var(--border-light);
+}
+
+
+/* Dock chat box is more compact than the page version */
+
+.chat-dock-panel .chat-box {
+    border-radius: 12px;
+
+    box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.6);
+}
+
+
+.chat-dock-panel .chat-messages {
+    height: 300px;
+}
+
+
+.chat-dock-panel .chat-title-text {
+    font-size: 12px;
+}
+
+
+.chat-dock-panel .chat-header {
+    padding: 9px 12px;
+}
+
+
+.chat-dock-panel .chat-input-row {
+    padding: 8px 10px;
+}
+
+
+.chat-dock-panel .chat-input {
+    padding: 8px 10px;
+
+    font-size: 12px;
+}
+
+
+.chat-dock-panel .chat-send {
+    width: 40px;
+
+    font-size: 13px;
+}
+
+
+/* Keep the dock clear of the mobile sidebars */
+
+@media (max-width: 800px) {
+
+.chat-dock {
+    right: 12px;
+    bottom: 12px;
+}
+
+
+.chat-dock-toggle {
+    width: 48px;
+    height: 48px;
+
+    font-size: 19px;
+}
+
+}
+
 
 /* =========================================================
 KRAMPUS POINTS SHOP

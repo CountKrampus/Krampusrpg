@@ -117,6 +117,12 @@ from .profile_ribbons import (
 )
 
 from . import quest_chain
+from . import chat
+from .chat import (
+    ChatError,
+    CHAT_MESSAGE_MAX_LENGTH,
+)
+
 from . import krampus_points
 from . import story_battle
 from . import area_search_storage as area_search
@@ -170,6 +176,9 @@ def create_app() -> Flask:
 
     # News is database-backed.
     ensure_news_table()
+
+    # Chat (shoutbox) is database-backed.
+    chat.ensure_chat_tables()
 
     # The development roadmap is database-backed.
     ensure_roadmap_tables()
@@ -494,6 +503,287 @@ def create_app() -> Flask:
                 "balls": get_player_balls(player_id),
             }
         )
+
+    # ========================================================
+    # KRAMPUS CHAT (SHOUTBOX)
+    # ========================================================
+
+    @app.get("/chat")
+    def chat_page():
+        """
+        The Krampus Chat shoutbox page.
+        """
+
+        player_id = current_player_id()
+
+        if player_id is None:
+            return redirect(url_for("login"))
+
+        return render_template("chat.html")
+
+    @app.get("/api/chat/messages")
+    def api_chat_messages():
+        """
+        Poll endpoint: messages newer than ?after=<id>, plus the
+        online player list. Also records a presence heartbeat.
+        """
+
+        player_id = current_player_id()
+
+        if player_id is None:
+            return jsonify(
+                {
+                    "success": False,
+                    "error": "Authentication required.",
+                }
+            ), 401
+
+        if chat.is_chat_banned(player_id):
+            return jsonify(
+                {
+                    "success": False,
+                    "error": "You are banned from chat.",
+                    "banned": True,
+                }
+            ), 403
+
+        try:
+            after_id = int(request.args.get("after", 0))
+        except (TypeError, ValueError):
+            after_id = 0
+
+        chat.heartbeat(player_id)
+
+        messages = chat.get_messages(after_id=after_id)
+
+        # Decorate with what the client needs to render identity.
+        for message in messages:
+            message["is_mine"] = message["player_id"] == player_id
+            message["is_system"] = bool(message["system"])
+
+        # Current player's own state, so the UI can reflect mutes.
+        mute = chat.get_active_mute(player_id)
+
+        return jsonify(
+            {
+                "success": True,
+                "messages": messages,
+                "online": chat.get_online_players(),
+                "last_id": (
+                    messages[-1]["id"] if messages else after_id
+                ),
+                "muted": mute is not None,
+                "mute_reason": (
+                    chat._sanction_message("muted", mute)
+                    if mute
+                    else None
+                ),
+            }
+        )
+
+    @app.post("/api/chat/send")
+    def api_chat_send():
+        """
+        Post one chat message as the logged-in player.
+        Expects JSON: {"content": "..."}
+        """
+
+        player_id = current_player_id()
+
+        if player_id is None:
+            return jsonify(
+                {
+                    "success": False,
+                    "error": "Authentication required.",
+                }
+            ), 401
+
+        data = request.get_json(silent=True) or {}
+        content = str(data.get("content", ""))
+
+        try:
+            message = chat.send_message(player_id, content)
+        except chat.ChatSanctioned as exc:
+            return jsonify(
+                {
+                    "success": False,
+                    "error": str(exc),
+                    "sanctioned": True,
+                }
+            ), 403
+        except chat.RateLimited as exc:
+            return jsonify(
+                {
+                    "success": False,
+                    "error": str(exc),
+                    "rate_limited": True,
+                }
+            ), 429
+        except chat.ChatError as exc:
+            return jsonify(
+                {
+                    "success": False,
+                    "error": str(exc),
+                }
+            ), 400
+
+        message["is_mine"] = True
+        message["is_system"] = bool(message["system"])
+
+        return jsonify(
+            {
+                "success": True,
+                "message": message,
+            }
+        )
+
+    @app.post("/api/chat/delete/<int:message_id>")
+    def api_chat_delete(message_id: int):
+        """Staff only: soft-delete one message."""
+
+        player_id = current_player_id()
+
+        if player_id is None:
+            return jsonify(
+                {
+                    "success": False,
+                    "error": "Authentication required.",
+                }
+            ), 401
+
+        try:
+            deleted = chat.delete_message(message_id, player_id)
+        except chat.ChatError as exc:
+            return jsonify(
+                {
+                    "success": False,
+                    "error": str(exc),
+                }
+            ), 403
+
+        return jsonify(
+            {
+                "success": deleted,
+                "deleted": deleted,
+            }
+        )
+
+    @app.post("/api/chat/moderate/<int:target_player_id>")
+    def api_chat_moderate(target_player_id: int):
+        """
+        Staff only: mute/unmute/ban/unban a player.
+        Expects JSON: {"action": "mute|unmute|ban|unban",
+                       "duration": 30 (minutes, optional),
+                       "reason": "..." (optional)}
+        """
+
+        staff_player_id = current_player_id()
+
+        if staff_player_id is None:
+            return jsonify(
+                {
+                    "success": False,
+                    "error": "Authentication required.",
+                }
+            ), 401
+
+        data = request.get_json(silent=True) or {}
+        action = str(data.get("action", "")).strip().lower()
+
+        duration_raw = data.get("duration")
+        duration: int | None
+        if duration_raw in (None, "", "permanent"):
+            duration = None
+        else:
+            try:
+                duration = max(1, int(duration_raw))
+            except (TypeError, ValueError):
+                duration = None
+
+        reason_raw = data.get("reason")
+        reason = str(reason_raw).strip() or None if reason_raw else None
+
+        try:
+            if action == "mute":
+                chat.mute_player(
+                    target_player_id,
+                    staff_player_id,
+                    duration_minutes=duration,
+                    reason=reason,
+                )
+            elif action == "unmute":
+                chat.unmute_player(target_player_id, staff_player_id)
+            elif action == "ban":
+                chat.ban_player(
+                    target_player_id,
+                    staff_player_id,
+                    duration_minutes=duration,
+                    reason=reason,
+                )
+            elif action == "unban":
+                chat.unban_player(target_player_id, staff_player_id)
+            else:
+                return jsonify(
+                    {
+                        "success": False,
+                        "error": "Unknown action.",
+                    }
+                ), 400
+        except chat.ChatError as exc:
+            return jsonify(
+                {
+                    "success": False,
+                    "error": str(exc),
+                }
+            ), 403
+
+        return jsonify(
+            {
+                "success": True,
+                "action": action,
+            }
+        )
+
+    # ========================================================
+    # PUBLIC PROFILE BY NAME (MENTION TARGETS)
+    # ========================================================
+
+    @app.get("/profile")
+    def profile():
+        """Current player's profile page."""
+
+        player_id = current_player_id()
+
+        return _render_profile(player_id)
+
+    @app.get("/profile/<username>")
+    def profile_by_name(username: str):
+        """
+        Resolve a username or display name to the player profile
+        page. @mentions in chat link here.
+        """
+
+        with get_connection() as db:
+            row = db.execute(
+                """
+                SELECT id
+                FROM players
+                WHERE username = ? COLLATE NOCASE
+                   OR display_name = ? COLLATE NOCASE
+                LIMIT 1
+                """,
+                (username, username),
+            ).fetchone()
+
+        if row is None:
+            player_id = current_player_id()
+
+            if player_id is None:
+                return redirect(url_for("login"))
+
+            return _render_profile(player_id)
+
+        return _render_profile(row["id"])
 
     # ========================================================
     # COMING SOON PAGES
@@ -1643,8 +1933,7 @@ def create_app() -> Flask:
     # PROFILE
     # ========================================================
 
-    @app.get("/profile")
-    def profile():
+    def _render_profile(player_id: int):
         """
         Player profile page.
 
@@ -1653,8 +1942,6 @@ def create_app() -> Flask:
 
         Ribbons are visual only and do not grant permissions.
         """
-
-        player_id = current_player_id()
 
         if player_id is None:
             return redirect(
