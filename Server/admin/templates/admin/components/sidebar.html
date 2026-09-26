@@ -38,6 +38,12 @@
                 <span>Quests</span>
             </a>
             {% endif %}
+
+            {% if current_user_has_permission('admin.pokemon.view') %}
+            <a href="{{ url_for('admin.gyms_admin') }}" class="admin-nav-link {% if request.endpoint in ['admin.gyms_admin', 'admin.gym_edit', 'admin.gym_create', 'admin.gym_team_save', 'admin.gym_delete'] %}active{% endif %}">
+                <span>Gyms</span>
+            </a>
+            {% endif %}
         </div>
         {% endif %}
 

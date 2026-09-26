@@ -27,6 +27,7 @@ from flask import (
     url_for,
 )
 
+from .. import gyms
 from .. import world_config
 from ..world_config import REGION_LABELS
 from ..database import get_connection
@@ -1247,6 +1248,228 @@ def world_catch_settings_save():
         flash(f"Failed to save catch settings: {exc}", "error")
 
     return redirect(url_for("admin.world"))
+
+
+# ============================================================
+# GYMS
+# ============================================================
+
+def _gyms_context(error: str | None = None) -> dict[str, Any]:
+    """Shared template context for the gym admin page."""
+
+    gym_list = gyms.get_gyms()
+    editing_gym = None
+
+    editing_gym_id = request.args.get("edit", "").strip()
+
+    if editing_gym_id:
+        editing_gym = gyms.get_gym(editing_gym_id)
+
+    return {
+        "gyms": gym_list,
+        "badge_defs": gyms.get_badge_definitions(),
+        "editing_gym": editing_gym,
+        "gym_types": gyms.GYM_TYPES,
+        "max_team_size": gyms.MAX_GYM_TEAM_SIZE,
+        "region_labels": REGION_LABELS,
+        "error": error,
+    }
+
+
+@admin_bp.route("/gyms")
+@pokemon_view_required
+def gyms_admin():
+    """
+    Gym management: create and edit gyms, leader teams, badges, and
+    rewards. Read access follows Pokémon view (gyms are battle
+    reference data); all writes require Pokémon edit.
+    """
+    return render_template(
+        "admin/gyms.html",
+        **_gyms_context(),
+        species_list=get_available_species(),
+        variants=get_available_variants(),
+    )
+
+
+@admin_bp.post("/gyms/create")
+@pokemon_edit_required
+def gym_create():
+    """Create a new gym with its leader team and badge definition."""
+    staff_id = session.get("player_id")
+
+    team = []
+
+    for species, level, variant in zip(
+        request.form.getlist("team_species"),
+        request.form.getlist("team_level"),
+        request.form.getlist("team_variant"),
+    ):
+        # Skip the empty spare rows the form always renders.
+        if not str(species or "").strip():
+            continue
+
+        team.append(
+            {
+                "species": species,
+                "level": level,
+                "variant": variant or "normal",
+            }
+        )
+
+    try:
+        gym = gyms.create_gym(
+            name=request.form.get("name", ""),
+            leader=request.form.get("leader", ""),
+            leader_title=request.form.get("leader_title", ""),
+            gym_type=request.form.get("type", "normal"),
+            region=request.form.get("region", "hollyhollow"),
+            leader_intro=request.form.get("leader_intro", ""),
+            leader_defeat=request.form.get("leader_defeat", ""),
+            badge_name=request.form.get("badge_name", ""),
+            required_badges=request.form.get("required_badges", 0),
+            money_reward=request.form.get("money_reward", 0),
+            team=team,
+        )
+
+        log_action(
+            player_id=staff_id,
+            action=ACTION_CREATE,
+            target_type="gym",
+            target_id=gym["id"],
+            details={
+                "name": gym["name"],
+                "type": gym["type"],
+                "team_size": len(gym["team"]),
+            },
+        )
+        flash(f"Gym '{gym['name']}' created.", "success")
+    except ValueError as exc:
+        return render_template(
+            "admin/gyms.html",
+            **_gyms_context(error=str(exc)),
+            species_list=get_available_species(),
+            variants=get_available_variants(),
+        )
+
+    return redirect(url_for("admin.gyms_admin"))
+
+
+@admin_bp.route("/gyms/<gym_id>/edit", methods=["GET", "POST"])
+@pokemon_edit_required
+def gym_edit(gym_id: str):
+    """Edit a gym's display fields, badge, and rewards."""
+    staff_id = session.get("player_id")
+
+    if request.method == "GET":
+        return render_template(
+            "admin/gyms.html",
+            **_gyms_context(),
+            editing_gym=gyms.get_gym(gym_id),
+            species_list=get_available_species(),
+            variants=get_available_variants(),
+        )
+
+    try:
+        gyms.update_gym(
+            gym_id,
+            name=request.form.get("name"),
+            leader=request.form.get("leader"),
+            leader_title=request.form.get("leader_title"),
+            gym_type=request.form.get("type"),
+            region=request.form.get("region"),
+            leader_intro=request.form.get("leader_intro"),
+            leader_defeat=request.form.get("leader_defeat"),
+            badge_name=request.form.get("badge_name"),
+            required_badges=request.form.get("required_badges"),
+            money_reward=request.form.get("money_reward"),
+        )
+
+        log_action(
+            player_id=staff_id,
+            action=ACTION_UPDATE,
+            target_type="gym",
+            target_id=gym_id,
+            details={"fields": [
+                "name", "leader", "type", "region",
+                "badge", "required_badges", "money",
+            ]},
+        )
+        flash("Gym updated.", "success")
+    except ValueError as exc:
+        return render_template(
+            "admin/gyms.html",
+            **_gyms_context(error=str(exc)),
+            editing_gym=gyms.get_gym(gym_id),
+            species_list=get_available_species(),
+            variants=get_available_variants(),
+        )
+
+    return redirect(url_for("admin.gyms_admin"))
+
+
+@admin_bp.post("/gyms/<gym_id>/team")
+@pokemon_edit_required
+def gym_team_save(gym_id: str):
+    """Replace a gym leader's whole team."""
+    staff_id = session.get("player_id")
+
+    team = []
+
+    for species, level, variant in zip(
+        request.form.getlist("team_species"),
+        request.form.getlist("team_level"),
+        request.form.getlist("team_variant"),
+    ):
+        if not str(species or "").strip():
+            continue
+
+        team.append(
+            {
+                "species": species,
+                "level": level,
+                "variant": variant or "normal",
+            }
+        )
+
+    try:
+        gym = gyms.set_gym_team(gym_id, team)
+
+        log_action(
+            player_id=staff_id,
+            action=ACTION_UPDATE,
+            target_type="gym",
+            target_id=gym_id,
+            details={"team_saved": len(team)},
+        )
+        flash(f"Team saved for '{gym['name']}'.", "success")
+    except ValueError as exc:
+        flash(str(exc), "error")
+
+    return redirect(url_for("admin.gyms_admin"))
+
+
+@admin_bp.post("/gyms/<gym_id>/delete")
+@pokemon_edit_required
+def gym_delete(gym_id: str):
+    """Delete a gym (and its badge definition)."""
+    staff_id = session.get("player_id")
+
+    removed = gyms.delete_gym(gym_id)
+
+    if removed is None:
+        flash("Gym not found.", "error")
+    else:
+        log_action(
+            player_id=staff_id,
+            action=ACTION_DELETE,
+            target_type="gym",
+            target_id=gym_id,
+            details={"name": removed.get("name")},
+        )
+        flash(f"Gym '{removed.get('name', gym_id)}' deleted.", "success")
+
+    return redirect(url_for("admin.gyms_admin"))
 
 
 # ============================================================

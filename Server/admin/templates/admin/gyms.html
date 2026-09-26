@@ -1,0 +1,360 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Gyms{% endblock %}
+
+{% block content %}
+<div class="admin-page-header">
+    <div>
+        <h1>Gyms</h1>
+        <p class="admin-subtitle">
+            Gym leaders, teams, badges, and rewards. Changes apply
+            immediately — no restart needed. Levels are uncapped.
+        </p>
+    </div>
+</div>
+
+{% if error %}
+<div class="admin-alert admin-alert-error">{{ error }}</div>
+{% endif %}
+
+<!-- Species + variant datalists shared by every team editor -->
+<datalist id="gym-species-list">
+    {% for species in species_list %}
+    <option value="{{ species.id }}">{{ species.name }}</option>
+    {% endfor %}
+</datalist>
+
+<datalist id="gym-variant-list">
+    <option value="normal">Normal</option>
+    {% for v in variants %}
+    {% if v.id != "normal" %}
+    <option value="{{ v.id }}">{{ v.name }}</option>
+    {% endif %}
+    {% endfor %}
+</datalist>
+
+
+<!-- ============================================================
+     CREATE GYM
+     ============================================================ -->
+
+<section class="admin-section">
+    <div class="admin-section-header">
+        <div>
+            <h2>New Gym</h2>
+            <p>
+                Creates the gym and its badge definition together.
+                The team needs 1-{{ max_team_size }} members; species
+                must exist in the catalog.
+            </p>
+        </div>
+    </div>
+
+    <form method="post" action="{{ url_for('admin.gym_create') }}" class="admin-form">
+
+        <div class="admin-card-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
+
+            <div class="admin-form-group">
+                <label for="gym-name">Gym Name</label>
+                <input type="text" id="gym-name" name="name" required maxlength="80" placeholder="e.g. Ember Cavern Gym">
+            </div>
+
+            <div class="admin-form-group">
+                <label for="gym-leader">Leader</label>
+                <input type="text" id="gym-leader" name="leader" maxlength="80" placeholder="e.g. Blaine">
+            </div>
+
+            <div class="admin-form-group">
+                <label for="gym-leader-title">Leader Title</label>
+                <input type="text" id="gym-leader-title" name="leader_title" maxlength="80" placeholder="e.g. The Hot-Headed Quiz Master">
+            </div>
+
+            <div class="admin-form-group">
+                <label for="gym-type">Type</label>
+                <select id="gym-type" name="type">
+                    {% for gym_type in gym_types %}
+                    <option value="{{ gym_type }}">{{ gym_type | capitalize }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="admin-form-group">
+                <label for="gym-region">Region</label>
+                <select id="gym-region" name="region">
+                    {% for region_id, region_label in region_labels.items() %}
+                    <option value="{{ region_id }}">{{ region_label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="admin-form-group">
+                <label for="gym-badge-name">Badge Name</label>
+                <input type="text" id="gym-badge-name" name="badge_name" required maxlength="80" placeholder="e.g. Volcano Badge">
+            </div>
+
+            <div class="admin-form-group">
+                <label for="gym-required-badges">Required Badges</label>
+                <input type="number" id="gym-required-badges" name="required_badges" value="0" min="0" max="8" step="1">
+                <span class="admin-form-help">Gym badges needed to challenge. 0 = always open.</span>
+            </div>
+
+            <div class="admin-form-group">
+                <label for="gym-money">Money Reward</label>
+                <input type="number" id="gym-money" name="money_reward" value="2000" min="0" max="999999999" step="1">
+            </div>
+
+        </div>
+
+        <div class="admin-card-grid" style="grid-template-columns: 1fr; margin-top: 4px;">
+
+            <div class="admin-form-group">
+                <label for="gym-intro">Leader Intro Quote</label>
+                <input type="text" id="gym-intro" name="leader_intro" maxlength="300" placeholder="Shown when the challenge starts">
+            </div>
+
+            <div class="admin-form-group">
+                <label for="gym-defeat">Leader Defeat Quote</label>
+                <input type="text" id="gym-defeat" name="leader_defeat" maxlength="300" placeholder="Shown when the player wins">
+            </div>
+
+        </div>
+
+        <p class="admin-form-help" style="margin: 10px 0 6px;">Initial team (leave rows blank to skip):</p>
+
+        <div class="admin-table-container" style="max-width: 720px;">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Species</th>
+                        <th>Level</th>
+                        <th>Variant</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in range(max_team_size) %}
+                    <tr>
+                        <td>
+                            <input type="text" name="team_species" list="gym-species-list" maxlength="40" placeholder="pikachu">
+                        </td>
+                        <td>
+                            <input type="number" name="team_level" value="50" min="1" step="1" style="width: 100px;">
+                        </td>
+                        <td>
+                            <input type="text" name="team_variant" list="gym-variant-list" value="normal" maxlength="40" style="width: 120px;">
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <button type="submit" class="admin-button admin-button-primary" style="margin-top: 12px;">
+            Create Gym
+        </button>
+
+    </form>
+</section>
+
+
+<!-- ============================================================
+     EXISTING GYMS
+     ============================================================ -->
+
+<section class="admin-section">
+
+    <div class="admin-section-header">
+        <div>
+            <h2>Gyms</h2>
+            <p>{{ gyms | length }} gym{{ "s" if gyms | length != 1 else "" }}.</p>
+        </div>
+    </div>
+
+    {% for gym in gyms %}
+
+    <div class="admin-card" style="margin-bottom: 18px;">
+
+        <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">
+
+            <h2 style="margin: 0;">
+                {{ gym.name }}
+                <span class="admin-status-badge">{{ gym.type | capitalize }}</span>
+                <span class="admin-status-badge">
+                    {{ badge_defs.get(gym.badge, {}).get("name", gym.badge) }}
+                </span>
+            </h2>
+
+            <div style="display: flex; gap: 8px;">
+                <a class="admin-button admin-button-small" href="{{ url_for('admin.gyms_admin', edit=gym.id) }}">
+                    Edit Details
+                </a>
+
+                <form method="post" action="{{ url_for('admin.gym_delete', gym_id=gym.id) }}"
+                      onsubmit="return confirm('Delete {{ gym.name }}? Its badge definition is removed too.');">
+                    <button type="submit" class="admin-button admin-button-small admin-button-danger">
+                        Delete
+                    </button>
+                </form>
+            </div>
+
+        </div>
+
+        <p class="admin-form-help" style="margin: 8px 0 14px;">
+            {{ gym.leader_title or "Leader" }} {{ gym.leader }} ·
+            {{ gym.region | default("—") }} ·
+            requires {{ gym.required_badges | default(0) }} badge{{ "s" if (gym.required_badges | default(0)) != 1 else "" }} ·
+            reward: ₽{{ (gym.rewards | default({})).get("money", 0) }}
+        </p>
+
+        {% if editing_gym and editing_gym.id == gym.id %}
+
+        <!-- Inline details editor -->
+        <form method="post" action="{{ url_for('admin.gym_edit', gym_id=gym.id) }}" class="admin-form" style="margin-bottom: 16px;">
+
+            <div class="admin-card-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
+
+                <div class="admin-form-group">
+                    <label for="edit-name-{{ gym.id }}">Gym Name</label>
+                    <input type="text" id="edit-name-{{ gym.id }}" name="name" value="{{ editing_gym.name }}" required maxlength="80">
+                </div>
+
+                <div class="admin-form-group">
+                    <label for="edit-leader-{{ gym.id }}">Leader</label>
+                    <input type="text" id="edit-leader-{{ gym.id }}" name="leader" value="{{ editing_gym.leader | default('') }}" maxlength="80">
+                </div>
+
+                <div class="admin-form-group">
+                    <label for="edit-title-{{ gym.id }}">Leader Title</label>
+                    <input type="text" id="edit-title-{{ gym.id }}" name="leader_title" value="{{ editing_gym.leader_title | default('') }}" maxlength="80">
+                </div>
+
+                <div class="admin-form-group">
+                    <label for="edit-type-{{ gym.id }}">Type</label>
+                    <select id="edit-type-{{ gym.id }}" name="type">
+                        {% for gym_type in gym_types %}
+                        <option value="{{ gym_type }}" {% if editing_gym.type == gym_type %}selected{% endif %}>{{ gym_type | capitalize }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="admin-form-group">
+                    <label for="edit-region-{{ gym.id }}">Region</label>
+                    <select id="edit-region-{{ gym.id }}" name="region">
+                        {% for region_id, region_label in region_labels.items() %}
+                        <option value="{{ region_id }}" {% if editing_gym.region == region_id %}selected{% endif %}>{{ region_label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="admin-form-group">
+                    <label for="edit-badge-{{ gym.id }}">Badge Name</label>
+                    <input type="text" id="edit-badge-{{ gym.id }}" name="badge_name" value="{{ badge_defs.get(editing_gym.badge, {}).get('name', '') }}" required maxlength="80">
+                    <span class="admin-form-help">Renaming keeps the badge id stable.</span>
+                </div>
+
+                <div class="admin-form-group">
+                    <label for="edit-required-{{ gym.id }}">Required Badges</label>
+                    <input type="number" id="edit-required-{{ gym.id }}" name="required_badges" value="{{ editing_gym.required_badges | default(0) }}" min="0" max="8" step="1">
+                </div>
+
+                <div class="admin-form-group">
+                    <label for="edit-money-{{ gym.id }}">Money Reward</label>
+                    <input type="number" id="edit-money-{{ gym.id }}" name="money_reward" value="{{ (editing_gym.rewards | default({})).get('money', 0) }}" min="0" max="999999999" step="1">
+                </div>
+
+            </div>
+
+            <div class="admin-card-grid" style="grid-template-columns: 1fr; margin-top: 4px;">
+
+                <div class="admin-form-group">
+                    <label for="edit-intro-{{ gym.id }}">Leader Intro Quote</label>
+                    <input type="text" id="edit-intro-{{ gym.id }}" name="leader_intro" value="{{ editing_gym.leader_intro | default('') }}" maxlength="300">
+                </div>
+
+                <div class="admin-form-group">
+                    <label for="edit-defeat-{{ gym.id }}">Leader Defeat Quote</label>
+                    <input type="text" id="edit-defeat-{{ gym.id }}" name="leader_defeat" value="{{ editing_gym.leader_defeat | default('') }}" maxlength="300">
+                </div>
+
+            </div>
+
+            <button type="submit" class="admin-button admin-button-primary">Save Details</button>
+            <a class="admin-button" href="{{ url_for('admin.gyms_admin') }}">Cancel</a>
+
+        </form>
+
+        {% endif %}
+
+        <!-- Team editor -->
+        <form method="post" action="{{ url_for('admin.gym_team_save', gym_id=gym.id) }}">
+
+            <p class="admin-form-help" style="margin: 0 0 6px;">
+                Leader team — "Save Team" replaces the whole team:
+            </p>
+
+            <div class="admin-table-container" style="max-width: 760px;">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Sprite</th>
+                            <th>Species</th>
+                            <th>Level</th>
+                            <th>Variant</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+
+                        {% for member in gym.team | default([]) %}
+                        <tr>
+                            <td>
+                                <img src="{{ url_for('static', filename='sprites/' ~ member.species ~ '.png') }}"
+                                     alt="{{ member.species }}"
+                                     width="40" height="40"
+                                     style="image-rendering: pixelated;"
+                                     onerror="this.style.visibility='hidden';">
+                            </td>
+                            <td>
+                                <input type="text" name="team_species" value="{{ member.species }}"
+                                       required maxlength="40" list="gym-species-list" style="width: 160px;">
+                            </td>
+                            <td>
+                                <input type="number" name="team_level" value="{{ member.level }}"
+                                       min="1" step="1" style="width: 100px;">
+                            </td>
+                            <td>
+                                <input type="text" name="team_variant" value="{{ member.variant | default('normal') }}"
+                                       maxlength="40" list="gym-variant-list" style="width: 120px;">
+                            </td>
+                        </tr>
+                        {% endfor %}
+
+                        {% for row in range(max_team_size - (gym.team | default([]) | length)) %}
+                        <tr>
+                            <td></td>
+                            <td>
+                                <input type="text" name="team_species" list="gym-species-list" maxlength="40" placeholder="add member…" style="width: 160px;">
+                            </td>
+                            <td>
+                                <input type="number" name="team_level" value="50" min="1" step="1" style="width: 100px;">
+                            </td>
+                            <td>
+                                <input type="text" name="team_variant" value="normal" maxlength="40" list="gym-variant-list" style="width: 120px;">
+                            </td>
+                        </tr>
+                        {% endfor %}
+
+                    </tbody>
+                </table>
+            </div>
+
+            <button type="submit" class="admin-button admin-button-small" style="margin-top: 10px;">
+                Save Team
+            </button>
+
+        </form>
+
+    </div>
+
+    {% endfor %}
+
+</section>
+{% endblock %}

@@ -877,7 +877,9 @@ def create_app() -> Flask:
                     ), 400
 
                 try:
-                    level = max(1, min(100, int(data.get("level", 5))))
+                    # No upper level cap: opponents may exceed the
+                    # classic level 100 (leaderboard progression).
+                    level = max(1, int(data.get("level", 5)))
                 except (TypeError, ValueError):
                     level = 5
 
@@ -917,7 +919,8 @@ def create_app() -> Flask:
                         continue
 
                     try:
-                        level = max(1, min(100, int(member.get("level", 5))))
+                        # No upper level cap (leaderboard progression).
+                        level = max(1, int(member.get("level", 5)))
                     except (TypeError, ValueError):
                         level = 5
 
