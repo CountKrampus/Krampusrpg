@@ -2417,6 +2417,463 @@ KRAMPUS CHAT — AVATARS, MESSAGE ROWS, PICKER
     background: var(--red-light);
 }
 
+/* =========================================================
+BATTLE ARENA
+========================================================= */
+
+.battle-page {
+    display: flex;
+
+    flex-direction: column;
+    gap: 18px;
+}
+
+
+.battle-header-card {
+    display: flex;
+
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+
+    flex-wrap: wrap;
+}
+
+
+.battle-party-brief {
+    display: flex;
+
+    flex-direction: column;
+    gap: 6px;
+
+    min-width: 200px;
+}
+
+
+.battle-party-brief > span {
+    color: var(--muted);
+
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: 2px;
+}
+
+
+.battle-party-chip {
+    padding: 6px 10px;
+
+    background: var(--panel-light);
+
+    border: 1px solid var(--border);
+    border-radius: 6px;
+}
+
+
+.battle-party-chip.fainted {
+    opacity: 0.5;
+}
+
+
+.battle-party-chip strong {
+    display: block;
+
+    font-size: 12px;
+}
+
+
+.battle-party-chip small {
+    color: var(--muted);
+
+    font-size: 10px;
+}
+
+
+/* Challenge picker */
+
+.battle-setup h2 {
+    margin: 0 0 12px;
+
+    font-size: 16px;
+}
+
+
+.battle-challenge-row {
+    display: flex;
+
+    flex-wrap: wrap;
+    gap: 10px;
+
+    margin-bottom: 12px;
+}
+
+
+.battle-challenge {
+    flex: 1;
+
+    min-width: 160px;
+
+    padding: 12px 14px;
+
+    background: var(--panel-light);
+
+    border: 1px solid var(--border);
+    border-radius: 8px;
+
+    color: var(--text);
+
+    text-align: left;
+
+    cursor: pointer;
+
+    transition:
+        border-color 0.15s ease,
+        transform 0.15s ease;
+}
+
+
+.battle-challenge:hover {
+    border-color: var(--red);
+
+    transform: translateY(-2px);
+}
+
+
+.battle-challenge.wild {
+    border-style: dashed;
+}
+
+
+.battle-challenge-name {
+    display: block;
+
+    font-weight: 900;
+
+    font-size: 13px;
+
+    margin-bottom: 2px;
+}
+
+
+.battle-challenge small {
+    color: var(--muted);
+
+    font-size: 11px;
+}
+
+
+/* Battle screen */
+
+.battle-screen {
+    display: flex;
+
+    flex-direction: column;
+    gap: 14px;
+}
+
+
+.battle-arena {
+    display: flex;
+
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+
+    flex-wrap: wrap;
+}
+
+
+.battle-side {
+    flex: 1;
+
+    min-width: 240px;
+
+    display: flex;
+
+    flex-direction: column;
+    gap: 8px;
+}
+
+
+.battle-side.battle-opponent {
+    align-items: flex-start;
+}
+
+
+.battle-side.battle-player {
+    align-items: flex-end;
+}
+
+
+.battle-vs {
+    color: var(--red);
+
+    font-weight: 900;
+
+    font-size: 20px;
+
+    letter-spacing: 2px;
+}
+
+
+.battle-fighter-card {
+    width: 100%;
+
+    padding: 12px;
+
+    background: var(--panel-light);
+
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+
+
+.battle-side.battle-player .battle-fighter-card {
+    border-color: var(--red-dark);
+}
+
+
+.bf-head {
+    display: flex;
+
+    align-items: baseline;
+    justify-content: space-between;
+
+    margin-bottom: 6px;
+}
+
+
+.bf-head strong {
+    font-size: 14px;
+}
+
+
+.bf-head span {
+    color: var(--muted);
+
+    font-size: 11px;
+}
+
+
+.bf-hp {
+    display: flex;
+
+    align-items: center;
+    gap: 8px;
+}
+
+
+.bf-hp small {
+    color: var(--muted);
+
+    font-size: 10px;
+
+    white-space: nowrap;
+}
+
+
+.hp-bar {
+    flex: 1;
+
+    height: 8px;
+
+    background: var(--bg);
+
+    border: 1px solid var(--border);
+    border-radius: 4px;
+
+    overflow: hidden;
+}
+
+
+.hp-fill {
+    height: 100%;
+
+    transition: width 0.3s ease;
+}
+
+
+.hp-fill.ok { background: #4caf6d; }
+.hp-fill.low { background: var(--gold); }
+.hp-fill.crit { background: var(--red-light); }
+
+
+.bf-types {
+    display: flex;
+
+    gap: 4px;
+
+    margin-top: 6px;
+}
+
+
+.battle-type {
+    padding: 1px 7px;
+
+    border-radius: 8px;
+
+    font-size: 9px;
+    font-style: normal;
+    font-weight: 900;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+
+    background: var(--panel-hover);
+
+    color: var(--muted);
+}
+
+
+.bf-moves {
+    display: grid;
+
+    grid-template-columns:
+        repeat(
+            2,
+            minmax(0, 1fr)
+        );
+
+    gap: 6px;
+
+    margin-top: 10px;
+}
+
+
+.battle-move {
+    padding: 7px 9px;
+
+    background: var(--panel);
+
+    border: 1px solid var(--border);
+    border-radius: 6px;
+
+    color: var(--text);
+
+    text-align: left;
+
+    cursor: pointer;
+}
+
+
+.battle-move:hover {
+    border-color: var(--red);
+}
+
+
+.battle-move strong {
+    display: block;
+
+    font-size: 12px;
+}
+
+
+.battle-move small {
+    color: var(--muted);
+
+    font-size: 10px;
+    text-transform: capitalize;
+}
+
+
+.battle-team-dots {
+    display: flex;
+
+    gap: 5px;
+}
+
+
+.battle-dot {
+    width: 10px;
+    height: 10px;
+
+    background: #4caf6d;
+
+    border-radius: 50%;
+}
+
+
+.battle-dot.fainted {
+    background: var(--red-dark);
+}
+
+
+.battle-dot.active {
+    box-shadow: 0 0 0 2px var(--gold);
+}
+
+
+/* Log */
+
+.battle-log {
+    height: 140px;
+
+    padding: 10px 12px;
+
+    background: var(--bg);
+
+    border: 1px solid var(--border);
+    border-radius: 8px;
+
+    overflow-y: auto;
+
+    font-size: 12px;
+    line-height: 1.7;
+
+    color: var(--muted);
+}
+
+
+.battle-actions {
+    display: flex;
+
+    align-items: center;
+    gap: 12px;
+}
+
+
+.battle-secondary {
+    margin-left: auto;
+}
+
+
+.battle-btn {
+    padding: 10px 18px;
+
+    background: var(--panel-light);
+
+    border: 1px solid var(--border);
+    border-radius: 8px;
+
+    color: var(--text);
+
+    font-weight: 700;
+
+    cursor: pointer;
+}
+
+
+.battle-btn:hover {
+    border-color: var(--red);
+}
+
+
+.battle-btn.flee {
+    color: var(--muted);
+}
+
+
+.battle-result {
+    padding: 24px;
+
+    text-align: center;
+}
+
+
+.battle-result h2 {
+    margin: 0 0 14px;
+
+    font-size: 24px;
+}
+
 
 /* =========================================================
 KRAMPUS POINTS SHOP

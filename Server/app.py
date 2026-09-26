@@ -123,6 +123,9 @@ from .chat import (
     CHAT_MESSAGE_MAX_LENGTH,
 )
 
+from . import battle_store
+from .battle import BattleError
+
 from . import krampus_points
 from . import story_battle
 from . import area_search_storage as area_search
@@ -179,6 +182,9 @@ def create_app() -> Flask:
 
     # Chat (shoutbox) is database-backed.
     chat.ensure_chat_tables()
+
+    # Battles are database-backed.
+    battle_store.ensure_battle_tables()
 
     # The development roadmap is database-backed.
     ensure_roadmap_tables()
@@ -641,6 +647,238 @@ def create_app() -> Flask:
             }
         )
 
+    # ========================================================
+    # BATTLES
+    # ========================================================
+
+    @app.get("/battle")
+    def battle_page():
+        """The battle arena: start NPC battles and fight them out."""
+
+        player_id = current_player_id()
+
+        if player_id is None:
+            return redirect(url_for("login"))
+
+        party = get_party(player_id)
+
+        return render_template(
+            "battle.html",
+            party=party,
+        )
+
+    @app.get("/api/battle/state")
+    def api_battle_state():
+        """The player's active battle, or null."""
+
+        player_id = current_player_id()
+
+        if player_id is None:
+            return jsonify(
+                {
+                    "success": False,
+                    "error": "Authentication required.",
+                }
+            ), 401
+
+        battle = battle_store.get_active_battle(player_id)
+
+        return jsonify(
+            {
+                "success": True,
+                "battle": battle,
+            }
+        )
+
+    @app.post("/api/battle/start")
+    def api_battle_start():
+        """
+        Start a battle.
+
+        JSON: {"format": "trainer", "team": [{"species": ..., "level": ...} ...]}
+              {"format": "wild", "species": ..., "level": ...}
+
+        For now the opponent team comes from the request (the arena's
+        challenge options); quest/story integration passes the same
+        shape from the quest encounter data.
+        """
+
+        player_id = current_player_id()
+
+        if player_id is None:
+            return jsonify(
+                {
+                    "success": False,
+                    "error": "Authentication required.",
+                }
+            ), 401
+
+        data = request.get_json(silent=True) or {}
+        battle_format = str(data.get("format", "trainer")).lower()
+
+        try:
+            if battle_format == "wild":
+                species = str(data.get("species", "")).strip().lower()
+
+                if not species:
+                    return jsonify(
+                        {
+                            "success": False,
+                            "error": "species is required.",
+                        }
+                    ), 400
+
+                try:
+                    level = max(1, min(100, int(data.get("level", 5))))
+                except (TypeError, ValueError):
+                    level = 5
+
+                try:
+                    battle = battle_store.start_wild_battle(
+                        player_id,
+                        species,
+                        level,
+                    )
+                except ValueError:
+                    return jsonify(
+                        {
+                            "success": False,
+                            "error": "Unknown species.",
+                        }
+                    ), 400
+            else:
+                team = data.get("team")
+
+                if not isinstance(team, list) or not team:
+                    return jsonify(
+                        {
+                            "success": False,
+                            "error": "team is required.",
+                        }
+                    ), 400
+
+                clean_team: list[dict[str, Any]] = []
+
+                for member in team[:6]:
+                    if not isinstance(member, dict):
+                        continue
+
+                    species = str(member.get("species", "")).strip().lower()
+
+                    if not species:
+                        continue
+
+                    try:
+                        level = max(1, min(100, int(member.get("level", 5))))
+                    except (TypeError, ValueError):
+                        level = 5
+
+                    clean_team.append(
+                        {
+                            "species": species,
+                            "level": level,
+                            "variant": str(
+                                member.get("variant") or "normal"
+                            ),
+                        }
+                    )
+
+                if not clean_team:
+                    return jsonify(
+                        {
+                            "success": False,
+                            "error": "No valid opponents in team.",
+                        }
+                    ), 400
+
+                try:
+                    battle = battle_store.start_trainer_battle(
+                        player_id,
+                        clean_team,
+                    )
+                except ValueError:
+                    return jsonify(
+                        {
+                            "success": False,
+                            "error": "Unknown species in opponent team.",
+                        }
+                    ), 400
+
+        except BattleError as exc:
+            return jsonify(
+                {
+                    "success": False,
+                    "error": str(exc),
+                }
+            ), 400
+
+        return jsonify(
+            {
+                "success": True,
+                "battle": battle,
+            }
+        )
+
+    @app.post("/api/battle/action")
+    def api_battle_action():
+        """
+        Take one battle action.
+        JSON: {"battle_id": N, "action": {"type": "move", "slot": 0}}
+        """
+
+        player_id = current_player_id()
+
+        if player_id is None:
+            return jsonify(
+                {
+                    "success": False,
+                    "error": "Authentication required.",
+                }
+            ), 401
+
+        data = request.get_json(silent=True) or {}
+
+        try:
+            battle_id = int(data.get("battle_id", 0))
+        except (TypeError, ValueError):
+            return jsonify(
+                {
+                    "success": False,
+                    "error": "battle_id is required.",
+                }
+            ), 400
+
+        action = data.get("action")
+
+        if not isinstance(action, dict):
+            return jsonify(
+                {
+                    "success": False,
+                    "error": "action is required.",
+                }
+            ), 400
+
+        try:
+            battle = battle_store.battle_action(
+                player_id,
+                battle_id,
+                action,
+            )
+        except BattleError as exc:
+            return jsonify(
+                {
+                    "success": False,
+                    "error": str(exc),
+                }
+            ), 400
+
+        return jsonify(
+            {
+                "success": True,
+                "battle": battle,
+            }
+        )
+
     @app.get("/api/chat/context")
     def api_chat_context():
         """
@@ -956,7 +1194,7 @@ def create_app() -> Flask:
 
     @app.get("/battle-arena")
     def battle_arena():
-        return redirect(url_for("coming_soon"))
+        return redirect(url_for("battle_page"))
 
     @app.get("/story-adventure")
     def story_adventure():

@@ -1,0 +1,399 @@
+{% extends "base.html" %}
+
+{% block title %}Battle Arena - Krampus RPG{% endblock %}
+
+{% block content %}
+
+<div class="battle-page">
+
+    <section class="card battle-header-card">
+
+        <div>
+            <span class="world-kicker">KRAMPUS RPG</span>
+            <h1>Battle Arena</h1>
+            <p>
+                Challenge trainers and wild Pokémon. Damage is real —
+                your party's HP carries back home, so visit the
+                Pokémon Center after a rough fight.
+            </p>
+        </div>
+
+        <div class="battle-party-brief">
+
+            <span>YOUR PARTY</span>
+
+            {% for mon in party %}
+
+            <div class="battle-party-chip
+                {% if mon.current_hp <= 0 %}fainted{% endif %}">
+                <strong>
+                    {{ mon.nickname or mon.species_id | title }}
+                </strong>
+                <small>
+                    Lv. {{ mon.level }} ·
+                    {{ mon.current_hp }}/{{ mon.max_hp }} HP
+                </small>
+            </div>
+
+            {% else %}
+
+            <div class="battle-party-chip fainted">
+                <small>No Pokémon in party.</small>
+            </div>
+
+            {% endfor %}
+
+        </div>
+
+    </section>
+
+
+    <!-- CHALLENGE PICKER (shown when no battle is running) -->
+
+    <section class="card battle-setup" id="battle-setup">
+
+        <h2>Choose a Challenge</h2>
+
+        <div class="battle-challenge-row">
+
+            <button type="button"
+                    class="battle-challenge"
+                    data-team='[{"species":"poochyena","level":4},{"species":"zubat","level":4}]'>
+                <span class="battle-challenge-name">Young Rustler</span>
+                <small>2 Pokémon · Lv. 4</small>
+            </button>
+
+            <button type="button"
+                    class="battle-challenge"
+                    data-team='[{"species":"sneasel","level":8},{"species":"houndour","level":8},{"species":"murkrow","level":9}]'>
+                <span class="battle-challenge-name">Frostpine Scout</span>
+                <small>3 Pokémon · Lv. 8-9</small>
+            </button>
+
+            <button type="button"
+                    class="battle-challenge"
+                    data-team='[{"species":"mightyena","level":12},{"species":"golbat","level":12},{"species":"froslass","level":13},{"species":"houndoom","level":14}]'>
+                <span class="battle-challenge-name">Krampus Veteran</span>
+                <small>4 Pokémon · Lv. 12-14</small>
+            </button>
+
+        </div>
+
+        <div class="battle-challenge-row">
+
+            <button type="button"
+                    class="battle-challenge wild"
+                    data-wild='{"species":"poochyena","level":3}'>
+                <span class="battle-challenge-name">Wild Poochyena</span>
+                <small>Wild · Lv. 3</small>
+            </button>
+
+            <button type="button"
+                    class="battle-challenge wild"
+                    data-wild='{"species":"golbat","level":6}'>
+                <span class="battle-challenge-name">Wild Golbat</span>
+                <small>Wild · Lv. 6</small>
+            </button>
+
+            <button type="button"
+                    class="battle-challenge wild"
+                    data-wild='{"species":"sneasel","level":10}'>
+                <span class="battle-challenge-name">Wild Sneasel</span>
+                <small>Wild · Lv. 10</small>
+            </button>
+
+        </div>
+
+    </section>
+
+
+    <!-- BATTLE SCREEN -->
+
+    <section class="card battle-screen" id="battle-screen" hidden>
+
+        <div class="battle-arena">
+
+            <div class="battle-side battle-opponent">
+
+                <div id="battle-opponent-team" class="battle-team-dots"></div>
+
+                <div class="battle-fighter-card" id="battle-opponent-card"></div>
+
+            </div>
+
+            <div class="battle-vs">VS</div>
+
+            <div class="battle-side battle-player">
+
+                <div class="battle-fighter-card" id="battle-player-card"></div>
+
+                <div id="battle-player-team" class="battle-team-dots"></div>
+
+            </div>
+
+        </div>
+
+        <div class="battle-log" id="battle-log"></div>
+
+        <div class="battle-actions" id="battle-actions">
+
+            <div class="battle-moves" id="battle-moves"></div>
+
+            <div class="battle-secondary">
+                <button type="button" class="battle-btn flee" id="battle-flee">
+                    Run
+                </button>
+            </div>
+
+        </div>
+
+        <div class="battle-result" id="battle-result" hidden>
+
+            <h2 id="battle-result-title"></h2>
+
+            <div class="battle-result-actions">
+
+                <button type="button" class="battle-btn" id="battle-again">
+                    Back to Arena
+                </button>
+
+            </div>
+
+        </div>
+
+    </section>
+
+</div>
+
+<script>
+(function () {
+    "use strict";
+
+    var setupEl = document.getElementById("battle-setup");
+    var screenEl = document.getElementById("battle-screen");
+    var logEl = document.getElementById("battle-log");
+    var movesEl = document.getElementById("battle-moves");
+    var actionsEl = document.getElementById("battle-actions");
+    var resultEl = document.getElementById("battle-result");
+    var resultTitle = document.getElementById("battle-result-title");
+    var fleeBtn = document.getElementById("battle-flee");
+    var againBtn = document.getElementById("battle-again");
+
+    var battleId = null;
+    var busy = false;
+
+    function hpBar(current, max) {
+        var pct = max > 0 ? Math.max(0, Math.min(100, (current / max) * 100)) : 0;
+        var cls = pct > 50 ? "ok" : pct > 20 ? "low" : "crit";
+        return (
+            '<div class="hp-bar"><div class="hp-fill ' + cls + '" style="width:' +
+            pct.toFixed(1) + '%"></div></div>'
+        );
+    }
+
+    function fighterCard(f, own) {
+        var movesHtml = "";
+
+        if (own && f.moves) {
+            movesHtml = f.moves.map(function (m) {
+                return (
+                    '<button type="button" class="battle-move" data-slot="' +
+                    m.slotHint + '">' +
+                    '<strong>' + m.name + '</strong>' +
+                    '<small>' + m.type + (m.power ? ' · ' + m.power : '') + '</small>' +
+                    '</button>'
+                );
+            }).join("");
+        }
+
+        return (
+            '<div class="bf-head">' +
+            '<strong>' + f.name + '</strong>' +
+            '<span>Lv. ' + f.level + '</span>' +
+            '</div>' +
+            '<div class="bf-hp">' + hpBar(f.hp, f.max_hp) +
+            '<small>' + f.hp + ' / ' + f.max_hp + '</small></div>' +
+            '<div class="bf-types">' +
+            f.types.map(function (t) {
+                return '<em class="battle-type type-' + t + '">' + t + '</em>';
+            }).join("") +
+            '</div>' +
+            (own ? '<div class="bf-moves">' + movesHtml + '</div>' : "")
+        );
+    }
+
+    function teamDots(team, activeIndex) {
+        return team.map(function (f, i) {
+            var cls = "battle-dot" +
+                (f.fainted ? " fainted" : "") +
+                (i === activeIndex ? " active" : "");
+            return '<span class="' + cls + '" title="' + f.name + '"></span>';
+        }).join("");
+    }
+
+    function render(b) {
+        battleId = b.battle_id;
+
+        setupEl.hidden = true;
+        screenEl.hidden = false;
+        resultEl.hidden = !b.over;
+        actionsEl.hidden = !!b.over;
+
+        document.getElementById("battle-opponent-card").innerHTML =
+            fighterCard(b.opponent_team[b.active_opponent], false);
+        document.getElementById("battle-player-card").innerHTML =
+            fighterCard(b.player_team[b.active_player], true);
+
+        document.getElementById("battle-opponent-team").innerHTML =
+            teamDots(b.opponent_team, b.active_opponent);
+        document.getElementById("battle-player-team").innerHTML =
+            teamDots(b.player_team, b.active_player);
+
+        logEl.innerHTML = b.log.map(function (line) {
+            return "<div>" + line + "</div>";
+        }).join("");
+        logEl.scrollTop = logEl.scrollHeight;
+
+        // Bind move buttons with their slot indexes.
+        var buttons = movesEl.querySelectorAll(".battle-move");
+        buttons.forEach(function (btn) {
+            btn.addEventListener("click", function () {
+                takeAction({ type: "move", slot: parseInt(btn.dataset.slot, 10) });
+            });
+        });
+
+        if (b.over) {
+            if (b.winner === "player") {
+                resultTitle.textContent = "🏆 Victory!";
+            } else if (b.winner === "opponent") {
+                resultTitle.textContent = "💫 Defeat...";
+            } else {
+                resultTitle.textContent = "The battle ended.";
+            }
+        }
+    }
+
+    function bindMoveSlots(b) {
+        var own = b.player_team[b.active_player];
+
+        if (!own.moves) { return; }
+
+        movesEl.innerHTML = "";
+
+        own.moves.forEach(function (m, i) {
+            var btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "battle-move";
+            btn.innerHTML =
+                "<strong>" + m.name + "</strong>" +
+                "<small>" + m.type + (m.power ? " · " + m.power : "") + "</small>";
+            btn.addEventListener("click", function () {
+                takeAction({ type: "move", slot: i });
+            });
+            movesEl.appendChild(btn);
+        });
+    }
+
+    function takeAction(action) {
+        if (busy || battleId === null) { return; }
+
+        busy = true;
+
+        fetch("/api/battle/action", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                battle_id: battleId,
+                action: action
+            })
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (!data.success) {
+                    alert(data.error || "Action failed.");
+                    return;
+                }
+
+                render(data.battle);
+                bindMoveSlots(data.battle);
+            })
+            .finally(function () {
+                busy = false;
+            });
+    }
+
+    // ------------------------------------------------------------
+    // CHALLENGE BUTTONS
+    // ------------------------------------------------------------
+
+    document.querySelectorAll(".battle-challenge").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+            if (busy) { return; }
+
+            var payload;
+
+            if (btn.dataset.wild) {
+                var wild = JSON.parse(btn.dataset.wild);
+                payload = {
+                    format: "wild",
+                    species: wild.species,
+                    level: wild.level
+                };
+            } else {
+                payload = {
+                    format: "trainer",
+                    team: JSON.parse(btn.dataset.team)
+                };
+            }
+
+            fetch("/api/battle/start", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (!data.success) {
+                        alert(data.error || "Could not start battle.");
+                        return;
+                    }
+
+                    render(data.battle);
+                    bindMoveSlots(data.battle);
+                });
+        });
+    });
+
+    // ------------------------------------------------------------
+    // RUN + AGAIN
+    // ------------------------------------------------------------
+
+    fleeBtn.addEventListener("click", function () {
+        takeAction({ type: "flee" });
+    });
+
+    againBtn.addEventListener("click", function () {
+        battleId = null;
+        screenEl.hidden = true;
+        resultEl.hidden = true;
+        setupEl.hidden = false;
+    });
+
+    // ------------------------------------------------------------
+    // Resume an in-progress battle on page load
+    // ------------------------------------------------------------
+
+    fetch("/api/battle/state", { credentials: "same-origin" })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (data.success && data.battle && !data.battle.over) {
+                render(data.battle);
+                bindMoveSlots(data.battle);
+            }
+        });
+})();
+</script>
+
+{% endblock %}
