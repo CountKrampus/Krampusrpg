@@ -1,0 +1,20 @@
+{
+  "id": "sb_001",
+  "number": 1,
+  "slug": "empty_keep",
+  "name": "The Empty Keep",
+  "questline": "the_six_bells",
+  "chapter": "aftershock",
+  "location": "Krampus Keep — Ruins",
+  "type": "trainer_battle",
+  "battle": { "npc": "bell_warden", "team_size": 3 },
+  "objective": "Return to Krampus Keep and confirm what the Director's escape left behind. A lone warden still guards the ruins.",
+  "intro": "The great doors hang open. Snow drifts through the throne chamber. On the dais, only an outline in the frost where the bell once sat.",
+  "dialogue": [
+    "Bell Warden: \"The Keep is empty. Whatever you came for, you're too late.\"",
+    "Bell Warden (defeated): \"Gone. He's gone, and he took the bell with him.\""
+  ],
+  "lore_discovery": "The Keep's archives mention six bells: the Krampus Bell and five Frostbells, split apart centuries ago so that no one could ring them together.",
+  "requirements": [],
+  "rewards": { "money": 800, "xp": 2000 }
+}

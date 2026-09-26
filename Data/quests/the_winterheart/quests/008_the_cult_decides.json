@@ -1,0 +1,20 @@
+{
+  "id": "wh_008",
+  "number": 8,
+  "slug": "the_cult_decides",
+  "name": "The Cult Decides",
+  "questline": "the_winterheart",
+  "chapter": "the_heart",
+  "location": "Old Chapel — Antechamber",
+  "type": "commander_battle",
+  "battle": { "npc": "echo_priest", "team_size": 4, "escapes": true },
+  "objective": "Maltheus and the Echo Cult arrive at the chapel with a stolen sledge of solstice powder. They intend to force the Chorus early — tonight.",
+  "intro": "The Echo Cult did not follow you down. They followed the bells. And they have stopped being gentle about it.",
+  "dialogue": [
+    "Echo Priest Maltheus: \"You brought the bells to their altar. Whatever you intended — thank you.\"",
+    "Echo Priest Maltheus (defeated): \"Now you understand. It was never about stopping the ringing. It is about choosing the hour.\""
+  ],
+  "lore_discovery": "Maltheus concedes the hour to the player — but the fight has cracked the chapel. The Winterheart's beat is audible everywhere now, and faster.",
+  "requirements": ["wh_007"],
+  "rewards": { "money": 2800, "xp": 8500 }
+}

@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% macro map_page() %}
+
+<div class="world-page">
+
+    <section class="card world-header-card">
+
+        <div>
+            <span class="world-kicker">KRAMPUS RPG</span>
+
+            <h1>World Map</h1>
+
+            <p>
+                Every region at a glance. Locked areas open as you
+                search the wilds — pick a spot to start exploring.
+            </p>
+        </div>
+
+        <div class="world-ball-count">
+
+            <span>AREAS</span>
+
+            <strong>
+                {{ regions | map(attribute='areas') | map('length') | sum }}
+            </strong>
+
+            <small>discovered</small>
+
+        </div>
+
+    </section>
+
+    {% for region in regions %}
+
+    <section class="card map-region-card">
+
+        <div class="world-section-heading">
+
+            <div>
+                <span class="world-kicker">REGION</span>
+
+                <h2>{{ region.label }}</h2>
+            </div>
+
+            <span class="map-region-count">
+                {{ region.areas | length }}
+                area{{ 's' if region.areas | length != 1 else '' }}
+            </span>
+
+        </div>
+
+        <div class="map-area-grid">
+
+            {% for area in region.areas %}
+
+            <a
+                class="map-area-chip world-area-type-{{ area.type }}
+                    {% if area._locked %}map-area-locked{% endif %}
+                    {% if area._is_current %}map-area-current{% endif %}"
+                href="{{ url_for('world_exploration', area=area.id) }}"
+                title="{{ area.description }}"
+            >
+
+                <span class="map-area-pin" aria-hidden="true">
+                    {% if area._locked %}🔒{% elif area._is_current %}📍{% else %}◆{% endif %}
+                </span>
+
+                <span class="map-area-name">{{ area.name }}</span>
+
+                <span class="map-area-meta">
+
+                    {% if area._locked %}
+                    🔒 {{ area._searches_remaining }} more search{{ 'es' if area._searches_remaining != 1 else '' }}
+                    {% elif area.encounters %}
+                    {{ area.encounters | length }} species · explore →
+                    {% else %}
+                    safe haven
+                    {% endif %}
+
+                </span>
+
+            </a>
+
+            {% endfor %}
+
+        </div>
+
+    </section>
+
+    {% else %}
+
+    <section class="card">
+        <h2>No known areas</h2>
+        <p>The cartographers are still at work. Check back soon.</p>
+    </section>
+
+    {% endfor %}
+
+    <p class="map-search-note">
+        Total searches: <strong>{{ searches_done }}</strong>
+        — searching wild areas unlocks new ones.
+    </p>
+
+</div>
+
+{% endmacro %}
+
+{% block title %}World Map - Krampus RPG{% endblock %}
+
+{% block content %}{{ map_page() }}{% endblock %}
+
+{% block public_content %}{{ map_page() }}{% endblock %}

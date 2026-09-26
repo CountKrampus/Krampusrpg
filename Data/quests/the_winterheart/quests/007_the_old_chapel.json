@@ -1,0 +1,20 @@
+{
+  "id": "wh_007",
+  "number": 7,
+  "slug": "the_old_chapel",
+  "name": "The Old Chapel",
+  "questline": "the_winterheart",
+  "chapter": "the_descent",
+  "location": "Old Chapel of the Winterheart",
+  "type": "story",
+  "battle": null,
+  "objective": "Explore the chapel at the bottom of the glacier and read the founder's journal — the true origin of Team Krampus.",
+  "intro": "The chapel predates the region's maps. Six empty stands wait in a ring around a single enormous heart of ice, suspended mid-beat.",
+  "dialogue": [
+    "Founder's Journal, final entry: \"The bells are a promise we made to something ancient. Krampus is not a man. It is an office. And the office is tired.\"",
+    "Krampus Defector: \"The Director didn't found Team Krampus. He inherited it. Like a debt. Like a rope.\""
+  ],
+  "lore_discovery": "Team Krampus was founded to complete the Winter Chorus — the 'old balance' the Director spoke of was the sleeper's rest. The conspiracy of Quest Line 01 was a mercy operation, run badly, by people who had forgotten why.",
+  "requirements": ["wh_006"],
+  "rewards": { "items": [{ "id": "hyper_potion", "quantity": 3 }], "money": 2500, "xp": 8000, "quest_items": ["founders_journal"] }
+}

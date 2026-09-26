@@ -1,0 +1,20 @@
+{
+  "id": "wh_001",
+  "number": 1,
+  "slug": "the_midnight_bell",
+  "name": "The Midnight Bell",
+  "questline": "the_winterheart",
+  "chapter": "midnight_bells",
+  "location": "Hollyhollow Village",
+  "type": "story",
+  "battle": null,
+  "objective": "Every night at midnight, a bell rings somewhere in Hollyhollow. The villagers have started leaving offerings. Investigate before the next ring.",
+  "intro": "Midnight. The five Frostbells on the researcher's shelf shiver in their case — and then, from across the village, a sixth note answers them.",
+  "dialogue": [
+    "Researcher: \"It rings once a night. One ring. Like someone counting.\"",
+    "Researcher: \"The offerings aren't superstition. Whatever is ringing, the wild Pokémon leave the village alone all night afterwards.\""
+  ],
+  "lore_discovery": "The midnight bell is the sixth — the original Krampus Bell, never recovered after the Keep fell. Someone is ringing it deliberately, and the village's wild Pokémon behave strangely better all night.",
+  "requirements": [],
+  "rewards": { "money": 1200, "xp": 5000 }
+}

@@ -1,5 +1,7 @@
 {
   "id": "team_krampus",
+  "section": "team_krampus",
+  "order": 1,
   "title": "Quest Line 01 — The Krampus Conspiracy",
   "organization": "team_krampus",
   "premise": "The player arrives in Hollyhollow during its annual Winterwake Festival. Wild Pokémon have turned aggressive, Pokémon are disappearing, and strange black-and-red markings appear on trees and rocks. A mysterious group in dark crimson uniforms — Team Krampus — is behind it all. Their motto: \"The world has forgotten what fear is.\"",
@@ -19,6 +21,32 @@
   ],
   "final_boss": "director_krampus",
   "signature_reward": "krampus_houndoom",
+  "chapters": [
+    {
+      "id": "conspiracy",
+      "name": "Chapter I — Strange Beginnings",
+      "description": "The Winterwake Festival, aggressive Pokémon, and the first black-and-red markings. Someone is working in the pines.",
+      "quests": ["tk_001", "tk_002", "tk_003", "tk_004"]
+    },
+    {
+      "id": "relic",
+      "name": "Chapter II — The Relic and the Lieutenant",
+      "description": "The shrine, the Winterheart, and the first named member of Team Krampus.",
+      "quests": ["tk_005", "tk_006", "tk_007"]
+    },
+    {
+      "id": "blackout",
+      "name": "Chapter III — The Blackout",
+      "description": "Hollyhollow goes dark. Team Krampus strikes the town — and takes the bell.",
+      "quests": ["tk_008", "tk_009"]
+    },
+    {
+      "id": "keep",
+      "name": "Chapter IV — The Krampus Keep",
+      "description": "The frozen fortress, the truth beneath the mask, and the first bell.",
+      "quests": ["tk_010", "tk_011", "tk_012"]
+    }
+  ],
   "arcs": [
     "The Krampus Conspiracy",
     "The Six Bells",

@@ -1,5 +1,114 @@
 {% extends "base.html" %}
 
+{% macro quest_card(quest, line) %}
+
+<li class="story-quest
+    {% if quest.is_completed %}state-completed{% elif quest.is_active %}state-active{% elif quest.is_locked %}state-locked{% else %}state-open{% endif %}">
+
+    <div class="story-quest-marker">
+        {% if quest.is_completed %}✓{% elif quest.is_locked %}🔒{% else %}{{ quest.number }}{% endif %}
+    </div>
+
+    <div class="story-quest-body">
+
+        <h3>
+            {{ quest.name }}
+            {% if quest.is_completed %}
+            <span class="story-badge completed">Completed</span>
+            {% elif quest.is_active %}
+            <span class="story-badge active">In Progress</span>
+            {% elif quest.is_locked %}
+            <span class="story-badge locked">Locked</span>
+            {% else %}
+            <span class="story-badge open">Available</span>
+            {% endif %}
+        </h3>
+
+        <p class="story-quest-location">
+            📍 {{ quest.location }}
+            · {{ quest.type | replace('_', ' ') | title }}
+        </p>
+
+        {% if not quest.is_locked %}
+        <p class="story-quest-objective">{{ quest.objective }}</p>
+
+        {% if quest.battles %}
+        <div class="story-battle-row">
+            {% for b in quest.battles %}
+            <div class="story-battle-chip
+                {% if b.npc.battle_type == 'boss' %}boss{% elif b.npc.battle_type == 'commander' %}commander{% endif %}">
+                <strong>{{ b.npc.name }}</strong>
+                <small>
+                    {{ b.team_size }} Pokémon
+                    {% if b.escapes %} · escapes{% endif %}
+                    {% if b.boss_mechanic %} · {{ b.boss_mechanic.name }}{% endif %}
+                </small>
+                <ul class="story-battle-team">
+                    {% for mon in b.npc.team %}
+                    <li>
+                        {{ mon.species | replace('_', ' ') | title }}
+                        <span>Lv. {{ mon.level }}</span>
+                        {% if mon.variant and mon.variant != 'normal' %}
+                        <em class="story-variant-tag">{{ mon.variant | title }}</em>
+                        {% endif %}
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if quest.rewards %}
+        <p class="story-quest-rewards">
+            Rewards:
+            {% if quest.rewards.money %}💰 {{ quest.rewards.money }} Pokécoins{% endif %}
+            {% if quest.rewards.xp %} · ✨ {{ quest.rewards.xp }} XP{% endif %}
+            {% if quest.rewards.get('items') %}
+                {% for it in quest.rewards.get('items') %} · 🎒 {{ it.quantity }}× {{ it.id | replace('_', ' ') | title }}{% endfor %}
+            {% endif %}
+            {% if quest.rewards.get('quest_items') %}
+                {% for qi in quest.rewards.get('quest_items') %} · 🔑 {{ qi | replace('_', ' ') | title }}{% endfor %}
+            {% endif %}
+            {% if quest.rewards.pokemon_reward %}
+                · 🎁 {{ quest.rewards.pokemon_reward.species | default('Bonus Pokémon') | replace('_', ' ') | title }}
+                {% if quest.rewards.pokemon_reward.variant and quest.rewards.pokemon_reward.variant != 'normal' %}
+                ({{ quest.rewards.pokemon_reward.variant | title }} Form)
+                {% endif %}
+            {% endif %}
+        </p>
+        {% endif %}
+
+        {% if quest.boss_mechanic %}
+        <p class="story-boss-mechanic">
+            ⚠️ <strong>{{ quest.boss_mechanic.name }}</strong> — {{ quest.boss_mechanic.description }}
+        </p>
+        {% endif %}
+
+        {% else %}
+        <p class="story-quest-locked">
+            Complete the previous quests to unlock this chapter.
+        </p>
+        {% endif %}
+
+        {% if not quest.is_locked %}
+        <a class="button story-quest-play"
+           href="{{ url_for('story_quest_detail', questline=line.id, quest_id=quest.id) }}">
+            {% if quest.is_completed %}
+            Review Chapter →
+            {% elif quest.is_active %}
+            ▶ Continue Quest
+            {% else %}
+            ▶ Start Quest
+            {% endif %}
+        </a>
+        {% endif %}
+
+    </div>
+</li>
+
+{% endmacro %}
+
 {% macro story_page() %}
 
 <div class="story-page">
@@ -18,195 +127,190 @@
 
         <div class="world-ball-count">
             <span>QUEST LINES</span>
-            <strong>{{ questlines | length }}</strong>
+            <strong>{{ sections | map(attribute='questlines') | map('length') | sum }}</strong>
             <small>available</small>
         </div>
 
     </section>
 
-    {% for line in questlines %}
+    {% for section in sections %}
 
-    <section class="card story-line-card">
+    <div class="story-section">
 
-        <header class="story-line-header">
-            <div>
+        <header class="story-section-header">
+            <div class="story-section-title">
+                <span class="story-section-tag">SECTION</span>
+                <h2>{{ section.label }}</h2>
+            </div>
+            <span class="story-section-count">
+                {{ section.questlines | length }} quest line{{ 's' if section.questlines | length != 1 else '' }}
+            </span>
+        </header>
+
+        {% for line in section.questlines %}
+
+        {% if line.line_locked %}
+
+        <details class="card story-line-card story-line-locked">
+
+            <summary class="story-line-header story-line-summary">
+                <div class="story-line-title">
+                    <span class="story-line-tag">QUEST LINE {{ loop.index }}</span>
+                    <h2>{{ line.title }}</h2>
+                </div>
+
+                <div class="story-line-summary-meta">
+                    <div class="story-line-progress">
+                        <strong>🔒</strong>
+                        <small>locked</small>
+                    </div>
+                    <span class="story-line-chevron" aria-hidden="true"></span>
+                </div>
+            </summary>
+
+            <div class="story-line-content">
+                <p class="story-quest-locked">
+                    {{ line.line_locked_reason or "Complete the previous quest line to unlock this one." }}
+                </p>
+            </div>
+
+        </details>
+
+        {% else %}
+
+        <details class="card story-line-card story-line-details
+        {% if line.line_open %}is-open{% endif %}"
+        {% if line.line_open %}open{% endif %}>
+
+        <summary class="story-line-header story-line-summary">
+            <div class="story-line-title">
                 <span class="story-line-tag">QUEST LINE {{ loop.index }}</span>
                 <h2>{{ line.title }}</h2>
             </div>
 
-            <div class="story-line-progress">
-                <strong>{{ line.completed_count }} / {{ line.quests | length }}</strong>
-                <small>quests complete</small>
+            <div class="story-line-summary-meta">
+                <div class="story-line-progress">
+                    <strong>{{ line.completed_count }} / {{ line.quests | length }}</strong>
+                    <small>quests complete</small>
+                </div>
+                <span class="story-line-chevron" aria-hidden="true"></span>
             </div>
-        </header>
+        </summary>
 
-        {% if line.premise %}
-        <p class="story-premise">{{ line.premise }}</p>
-        {% endif %}
+        <div class="story-line-content">
 
-        <div class="story-line-meta">
-            <span><strong>{{ line.totals.quests }}</strong> quests</span>
-            <span><strong>{{ line.totals.battles }}</strong> NPC battles</span>
-            <span>Teams scale up to <strong>{{ line.totals.max_team_size }}</strong> Pokémon</span>
-            {% if line.theme %}
-            <span>Theme: <em>{{ line.theme }}</em></span>
+            {% if line.premise %}
+            <p class="story-premise">{{ line.premise }}</p>
             {% endif %}
-        </div>
 
-        {% if line.key_npcs %}
-        <div class="story-npc-row">
-            {% for npc_id in line.key_npcs %}
-            {% set npc = quest_npc(line.id, npc_id) %}
-            {% if npc %}
-            <div class="story-npc-chip rank-{{ npc.rank }}">
-                <strong>{{ npc.name }}</strong>
-                <small>{{ npc.rank | replace('_', ' ') | title }} · {{ npc.team | length }} Pokémon</small>
+            <div class="story-line-meta">
+                <span><strong>{{ line.totals.quests }}</strong> quests</span>
+                <span><strong>{{ line.totals.battles }}</strong> NPC battles</span>
+                <span>Teams scale up to <strong>{{ line.totals.max_team_size }}</strong> Pokémon</span>
+                {% if line.theme %}
+                <span>Theme: <em>{{ line.theme }}</em></span>
+                {% endif %}
             </div>
-            {% endif %}
-            {% endfor %}
-        </div>
-        {% endif %}
 
-        {% if areas %}
-        <div class="story-areas-row">
-            <span class="story-line-tag">WORLD MAP</span>
-            {% set areas_by_region = areas | groupby('region') %}
-            {% for region, region_areas in areas_by_region %}
-            <div class="story-area-group">
-                <span class="story-area-region">{{ region_labels.get(region, region | replace('_', ' ') | title) }}</span>
-                {% for area in region_areas %}
-                <a class="story-area-chip world-area-type-{{ area.type }}"
-                   href="{{ url_for('world_exploration', area=area.id) }}"
-                   title="{{ area.description }}">
-                    <strong>{{ area.name }}</strong>
-                    <small>
-                        {% if area.encounters %}
-                        {{ area.encounters | length }} species · explore →
-                        {% else %}
-                        safe haven
-                        {% endif %}
-                    </small>
-                </a>
+            {% if line.key_npcs %}
+            <div class="story-npc-row">
+                {% for npc_id in line.key_npcs %}
+                {% set npc = quest_npc(line.id, npc_id) %}
+                {% if npc %}
+                <div class="story-npc-chip rank-{{ npc.rank }}">
+                    <strong>{{ npc.name }}</strong>
+                    <small>{{ npc.rank | replace('_', ' ') | title }} · {{ npc.team | length }} Pokémon</small>
+                </div>
+                {% endif %}
                 {% endfor %}
             </div>
-            {% endfor %}
-        </div>
-        {% endif %}
+            {% endif %}
 
-        <ol class="story-quest-chain">
-
-            {% for quest in line.quests %}
-
-            <li class="story-quest
-                {% if quest.is_completed %}state-completed{% elif quest.is_active %}state-active{% elif quest.is_locked %}state-locked{% else %}state-open{% endif %}">
-
-                <div class="story-quest-marker">
-                    {% if quest.is_completed %}✓{% elif quest.is_locked %}🔒{% else %}{{ quest.number }}{% endif %}
-                </div>
-
-                <div class="story-quest-body">
-
-                    <h3>
-                        {{ quest.name }}
-                        {% if quest.is_completed %}
-                        <span class="story-badge completed">Completed</span>
-                        {% elif quest.is_active %}
-                        <span class="story-badge active">In Progress</span>
-                        {% elif quest.is_locked %}
-                        <span class="story-badge locked">Locked</span>
-                        {% else %}
-                        <span class="story-badge open">Available</span>
-                        {% endif %}
-                    </h3>
-
-                    <p class="story-quest-location">
-                        📍 {{ quest.location }}
-                        · {{ quest.type | replace('_', ' ') | title }}
-                    </p>
-
-                    {% if not quest.is_locked %}
-                    <p class="story-quest-objective">{{ quest.objective }}</p>
-
-                    {% if quest.battles %}
-                    <div class="story-battle-row">
-                        {% for b in quest.battles %}
-                        <div class="story-battle-chip
-                            {% if b.npc.battle_type == 'boss' %}boss{% elif b.npc.battle_type == 'commander' %}commander{% endif %}">
-                            <strong>{{ b.npc.name }}</strong>
+            {% if areas %}
+            <details class="story-areas-details">
+                <summary class="story-areas-summary">
+                    <span class="story-line-tag">WORLD MAP</span>
+                    <span class="story-line-chevron small" aria-hidden="true"></span>
+                </summary>
+                <div class="story-areas-row">
+                    {% set areas_by_region = areas | groupby('region') %}
+                    {% for region, region_areas in areas_by_region %}
+                    <div class="story-area-group">
+                        <span class="story-area-region">{{ region_labels.get(region, region | replace('_', ' ') | title) }}</span>
+                        {% for area in region_areas %}
+                        <a class="story-area-chip world-area-type-{{ area.type }}"
+                           href="{{ url_for('world_exploration', area=area.id) }}"
+                           title="{{ area.description }}">
+                            <strong>{{ area.name }}</strong>
                             <small>
-                                {{ b.team_size }} Pokémon
-                                {% if b.escapes %} · escapes{% endif %}
-                                {% if b.boss_mechanic %} · {{ b.boss_mechanic.name }}{% endif %}
+                                {% if area.encounters %}
+                                {{ area.encounters | length }} species · explore →
+                                {% else %}
+                                safe haven
+                                {% endif %}
                             </small>
-                            <ul class="story-battle-team">
-                                {% for mon in b.npc.team %}
-                                <li>
-                                    {{ mon.species | replace('_', ' ') | title }}
-                                    <span>Lv. {{ mon.level }}</span>
-                                    {% if mon.variant and mon.variant != 'normal' %}
-                                    <em class="story-variant-tag">{{ mon.variant | title }}</em>
-                                    {% endif %}
-                                </li>
-                                {% endfor %}
-                            </ul>
-                        </div>
+                        </a>
                         {% endfor %}
                     </div>
-                    {% endif %}
-
-                    {% if quest.rewards %}
-                    <p class="story-quest-rewards">
-                        Rewards:
-                        {% if quest.rewards.money %}💰 {{ quest.rewards.money }} Pokécoins{% endif %}
-                        {% if quest.rewards.xp %} · ✨ {{ quest.rewards.xp }} XP{% endif %}
-                        {% if quest.rewards.get('items') %}
-                            {% for it in quest.rewards.get('items') %} · 🎒 {{ it.quantity }}× {{ it.id | replace('_', ' ') | title }}{% endfor %}
-                        {% endif %}
-                        {% if quest.rewards.get('quest_items') %}
-                            {% for qi in quest.rewards.get('quest_items') %} · 🔑 {{ qi | replace('_', ' ') | title }}{% endfor %}
-                        {% endif %}
-                        {% if quest.rewards.pokemon_reward %}
-                            · 🎁 {{ quest.rewards.pokemon_reward.species | default('Bonus Pokémon') | replace('_', ' ') | title }}
-                            {% if quest.rewards.pokemon_reward.variant and quest.rewards.pokemon_reward.variant != 'normal' %}
-                            ({{ quest.rewards.pokemon_reward.variant | title }} Form)
-                            {% endif %}
-                        {% endif %}
-                    </p>
-                    {% endif %}
-
-                    {% if quest.boss_mechanic %}
-                    <p class="story-boss-mechanic">
-                        ⚠️ <strong>{{ quest.boss_mechanic.name }}</strong> — {{ quest.boss_mechanic.description }}
-                    </p>
-                    {% endif %}
-
-                    {% else %}
-                    <p class="story-quest-locked">
-                        Complete the previous quests to unlock this chapter.
-                    </p>
-                    {% endif %}
-
-                    {% if not quest.is_locked %}
-                    <a class="button story-quest-play"
-                       href="{{ url_for('story_quest_detail', questline=line.id, quest_id=quest.id) }}">
-                        {% if quest.is_completed %}
-                        Review Chapter →
-                        {% elif quest.is_active %}
-                        ▶ Continue Quest
-                        {% else %}
-                        ▶ Start Quest
-                        {% endif %}
-                    </a>
-                    {% endif %}
-
+                    {% endfor %}
                 </div>
-            </li>
+            </details>
+            {% endif %}
 
-            {% endfor %}
+            <div class="story-chapter-list">
 
-        </ol>
+                {% for group in line.chapters %}
+                {% set chapter = group.chapter %}
+                {% set chapter_quests = group.quests %}
+                {% set chapter_done = chapter_quests | selectattr('is_completed') | list | length %}
+                {% set chapter_has_current = (line.current_chapter == chapter.id) %}
 
-    </section>
+                <details class="story-chapter
+                    {% if chapter_has_current %}is-current{% endif %}"
+                    {% if chapter_has_current or (line.current_chapter is none and loop.first) %}open{% endif %}>
+
+                    <summary class="story-chapter-header">
+                        <span class="story-chapter-chevron" aria-hidden="true"></span>
+                        <div class="story-chapter-title">
+                            <h3>{{ chapter.name }}</h3>
+                            {% if chapter.description %}
+                            <p>{{ chapter.description }}</p>
+                            {% endif %}
+                        </div>
+                        <div class="story-chapter-progress">
+                            <strong>{{ chapter_done }} / {{ chapter_quests | length }}</strong>
+                            <small>done</small>
+                        </div>
+                    </summary>
+
+                    <ol class="story-quest-chain">
+                        {% for quest in chapter_quests %}
+                        {{ quest_card(quest, line) }}
+                        {% endfor %}
+                    </ol>
+
+                </details>
+
+                {% endfor %}
+
+            </div>
+
+        </div>
+
+    </details>
+
+        {% endif %}
+
+        {% else %}
+
+        <section class="card">
+            <h2>No quest lines here yet</h2>
+            <p>Check back soon — the story is still being written.</p>
+        </section>
+
+        {% endfor %}
+
+    </div>
 
     {% else %}
 

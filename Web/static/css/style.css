@@ -1040,10 +1040,92 @@ STORY ADVENTURE
 }
 
 
+.story-section {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+
+.story-section-header {
+    display: flex;
+
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+
+    padding: 14px 18px;
+
+    background: linear-gradient(
+        135deg,
+        rgba(139, 21, 21, 0.35),
+        rgba(20, 16, 24, 0.65)
+    );
+
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--red);
+    border-radius: 10px;
+}
+
+
+.story-section-header h2 {
+    margin: 2px 0 0;
+
+    font-size: 18px;
+    letter-spacing: 0.5px;
+}
+
+
+.story-section-tag {
+    color: var(--gold);
+
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+
+
+.story-section-count {
+    color: var(--muted);
+
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+
 .story-line-card {
     display: flex;
     flex-direction: column;
     gap: 16px;
+}
+
+
+.story-line-card.story-line-locked {
+    gap: 0;
+
+    opacity: 0.75;
+}
+
+
+.story-line-card.story-line-locked .story-line-title h2 {
+    color: var(--muted);
+}
+
+
+.story-line-card.story-line-locked .story-line-tag {
+    color: var(--muted);
+}
+
+
+.story-line-card.story-line-locked .story-quest-locked {
+    padding: 0 18px 16px;
+
+    margin: 0;
 }
 
 
@@ -2023,4 +2105,247 @@ padding: 4px;
 width: 96px;
 
 height: 96px;
+}
+
+
+/* =========================================================
+STORY ADVENTURE — EXPANDABLE QUEST LINES + CHAPTERS
+========================================================= */
+
+.story-line-details > summary {
+    cursor: pointer;
+
+    list-style: none;
+}
+
+.story-line-details > summary::-webkit-details-marker {
+    display: none;
+}
+
+
+.story-line-title {
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 2px;
+
+    min-width: 0;
+}
+
+
+.story-line-summary-meta {
+    display: flex;
+
+    align-items: center;
+
+    gap: 12px;
+}
+
+
+.story-line-chevron {
+    flex: 0 0 auto;
+
+    width: 10px;
+    height: 10px;
+
+    margin-right: 4px;
+
+    border-right: 2px solid var(--muted);
+    border-bottom: 2px solid var(--muted);
+
+    transform: rotate(45deg);
+
+    transition: transform 0.15s ease;
+}
+
+
+.story-line-chevron.small {
+    width: 8px;
+    height: 8px;
+}
+
+
+.story-line-details[open] > summary .story-line-chevron {
+    transform: rotate(225deg);
+}
+
+
+.story-line-details.is-open > summary .story-line-title h2 {
+    color: var(--red-light);
+}
+
+
+.story-line-content {
+    display: flex;
+    flex-direction: column;
+
+    gap: 16px;
+
+    padding-top: 16px;
+
+    border-top: 1px solid var(--border);
+}
+
+
+.story-areas-details > summary {
+    display: flex;
+
+    align-items: center;
+
+    gap: 10px;
+
+    cursor: pointer;
+
+    list-style: none;
+}
+
+.story-areas-details > summary::-webkit-details-marker {
+    display: none;
+}
+
+
+.story-areas-details[open] > summary .story-line-chevron {
+    transform: rotate(225deg);
+}
+
+
+.story-areas-row {
+    margin-top: 12px;
+}
+
+
+/* Chapter (sub-category) accordions within a quest line. */
+
+.story-chapter-list {
+    display: flex;
+    flex-direction: column;
+
+    gap: 10px;
+}
+
+
+.story-chapter {
+    background: var(--panel);
+
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+
+
+.story-chapter.is-current {
+    border-color: var(--gold);
+}
+
+
+.story-chapter > summary {
+    display: flex;
+
+    align-items: center;
+
+    gap: 10px;
+
+    padding: 10px 12px;
+
+    cursor: pointer;
+
+    list-style: none;
+}
+
+.story-chapter > summary::-webkit-details-marker {
+    display: none;
+}
+
+
+.story-chapter > summary:hover {
+    background: var(--panel-light);
+}
+
+
+.story-chapter-chevron {
+    flex: 0 0 auto;
+
+    width: 8px;
+    height: 8px;
+
+    border-right: 2px solid var(--muted);
+    border-bottom: 2px solid var(--muted);
+
+    transform: rotate(-45deg);
+
+    transition: transform 0.15s ease;
+}
+
+
+.story-chapter[open] > summary .story-chapter-chevron {
+    transform: rotate(45deg);
+}
+
+
+.story-chapter-title {
+    flex: 1;
+
+    min-width: 0;
+}
+
+
+.story-chapter-title h3 {
+    margin: 0;
+
+    font-size: 14px;
+}
+
+
+.story-chapter-title p {
+    margin: 2px 0 0;
+
+    color: var(--muted);
+
+    font-size: 12px;
+
+    line-height: 1.5;
+}
+
+
+.story-chapter.is-current .story-chapter-title h3 {
+    color: var(--gold);
+}
+
+
+.story-chapter-progress {
+    flex: 0 0 auto;
+
+    padding: 4px 10px;
+
+    background: var(--panel-light);
+
+    border: 1px solid var(--border);
+    border-radius: 6px;
+
+    text-align: center;
+}
+
+
+.story-chapter-progress strong {
+    display: block;
+
+    color: var(--red-light);
+
+    font-size: 13px;
+}
+
+
+.story-chapter-progress small {
+    color: var(--muted);
+
+    font-size: 9px;
+
+    letter-spacing: 1px;
+
+    text-transform: uppercase;
+}
+
+
+.story-chapter > .story-quest-chain {
+    padding: 0 12px 12px;
 }

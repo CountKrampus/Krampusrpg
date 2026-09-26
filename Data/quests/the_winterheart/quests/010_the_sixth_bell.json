@@ -1,0 +1,20 @@
+{
+  "id": "wh_010",
+  "number": 10,
+  "slug": "the_sixth_bell",
+  "name": "The Sixth Bell",
+  "questline": "the_winterheart",
+  "chapter": "the_heart",
+  "location": "Old Chapel — Bell Ring",
+  "type": "story",
+  "battle": null,
+  "objective": "Hang the six bells in the chapel's ring and take the Director's place at the rope. Tonight is the chosen hour.",
+  "intro": "Six bells. Six stands. The heart of ice turns in the air like a patient animal, watching.",
+  "dialogue": [
+    "The Midnight Ringer: \"Two soft, one loud, rest. And whatever hears you — sing like you mean it.\"",
+    "Hunter Sigrun: \"If this goes wrong, it's on your head. Mine would have been heavier.\""
+  ],
+  "lore_discovery": "The sixth bell is mounted. The Winter Chorus can now be rung at the player's hand. Far above, the glacier begins — very slowly — to glow.",
+  "requirements": ["wh_009"],
+  "rewards": { "money": 3600, "xp": 9500, "quest_items": ["sixth_bell"] }
+}

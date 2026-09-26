@@ -1,0 +1,20 @@
+{
+  "id": "wh_005",
+  "number": 5,
+  "slug": "the_winter_priest",
+  "name": "The Winter Priest",
+  "questline": "the_winterheart",
+  "chapter": "the_descent",
+  "location": "Frostpine — Lower Woods",
+  "type": "commander_battle",
+  "battle": { "npc": "winter_priest", "team_size": 4, "escapes": true },
+  "objective": "A rival faith guards the way down: the Winter Priests, who serve not the bells but the sleeper itself. Pass — or be turned back.",
+  "intro": "Aurelia does not bar the path with weapons. She bars it with a question: 'Who told you the sleeping thing is a monster?'",
+  "dialogue": [
+    "Winter Priest Aurelia: \"The Echo Cult prays to the bells. We pray to what the bells belong to.\"",
+    "Winter Priest Aurelia (defeated): \"You fight like someone who has already decided. That is how the seal was broken the first time.\""
+  ],
+  "lore_discovery": "The Winter Priests believe the sleeper is not sealed — it is healing. The seal was medicine, not a prison. Waking it early would kill it, and the winter with it.",
+  "requirements": ["wh_004"],
+  "rewards": { "money": 2000, "xp": 7000, "quest_items": ["old_chapel_key"] }
+}

@@ -1,0 +1,21 @@
+{
+  "id": "wh_013",
+  "number": 13,
+  "slug": "the_heart_remembers",
+  "name": "The Heart Remembers",
+  "questline": "the_winterheart",
+  "chapter": "the_chorus",
+  "location": "Old Chapel of the Winterheart",
+  "type": "story",
+  "battle": null,
+  "objective": "Return to the chapel one last time. Reforge the Winterheart — the promise, renewed — and let the office of Krampus rest.",
+  "intro": "The heart of ice is no longer alone. The six bells have grown into it, roots into soil, and where it hung there is now a single warm seal shaped like a bell.",
+  "dialogue": [
+    "Director Krampus: \"The office is closed. You may hang the seal wherever you like — it will not ring again unless the world forgets.\"",
+    "Hunter Sigrun: \"...My family waited nine generations to be unnecessary. I hope you know what you've given us.\"",
+    "The Midnight Ringer: \"Go home, child. Sleep. You've earned a night without listening.\""
+  ],
+  "lore_discovery": "The Winterheart Seal is forged and the saga ends. A single Pokémon — drawn by the last true ring of the Chorus — chooses to stay with the player as the chapel's lights go out.",
+  "requirements": ["wh_012"],
+  "rewards": { "money": 8000, "xp": 12000, "quest_items": ["winterheart_seal"], "pokemon_reward": { "type": "choice", "pool": ["froslass", "absol", "weavile"], "variant_chance": { "variant": "frost", "odds": 8 }, "level": 26 } }
+}

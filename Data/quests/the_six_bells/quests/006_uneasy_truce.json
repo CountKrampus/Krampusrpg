@@ -1,0 +1,20 @@
+{
+  "id": "sb_006",
+  "number": 6,
+  "slug": "uneasy_truce",
+  "name": "An Uneasy Truce",
+  "questline": "the_six_bells",
+  "chapter": "the_hunter",
+  "location": "Hollyhollow Village",
+  "type": "story",
+  "battle": null,
+  "objective": "Sigrun returns — not to fight, but to warn. The Echo Cult has all five remaining Frostbells, and they intend to ring them at the solstice.",
+  "intro": "She finds you at the Pokémon Center, arms crossed, watching the door. She sits with her back to the wall.",
+  "dialogue": [
+    "Hunter Sigrun: \"The cult isn't Krampus. Krampus wanted power. These people think they're saving the world.\"",
+    "Hunter Sigrun: \"That makes them worse. People who think they're merciful don't stop. Find their chapel.\""
+  ],
+  "lore_discovery": "Sigrun gives the player a sketch of the cult's chapel in the hills and, grudgingly, a warning: the Herald is real, and she has seen it.",
+  "requirements": ["sb_005"],
+  "rewards": { "items": [{ "id": "super_potion", "quantity": 2 }], "money": 1700, "xp": 3200 }
+}

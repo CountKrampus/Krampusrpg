@@ -562,3 +562,84 @@
         grid-template-columns: 1fr;
     }
 }
+
+
+/* ---------------------------------------------------------
+   WORLD MAP (/map)
+   --------------------------------------------------------- */
+
+.map-region-card {
+    border-left: 4px solid var(--red);
+}
+
+.map-region-count {
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.map-area-grid {
+    display: grid;
+    grid-template-columns: repeat(
+        auto-fill,
+        minmax(230px, 1fr)
+    );
+    gap: 12px;
+}
+
+.map-area-chip {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 14px 16px;
+    background: var(--panel-light);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    transition:
+        border-color 0.15s ease,
+        transform 0.1s ease;
+}
+
+.map-area-chip:hover {
+    border-color: var(--gold);
+    transform: translateY(-1px);
+}
+
+.map-area-chip.map-area-locked {
+    opacity: 0.55;
+}
+
+.map-area-chip.map-area-locked:hover {
+    border-color: var(--border);
+    transform: none;
+}
+
+.map-area-chip.map-area-current {
+    border-color: var(--gold);
+    box-shadow: 0 0 0 1px var(--gold);
+}
+
+.map-area-pin {
+    font-size: 14px;
+    line-height: 1;
+}
+
+.map-area-name {
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.map-area-meta {
+    color: var(--muted);
+    font-size: 11px;
+}
+
+.map-search-note {
+    color: var(--muted);
+    font-size: 12px;
+    text-align: center;
+}

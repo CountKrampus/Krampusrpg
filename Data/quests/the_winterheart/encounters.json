@@ -1,0 +1,159 @@
+{
+  "organization": "the_winterheart",
+  "emblem": "A heart of ice held in six bells",
+  "motto": "The heart remembers what the world forgets.",
+  "philosophy": "Not an organization at all — the final chapter's foes are the remnants of two faiths and one monster, all converging on the same relic for different reasons: the cult to soothe it, Sigrun to end it, Krampus to control it, and the Herald to serve it.",
+  "hierarchy": {
+    "true_herald": [
+      "frost_herald_true"
+    ],
+    "returned_director": [
+      "director_krampus"
+    ],
+    "faiths": [
+      "winter_priest",
+      "echo_priest"
+    ],
+    "hunters": [
+      "hunter_sigrun"
+    ],
+    "agents": [
+      "midnight_ringer",
+      "krampus_defector"
+    ]
+  },
+  "npcs": {
+    "midnight_ringer": {
+      "id": "midnight_ringer",
+      "name": "The Midnight Ringer",
+      "organization": "the_winterheart",
+      "rank": "agents",
+      "battle_type": "trainer",
+      "intro": "\"It rings at midnight because that is when it listens hardest.\"",
+      "defeat": "\"I rang it to keep it asleep. Every night. For thirty years. And you're welcome.\"",
+      "team": [
+        { "species": "murkrow", "level": 26 },
+        { "species": "golbat", "level": 26 },
+        { "species": "banette", "level": 27 },
+        { "species": "dusclops", "level": 27 }
+      ],
+      "sprite": "npcs/krampus_keeper.jpg"
+    },
+    "winter_priest": {
+      "id": "winter_priest",
+      "name": "Winter Priest Aurelia",
+      "organization": "the_winterheart",
+      "rank": "faiths",
+      "battle_type": "commander",
+      "intro": "\"The Echo Cult prays to the bells. We pray to what the bells belong to.\"",
+      "defeat": "\"You fight like someone who has already decided. That is how the seal was broken the first time.\"",
+      "escapes": true,
+      "team": [
+        { "species": "froslass", "level": 27 },
+        { "species": "absol", "level": 28 },
+        { "species": "glalie", "level": 28 },
+        { "species": "abomasnow", "level": 29 }
+      ],
+      "sprite": "npcs/krampus_scientist.jpg"
+    },
+    "hunter_sigrun": {
+      "id": "hunter_sigrun",
+      "name": "Hunter Sigrun",
+      "organization": "the_winterheart",
+      "rank": "hunters",
+      "battle_type": "commander",
+      "intro": "\"Last chance to hand them over. My family didn't hide these bells for fun.\"",
+      "defeat": "\"...No. I won't take them. But if the Chorus rings, you ring it — I won't carry that.\"",
+      "escapes": true,
+      "team": [
+        { "species": "weavile", "level": 28 },
+        { "species": "mawile", "level": 28 },
+        { "species": "banette", "level": 29 },
+        { "species": "absol", "level": 30 }
+      ],
+      "sprite": "npcs/warden_vesper.jpg"
+    },
+    "krampus_defector": {
+      "id": "krampus_defector",
+      "name": "Krampus Defector",
+      "organization": "the_winterheart",
+      "rank": "agents",
+      "battle_type": "trainer",
+      "intro": "\"The descent is suicide. Convince me you're worth following.\"",
+      "defeat": "\"Good enough. Keep your Pokémon close — the cold down there isn't weather.\"",
+      "team": [
+        { "species": "houndoom", "level": 28 },
+        { "species": "mightyena", "level": 28 },
+        { "species": "sneasel", "level": 29 },
+        { "species": "golbat", "level": 29 }
+      ],
+      "sprite": "npcs/krampus_enforcer.jpg"
+    },
+    "echo_priest": {
+      "id": "echo_priest",
+      "name": "Echo Priest Maltheus",
+      "organization": "the_winterheart",
+      "rank": "faiths",
+      "battle_type": "commander",
+      "intro": "\"You brought the bells to their altar. Whatever you intended — thank you.\"",
+      "defeat": "\"Now you understand. It was never about stopping the ringing. It is about choosing the hour.\"",
+      "escapes": true,
+      "team": [
+        { "species": "dusclops", "level": 29 },
+        { "species": "drifblim", "level": 29 },
+        { "species": "yamask", "level": 30 },
+        { "species": "froslass", "level": 31 }
+      ],
+      "sprite": "npcs/krampus_keeper.jpg"
+    },
+    "director_krampus": {
+      "id": "director_krampus",
+      "name": "Director Krampus",
+      "organization": "the_winterheart",
+      "rank": "returned_director",
+      "battle_type": "commander",
+      "intro": "\"You rang my bell for me. Now let me show you what it was for.\"",
+      "defeat": "\"Magnificent. Now listen — because this time I am not your enemy.\"",
+      "escapes": true,
+      "team": [
+        { "species": "mightyena", "level": 30 },
+        { "species": "weavile", "level": 30 },
+        { "species": "houndoom", "level": 31 },
+        { "species": "froslass", "level": 32 },
+        { "species": "krampus_houndoom", "level": 33, "variant": "krampus" }
+      ],
+      "sprite": "npcs/director_krampus.jpg"
+    },
+    "frost_herald_true": {
+      "id": "frost_herald_true",
+      "name": "The Frost Herald — Unbound",
+      "organization": "the_winterheart",
+      "rank": "true_herald",
+      "battle_type": "boss",
+      "intro": "\"SIX OF SIX. WINTER OPENS ITS EYE.\"",
+      "defeat": "\"...THE CHORUS... CHANGES... THE TUNE...\"",
+      "escapes": true,
+      "boss_mechanic": {
+        "name": "The True Chorus",
+        "trigger": "at_50_percent_hp",
+        "effect": "true_chorus",
+        "description": "At half health the Herald joins with all six bells at once: its whole team gains Attack, Speed and critical-hit chance, while ice begins to close over the battlefield.",
+        "buffs": {
+          "attack": 1,
+          "speed": 1,
+          "crit_chance": 0.1,
+          "defense": -1
+        }
+      },
+      "team": [
+        { "species": "glalie", "level": 32 },
+        { "species": "cryogonal", "level": 32 },
+        { "species": "abomasnow", "level": 33 },
+        { "species": "weavile", "level": 33 },
+        { "species": "froslass", "level": 34 },
+        { "species": "banette", "level": 35 }
+      ],
+      "sprite": "npcs/director_krampus.jpg"
+    }
+  }
+}

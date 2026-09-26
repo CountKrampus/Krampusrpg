@@ -4,6 +4,7 @@
   "slug": "krampus_fortress",
   "name": "The Fortress",
   "questline": "team_krampus",
+  "chapter": "keep",
   "location": "Krampus Keep",
   "type": "dungeon",
   "battles": [

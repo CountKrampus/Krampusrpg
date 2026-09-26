@@ -4,6 +4,7 @@
   "slug": "something_in_the_woods",
   "name": "Something in the Woods",
   "questline": "team_krampus",
+  "chapter": "conspiracy",
   "location": "Frostpine Route",
   "type": "trainer_battle",
   "battle": {"npc": "krampus_recruit", "team_size": 1},

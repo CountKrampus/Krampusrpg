@@ -568,6 +568,23 @@ def create_app() -> Flask:
         """
         player_id = current_player_id()
 
+        completed: set[str] = quest_chain.get_player_completed_quest_ids(
+            player_id
+        )
+        active: set[str] = set()
+
+        if player_id is not None:
+            with get_connection() as db:
+                active_rows = db.execute(
+                    """
+                    SELECT quest_id FROM player_quests
+                    WHERE player_id = ? AND status = 'active'
+                    """,
+                    (player_id,),
+                ).fetchall()
+
+            active = {str(row["quest_id"]) for row in active_rows}
+
         questlines = []
 
         for manifest in quest_chain.list_questlines():
@@ -576,26 +593,6 @@ def create_app() -> Flask:
             totals = quest_chain.questline_totals(qid)
 
             # Decorate quests with resolved battles and completion state.
-            completed: set[str] = set()
-            active: set[str] = set()
-
-            if player_id is not None:
-                with get_connection() as db:
-                    rows = db.execute(
-                        """
-                        SELECT quest_id, status
-                        FROM player_quests
-                        WHERE player_id = ?
-                        """,
-                        (player_id,),
-                    ).fetchall()
-
-                    for row in rows:
-                        if row["status"] == "completed":
-                            completed.add(row["quest_id"])
-                        elif row["status"] == "active":
-                            active.add(row["quest_id"])
-
             decorated = []
             for quest in quests:
                 item = dict(quest)
@@ -621,18 +618,69 @@ def create_app() -> Flask:
                 1 for q in decorated if q["is_completed"]
             )
 
+            # Group quests into their manifest-defined chapters.
+            chapter_groups = quest_chain.group_quests_by_chapter(
+                qid, decorated
+            )
+
+            # The chapter the player is currently working through
+            # (has an active quest, or the first not-yet-completed
+            # chapter with available quests). Used to auto-expand
+            # the right accordion in the UI.
+            current_chapter = None
+            for group in chapter_groups:
+                chapter_quests = group["quests"]
+                if any(q["is_active"] for q in chapter_quests):
+                    current_chapter = group["chapter"]["id"]
+                    break
+            if current_chapter is None:
+                for group in chapter_groups:
+                    chapter_quests = group["quests"]
+                    if any(not q["is_completed"] for q in chapter_quests):
+                        current_chapter = group["chapter"]["id"]
+                        break
+
+            line_finished = bool(decorated) and completed_count == len(
+                decorated
+            )
+
             questlines.append(
                 {
                     **manifest,
                     "quests": decorated,
                     "totals": totals,
                     "completed_count": completed_count,
+                    "line_finished": line_finished,
+                    "chapters": chapter_groups,
+                    "current_chapter": current_chapter,
+                    "line_open": False,
                 }
             )
 
+        # Group quest lines into sections (e.g. every Team Krampus
+        # quest line under one banner) and lock each quest line until
+        # the previous one is fully completed.
+        sections = quest_chain.group_questlines_by_section(questlines)
+        quest_chain.apply_questline_chain_locks(sections, completed)
+
+        # The auto-expanded line is the first unlocked, unfinished
+        # quest line in display order; everything else stays
+        # collapsed. Guests get the very first line open.
+        for section in sections:
+            for manifest in section["questlines"]:
+                if (
+                    manifest.get("line_unlocked", True)
+                    and not manifest.get("line_finished")
+                ):
+                    manifest["line_open"] = True
+                    break
+            else:
+                continue
+            break
+
         return render_template(
             "story_adventure.html",
-            questlines=questlines,
+            sections=sections,
             areas=get_all_areas(),
             region_labels=REGION_LABELS,
         )
@@ -651,6 +699,20 @@ def create_app() -> Flask:
 
         quest = quest_chain.get_quest(questline, quest_id)
         if quest is None:
+            return redirect(url_for("story_adventure"))
+
+        # Quest line chain lock: a quest line stays locked until the
+        # previous quest line is fully completed.
+        line_locked, line_lock_reason = quest_chain.is_questline_locked(
+            questline,
+            quest_chain.get_player_completed_quest_ids(player_id),
+        )
+
+        if line_locked:
+            flash(
+                line_lock_reason or "This quest line is still locked.",
+                "error",
+            )
             return redirect(url_for("story_adventure"))
 
         battles = quest_chain.quest_battles(questline, quest)
@@ -750,6 +812,15 @@ def create_app() -> Flask:
             flash("Log in to play the Story Adventure.", "error")
             return redirect(url_for("login"))
 
+        # Chain lock: no starting battles in a locked quest line.
+        locked, reason = quest_chain.is_questline_locked(
+            questline,
+            quest_chain.get_player_completed_quest_ids(player_id),
+        )
+        if locked:
+            flash(reason or "This quest line is still locked.", "error")
+            return redirect(url_for("story_adventure"))
+
         battle_index_raw = request.form.get("battle_index", "0")
 
         try:
@@ -776,6 +847,15 @@ def create_app() -> Flask:
         if player_id is None:
             flash("Log in to play the Story Adventure.", "error")
             return redirect(url_for("login"))
+
+        # Chain lock: no claiming rewards in a locked quest line.
+        locked, reason = quest_chain.is_questline_locked(
+            questline,
+            quest_chain.get_player_completed_quest_ids(player_id),
+        )
+        if locked:
+            flash(reason or "This quest line is still locked.", "error")
+            return redirect(url_for("story_adventure"))
 
         try:
             summary = story_battle.complete_quest(player_id, questline, quest_id)
@@ -812,6 +892,15 @@ def create_app() -> Flask:
 
         if player_id is None:
             return redirect(url_for("login"))
+
+        # Chain lock: no battle turns in a locked quest line.
+        locked, reason = quest_chain.is_questline_locked(
+            questline,
+            quest_chain.get_player_completed_quest_ids(player_id),
+        )
+        if locked:
+            flash(reason or "This quest line is still locked.", "error")
+            return redirect(url_for("story_adventure"))
 
         battle_index_raw = request.form.get("battle_index", "0")
         move_id = (request.form.get("move_id") or "").strip() or None
@@ -981,6 +1070,73 @@ def create_app() -> Flask:
             balls=balls,
             searches_done=searches_done,
             next_locked=next_locked,
+        )
+
+    @app.get("/map")
+    def world_map():
+        """
+        The world map: every region and its areas at a glance, with
+        spawn counts, lock states, and jump links into exploration.
+        """
+        player_id = current_player_id()
+
+        areas = get_all_areas()
+
+        searches_done = 0
+        player_area = None
+
+        if player_id is not None:
+            progress = get_player_progress(player_id)
+
+            if progress:
+                player_area = progress.get("current_area")
+
+            searches_done = area_search.get_total_searches(player_id)
+
+        regions: dict[str, list[dict[str, Any]]] = {}
+
+        for area in areas:
+            required = world_config_area_requirement(area)
+            locked = required > searches_done
+
+            area["_locked"] = locked
+            area["_unlock_searches"] = required
+
+            if locked:
+                area["_searches_remaining"] = required - searches_done
+
+            area["_is_current"] = area.get("id") == player_area
+
+            regions.setdefault(
+                str(area.get("region", "unknown")), []
+            ).append(area)
+
+        region_list = [
+            {
+                "id": region,
+                "label": REGION_LABELS.get(
+                    region, region.replace("_", " ").title()
+                ),
+                "areas": region_areas,
+            }
+            for region, region_areas in regions.items()
+        ]
+
+        # Canonical region order first, then anything else by id.
+        region_order = list(REGION_LABELS.keys())
+        region_list.sort(
+            key=lambda r: (
+                region_order.index(r["id"])
+                if r["id"] in region_order
+                else len(region_order),
+                r["id"],
+            )
+        )
+
+        return render_template(
+            "map.html",
+            regions=region_list,
+            searches_done=searches_done,
         )
 
     @app.get("/mines")

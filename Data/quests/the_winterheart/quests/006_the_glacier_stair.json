@@ -1,0 +1,24 @@
+{
+  "id": "wh_006",
+  "number": 6,
+  "slug": "the_glacier_stair",
+  "name": "The Glacier Stair",
+  "questline": "the_winterheart",
+  "chapter": "the_descent",
+  "location": "Frostpine Glacier",
+  "type": "dungeon",
+  "battles": [
+    { "npc": "krampus_believer", "team_size": 3 },
+    { "npc": "winter_priest", "team_size": 4, "escapes": true },
+    { "npc": "krampus_defector", "team_size": 4 }
+  ],
+  "objective": "Descend the stair inside the glacier — carved by no human hand — toward the Old Chapel of the Winterheart.",
+  "intro": "The ice opens like a throat and closes behind you. The stair spirals down, ribbed like a ribcage, and the air is warm. That is the worst part.",
+  "dialogue": [
+    "Krampus Defector: \"The descent is suicide. Convince me you're worth following.\"",
+    "Krampus Defector (defeated): \"Good enough. Keep your Pokémon close — the cold down there isn't weather.\""
+  ],
+  "lore_discovery": "The glacier stair breathes. Frost forms in lung-shapes on the walls. The defector joins the player for the descent — the first ally inside the ice.",
+  "requirements": ["wh_005"],
+  "rewards": { "money": 2200, "xp": 7500 }
+}

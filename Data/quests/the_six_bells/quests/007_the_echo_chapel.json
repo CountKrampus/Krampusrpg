@@ -1,0 +1,20 @@
+{
+  "id": "sb_007",
+  "number": 7,
+  "slug": "the_echo_chapel",
+  "name": "The Echo Chapel",
+  "questline": "the_six_bells",
+  "chapter": "the_echo",
+  "location": "Echo Chapel, Hollyhollow Hills",
+  "type": "commander_battle",
+  "battle": { "npc": "echo_priest", "team_size": 4, "escapes": true },
+  "objective": "Infiltrate the Echo Cult's chapel and confront Echo Priest Maltheus about the stolen Frostbells.",
+  "intro": "The chapel is warm. That is the first wrong thing. Hymns in no living language drift from below the floor.",
+  "dialogue": [
+    "Echo Priest Maltheus: \"Child, we are not stealing the bells. We are returning them.\"",
+    "Echo Priest Maltheus (defeated): \"You fight for a seal you have never seen. I pity you.\""
+  ],
+  "lore_discovery": "The cult believes the thing beneath Frostpine is not sealed — it is sleeping, in pain, and the bells are a lullaby. Ringing all six lets it wake gently instead of violently.",
+  "requirements": ["sb_006"],
+  "rewards": { "money": 1900, "xp": 3500, "quest_items": ["frostbell_third"] }
+}

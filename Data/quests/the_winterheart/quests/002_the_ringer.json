@@ -1,0 +1,20 @@
+{
+  "id": "wh_002",
+  "number": 2,
+  "slug": "the_ringer",
+  "name": "The Ringer",
+  "questline": "the_winterheart",
+  "chapter": "midnight_bells",
+  "location": "Hollyhollow Bell Tower",
+  "type": "trainer_battle",
+  "battle": { "npc": "midnight_ringer", "team_size": 4 },
+  "objective": "Stake out the bell tower at midnight and catch whoever is ringing the sixth bell.",
+  "intro": "The tower stairs are worn in the middle, from thirty years of the same climb. At the top, an old woman holds the rope with both hands.",
+  "dialogue": [
+    "The Midnight Ringer: \"It rings at midnight because that is when it listens hardest.\"",
+    "The Midnight Ringer (defeated): \"I rang it to keep it asleep. Every night. For thirty years. And you're welcome.\""
+  ],
+  "lore_discovery": "The Midnight Ringer is the last keeper of an older order than the Echo Cult: ringing the sixth bell alone, once a night, keeps the creature beneath Frostpine dreaming. The Ringer is dying. The ringings have become irregular.",
+  "requirements": ["wh_001"],
+  "rewards": { "items": [{ "id": "super_potion", "quantity": 3 }], "money": 1400, "xp": 5500 }
+}

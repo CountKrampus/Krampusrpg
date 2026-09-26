@@ -1,0 +1,112 @@
+{
+  "organization": "lantern_registry",
+  "emblem": "A single unregistered lantern",
+  "motto": "Every light is counted. Every counter is counted too.",
+  "philosophy": "The Undervillage keeps the lights Hollyhollow stopped noticing: old lanterns, retired names, promises that outlived their keepers. It is not hostile — but it does not wish to be found, and it will test anyone who knocks.",
+  "hierarchy": {
+    "curator": [
+      "undervillage_curator"
+    ],
+    "keepers": [
+      "lamplighter_apprentice"
+    ],
+    "clerks": [
+      "registry_clerk"
+    ],
+    "watchers": [
+      "night_porter",
+      "lantern_thief"
+    ]
+  },
+  "npcs": {
+    "night_porter": {
+      "id": "night_porter",
+      "name": "Night Porter",
+      "organization": "lantern_registry",
+      "rank": "watchers",
+      "battle_type": "trainer",
+      "intro": "\"Registry's closed. Everything's closed. Go home.\"",
+      "defeat": "\"Fine. The Lamplighter hasn't been seen since the last count. Happy?\"",
+      "team": [
+        { "species": "zubat", "level": 8 },
+        { "species": "murkrow", "level": 9 }
+      ],
+      "sprite": "npcs/krampus_grunt.jpg"
+    },
+    "lantern_thief": {
+      "id": "lantern_thief",
+      "name": "Lantern Thief",
+      "organization": "lantern_registry",
+      "rank": "watchers",
+      "battle_type": "trainer",
+      "intro": "\"Not stealing. Returning. There's a difference.\"",
+      "defeat": "\"The lanterns don't belong to the festival. They belong underneath.\"",
+      "team": [
+        { "species": "sneasel", "level": 9 },
+        { "species": "houndour", "level": 10 },
+        { "species": "murkrow", "level": 10 }
+      ],
+      "sprite": "npcs/krampus_grunt.jpg"
+    },
+    "registry_clerk": {
+      "id": "registry_clerk",
+      "name": "Registry Clerk",
+      "organization": "lantern_registry",
+      "rank": "clerks",
+      "battle_type": "trainer",
+      "intro": "\"You are not on the list. I keep the list. Do you see the problem?\"",
+      "defeat": "\"...You have been added to the list. Welcome, I suppose.\"",
+      "team": [
+        { "species": "yamask", "level": 10 },
+        { "species": "golbat", "level": 11 },
+        { "species": "sneasel", "level": 11 }
+      ],
+      "sprite": "npcs/krampus_handler.jpg"
+    },
+    "lamplighter_apprentice": {
+      "id": "lamplighter_apprentice",
+      "name": "Apprentice Wren",
+      "organization": "lantern_registry",
+      "rank": "keepers",
+      "battle_type": "commander",
+      "intro": "\"You knocked. Nobody knocks. Prove you should have.\"",
+      "defeat": "\"...You knock like a keeper. Fine. The well. After dark.\"",
+      "escapes": true,
+      "team": [
+        { "species": "golbat", "level": 11 },
+        { "species": "murkrow", "level": 12 },
+        { "species": "banette", "level": 12 },
+        { "species": "froslass", "level": 13 }
+      ],
+      "sprite": "npcs/lieutenant_Noelle.jpg"
+    },
+    "undervillage_curator": {
+      "id": "undervillage_curator",
+      "name": "The Curator",
+      "organization": "lantern_registry",
+      "rank": "curator",
+      "battle_type": "boss",
+      "intro": "\"You want the Lamplighter. The Lamplighter wants to stay. Convince me otherwise.\"",
+      "defeat": "\"...Then take the wick. The village above will need a new keeper of uncounted lights someday. Perhaps it is you.\"",
+      "escapes": true,
+      "boss_mechanic": {
+        "name": "Lantern Veil",
+        "trigger": "at_50_percent_hp",
+        "effect": "lantern_veil",
+        "description": "At half health the Curator dims every lantern in the Undervillage at once: its team gains Speed and critical-hit chance while the light — and your accuracy — fails.",
+        "buffs": {
+          "speed": 1,
+          "crit_chance": 0.05
+        }
+      },
+      "team": [
+        { "species": "banette", "level": 13 },
+        { "species": "dusclops", "level": 13 },
+        { "species": "drifblim", "level": 14 },
+        { "species": "froslass", "level": 14 },
+        { "species": "glalie", "level": 15 }
+      ],
+      "sprite": "npcs/krampus_scientist.jpg"
+    }
+  }
+}

@@ -4,6 +4,7 @@
   "slug": "winter_relic",
   "name": "The Winter Relic",
   "questline": "team_krampus",
+  "chapter": "relic",
   "location": "Ancient Shrine, Frostpine",
   "type": "trainer_battle",
   "battle": {"npc": "krampus_archaeologist", "team_size": 3},

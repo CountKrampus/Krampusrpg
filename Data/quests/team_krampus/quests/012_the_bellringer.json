@@ -4,6 +4,7 @@
   "slug": "the_bellringer",
   "name": "The Bellringer",
   "questline": "team_krampus",
+  "chapter": "keep",
   "location": "Krampus Keep — Bell Chamber",
   "type": "boss_battle",
   "battle": {"npc": "director_krampus", "team_size": 6, "escapes": true, "boss_mechanic": "krampus_bell"},

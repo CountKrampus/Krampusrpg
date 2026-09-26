@@ -1,0 +1,24 @@
+{
+  "id": "sb_010",
+  "number": 10,
+  "slug": "the_solstice",
+  "name": "The Solstice",
+  "questline": "the_six_bells",
+  "chapter": "the_fifth_bell",
+  "location": "Frostpine Summit",
+  "type": "dungeon",
+  "battles": [
+    { "npc": "krampus_believer", "team_size": 3 },
+    { "npc": "bell_thief", "team_size": 3 },
+    { "npc": "echo_priest", "team_size": 4, "escapes": true }
+  ],
+  "objective": "The cult begins its solstice ceremony at the summit with the five bells it holds. Climb through the procession and take them back.",
+  "intro": "A river of crimson-robed faithful winds up the mountain, singing. At its head, five bells swing in a frame of black ice.",
+  "dialogue": [
+    "Echo Priest Maltheus: \"You cannot stop a lullaby. You can only choose what wakes up.\"",
+    "Echo Priest Maltheus (defeated): \"Then you will meet it awake. May your winter be long.\""
+  ],
+  "lore_discovery": "The priest's fifth bell is seized mid-ceremony — but the ringing has already begun. Something below has noticed.",
+  "requirements": ["sb_009"],
+  "rewards": { "items": [{ "id": "hyper_potion", "quantity": 2 }], "money": 2600, "xp": 5000 }
+}

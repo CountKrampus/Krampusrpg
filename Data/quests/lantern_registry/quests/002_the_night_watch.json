@@ -1,0 +1,23 @@
+{
+  "id": "lr_002",
+  "number": 2,
+  "slug": "the_night_watch",
+  "name": "The Night Watch",
+  "questline": "lantern_registry",
+  "chapter": "the_missing_light",
+  "location": "Hollyhollow Village — Old Quarter",
+  "type": "multi_battle",
+  "battles": [
+    { "npc": "night_porter", "team_size": 2 },
+    { "npc": "lantern_thief", "team_size": 3 }
+  ],
+  "objective": "Watch the square after dark. Someone is taking lanterns down — quietly, one by one.",
+  "intro": "Midnight. The blue lantern burns. A shape on a ladder works faster than any festival hand should.",
+  "dialogue": [
+    "Night Porter: \"Registry's closed. Everything's closed. Go home.\"",
+    "Lantern Thief: \"Not stealing. Returning. There's a difference.\""
+  ],
+  "lore_discovery": "The thieves are not stealing lanterns — they are returning them, taking only the oldest ones down into the old quarter.",
+  "requirements": ["lr_001"],
+  "rewards": { "money": 600, "xp": 800 }
+}

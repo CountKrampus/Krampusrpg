@@ -1,0 +1,20 @@
+{
+  "id": "lr_004",
+  "number": 4,
+  "slug": "the_list_of_everyone",
+  "name": "The List of Everyone",
+  "questline": "lantern_registry",
+  "chapter": "the_undervillage",
+  "location": "Hollyhollow — Registry Hall",
+  "type": "trainer_battle",
+  "battle": { "npc": "registry_clerk", "team_size": 3 },
+  "objective": "The Registry Hall keeps a second book: every keeper of uncounted lights, going back two centuries. The clerk does not want it read.",
+  "intro": "The reading room smells of lamp oil and old paper. The clerk stands in front of one specific shelf, arms folded.",
+  "dialogue": [
+    "Registry Clerk: \"You are not on the list. I keep the list. Do you see the problem?\"",
+    "Registry Clerk (defeated): \"...You have been added to the list. Welcome, I suppose.\""
+  ],
+  "lore_discovery": "The second book lists the keepers — and shows the current Lamplighter checked in, alive, 'below'. The key to the well winch is pressed between its pages.",
+  "requirements": ["lr_003"],
+  "rewards": { "items": [{ "id": "potion", "quantity": 3 }], "money": 800, "xp": 1200 }
+}

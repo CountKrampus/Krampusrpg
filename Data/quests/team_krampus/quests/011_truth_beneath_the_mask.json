@@ -4,6 +4,7 @@
   "slug": "truth_beneath_the_mask",
   "name": "The Truth Beneath the Mask",
   "questline": "team_krampus",
+  "chapter": "keep",
   "location": "Krampus Keep — Central Chamber",
   "type": "story",
   "battle": null,

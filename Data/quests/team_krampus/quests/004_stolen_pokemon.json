@@ -4,6 +4,7 @@
   "slug": "stolen_pokemon",
   "name": "The Stolen Pokémon",
   "questline": "team_krampus",
+  "chapter": "conspiracy",
   "location": "Hidden Camp, Frostpine",
   "type": "trainer_battle",
   "battle": {"npc": "krampus_handler", "team_size": 3},

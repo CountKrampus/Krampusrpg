@@ -1,0 +1,35 @@
+{
+  "id": "lantern_registry",
+  "section": "standalone",
+  "order": 1,
+  "title": "Quest Line — The Lantern Registry",
+  "organization": "lantern_registry",
+  "premise": "A standalone mystery in Hollyhollow. Every year the Winterwake Festival registers its lanterns — every lantern but one. This year, the unregistered lantern is lit, the Lamplighter is missing, and there is a door under the well that the village map does not show.",
+  "theme": "Who lights the lights nobody counts?",
+  "regions": ["hollyhollow"],
+  "key_artifacts": ["lantern_wick", "undervillage_key"],
+  "key_npcs": [
+    "night_porter",
+    "lantern_thief",
+    "registry_clerk",
+    "lamplighter_apprentice",
+    "undervillage_curator"
+  ],
+  "final_boss": "undervillage_curator",
+  "signature_reward": "froslass",
+  "chapters": [
+    {
+      "id": "the_missing_light",
+      "name": "Chapter I — The Missing Light",
+      "description": "A lantern that isn't on the registry, a missing Lamplighter, and a theft in the night.",
+      "quests": ["lr_001", "lr_002", "lr_003"]
+    },
+    {
+      "id": "the_undervillage",
+      "name": "Chapter II — The Undervillage",
+      "description": "Beneath the well lies the village that keeps Hollyhollow's uncounted lights.",
+      "quests": ["lr_004", "lr_005", "lr_006"]
+    }
+  ],
+  "next_questline": null
+}

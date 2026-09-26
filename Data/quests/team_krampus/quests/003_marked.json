@@ -4,6 +4,7 @@
   "slug": "marked",
   "name": "Marked",
   "questline": "team_krampus",
+  "chapter": "conspiracy",
   "location": "Frostpine Forest",
   "type": "trainer_battle",
   "battle": {"npc": "krampus_scout", "team_size": 2},

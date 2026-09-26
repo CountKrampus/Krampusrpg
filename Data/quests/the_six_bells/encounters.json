@@ -1,0 +1,150 @@
+{
+  "organization": "the_six_bells",
+  "emblem": "A cracked bell ringed by six falling icicles",
+  "motto": "Every bell rung is a debt repaid.",
+  "philosophy": "The Echo Cult believes the bells do not awaken the thing beneath Frostpine — they soothe it. Each ring buys the world another winter of peace. If the price is a few stolen Pokémon, a few frightened villages, that is mercy, not malice.",
+  "hierarchy": {
+    "herald": [
+      "frost_herald"
+    ],
+    "cult_leadership": [
+      "echo_priest"
+    ],
+    "hunters": [
+      "hunter_sigrun"
+    ],
+    "agents": [
+      "bell_thief",
+      "krampus_defector",
+      "bell_warden"
+    ],
+    "faithful": [
+      "krampus_believer"
+    ]
+  },
+  "npcs": {
+    "bell_warden": {
+      "id": "bell_warden",
+      "name": "Bell Warden",
+      "organization": "the_six_bells",
+      "rank": "agents",
+      "battle_type": "trainer",
+      "intro": "\"The Keep is empty. Whatever you came for, you're too late.\"",
+      "defeat": "\"Gone. He's gone, and he took the bell with him.\"",
+      "team": [
+        { "species": "zubat", "level": 18 },
+        { "species": "poochyena", "level": 18 },
+        { "species": "sneasel", "level": 19 }
+      ],
+      "sprite": "npcs/krampus_grunt.jpg"
+    },
+    "krampus_believer": {
+      "id": "krampus_believer",
+      "name": "Krampus Believer",
+      "organization": "the_six_bells",
+      "rank": "faithful",
+      "battle_type": "trainer",
+      "intro": "\"You beat the Director. So what? The bells don't care about you.\"",
+      "defeat": "\"The bells were never his. He just knew how to listen.\"",
+      "team": [
+        { "species": "houndour", "level": 19 },
+        { "species": "mightyena", "level": 19 },
+        { "species": "golbat", "level": 20 }
+      ],
+      "sprite": "npcs/krampus_grunt.jpg"
+    },
+    "bell_thief": {
+      "id": "bell_thief",
+      "name": "Bell Thief",
+      "organization": "the_six_bells",
+      "rank": "agents",
+      "battle_type": "trainer",
+      "intro": "\"Found it first. Found it fair.\"",
+      "defeat": "\"Take it, then. It's just one bell. There are five more.\"",
+      "team": [
+        { "species": "sneasel", "level": 20 },
+        { "species": "murkrow", "level": 20 },
+        { "species": "absol", "level": 21 }
+      ],
+      "sprite": "npcs/krampus_scientist.jpg"
+    },
+    "hunter_sigrun": {
+      "id": "hunter_sigrun",
+      "name": "Hunter Sigrun",
+      "organization": "the_six_bells",
+      "rank": "hunters",
+      "battle_type": "commander",
+      "intro": "\"You're the one who beat Krampus. Good. Then you'll understand when I take that bell off you.\"",
+      "defeat": "\"...Strong. And soft. That softness will get someone killed.\"",
+      "escapes": true,
+      "team": [
+        { "species": "absol", "level": 21 },
+        { "species": "weavile", "level": 22 },
+        { "species": "mawile", "level": 22 },
+        { "species": "banette", "level": 23 }
+      ],
+      "sprite": "npcs/warden_vesper.jpg"
+    },
+    "echo_priest": {
+      "id": "echo_priest",
+      "name": "Echo Priest Maltheus",
+      "organization": "the_six_bells",
+      "rank": "cult_leadership",
+      "battle_type": "commander",
+      "intro": "\"Child, we are not stealing the bells. We are returning them.\"",
+      "defeat": "\"You fight for a seal you have never seen. I pity you.\"",
+      "escapes": true,
+      "team": [
+        { "species": "yamask", "level": 22 },
+        { "species": "dusclops", "level": 23 },
+        { "species": "drifblim", "level": 23 },
+        { "species": "froslass", "level": 24 }
+      ],
+      "sprite": "npcs/krampus_keeper.jpg"
+    },
+    "krampus_defector": {
+      "id": "krampus_defector",
+      "name": "Krampus Defector",
+      "organization": "the_six_bells",
+      "rank": "agents",
+      "battle_type": "trainer",
+      "intro": "\"I marched under the skull. I know what the bell really does. Walk away.\"",
+      "defeat": "\"Fine. The vault. Under the shrine. But you won't like what you hear.\"",
+      "team": [
+        { "species": "houndoom", "level": 23 },
+        { "species": "mightyena", "level": 23 },
+        { "species": "sneasel", "level": 24 },
+        { "species": "golbat", "level": 24 }
+      ],
+      "sprite": "npcs/krampus_enforcer.jpg"
+    },
+    "frost_herald": {
+      "id": "frost_herald",
+      "name": "The Frost Herald",
+      "organization": "the_six_bells",
+      "rank": "herald",
+      "battle_type": "boss",
+      "intro": "\"FIVE OF SIX. THE THROAT OF WINTER OPENS.\"",
+      "defeat": "\"THE LAST BELL WILL RING. IT ALWAYS RINGS.\"",
+      "escapes": true,
+      "boss_mechanic": {
+        "name": "Chilling Chorus",
+        "trigger": "every_third_turn",
+        "effect": "frost_chorus",
+        "description": "Every third turn the five recovered bells resonate: the Herald's team gains Speed and critical-hit chance, while the player's team's accuracy falters.",
+        "buffs": {
+          "speed": 1,
+          "crit_chance": 0.05
+        }
+      },
+      "team": [
+        { "species": "glalie", "level": 24 },
+        { "species": "cryogonal", "level": 24 },
+        { "species": "abomasnow", "level": 25 },
+        { "species": "froslass", "level": 25 },
+        { "species": "weavile", "level": 26, "variant": "frost" }
+      ],
+      "sprite": "npcs/director_krampus.jpg"
+    }
+  }
+}

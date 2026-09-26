@@ -1,0 +1,20 @@
+{
+  "id": "sb_011",
+  "number": 11,
+  "slug": "the_herald_wakes",
+  "name": "The Herald Wakes",
+  "questline": "the_six_bells",
+  "chapter": "the_fifth_bell",
+  "location": "Frostpine Summit — Frozen Altar",
+  "type": "boss_battle",
+  "battle": { "npc": "frost_herald", "team_size": 5, "escapes": true, "boss_mechanic": "chilling_chorus" },
+  "objective": "Five of six bells are yours — and that is enough for the Frost Herald. Something ancient wearing a crown of ice rises to collect them.",
+  "intro": "The glacier at the summit's heart splits like a throat. What steps out is Pokémon-shaped, and wrong, and singing.",
+  "dialogue": [
+    "The Frost Herald: \"FIVE OF SIX. THE THROAT OF WINTER OPENS.\"",
+    "The Frost Herald (defeated): \"THE LAST BELL WILL RING. IT ALWAYS RINGS.\""
+  ],
+  "lore_discovery": "The Herald is defeated — and simply bows, unmelting, before sinking back into the glacier. It was not the thing beneath the ice. It was its mouthpiece.",
+  "requirements": ["sb_010"],
+  "rewards": { "money": 3000, "xp": 6500, "quest_items": ["frostbell_fifth"] }
+}
