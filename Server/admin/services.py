@@ -509,7 +509,7 @@ def get_player_details(player_id: int) -> dict[str, Any] | None:
 
         return {
             **player,
-            "progress": progress or {"money": 0, "badges": 0, "current_region": "krampus", "current_area": "krampus_town"},
+            "progress": progress or {"money": 0, "badges": 0, "current_region": "hollyhollow", "current_area": "hollyhollow_village"},
             "pokemon_count": pokemon_count,
             "party_count": party_count,
             "pc_count": pc_count,
@@ -1023,8 +1023,8 @@ def admin_assign_pokemon(
     if not player:
         raise ValueError(f"Player ID #{owner_id} does not exist.")
 
-    # Clamp level
-    level = max(1, min(100, int(level)))
+    # No upper level cap (leaderboard progression).
+    level = max(1, int(level))
 
     # Use the game's official create_pokemon service
     from ..services import create_pokemon
@@ -1698,7 +1698,7 @@ def create_promo(
 ) -> int:
     """Create a new daily promo."""
     ensure_admin_tables()
-    level = max(1, min(100, int(level)))
+    level = max(1, int(level))
     db = get_connection()
     try:
         cursor = db.execute(

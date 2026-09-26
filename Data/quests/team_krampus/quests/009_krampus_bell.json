@@ -4,6 +4,7 @@
   "slug": "krampus_bell",
   "name": "The Krampus Bell",
   "questline": "team_krampus",
+  "chapter": "blackout",
   "location": "Hollyhollow Village",
   "type": "story",
   "battle": null,

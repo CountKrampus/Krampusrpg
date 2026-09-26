@@ -1,0 +1,21 @@
+{
+  "id": "sb_012",
+  "number": 12,
+  "slug": "the_glacier_gambit",
+  "name": "The Glacier Gambit",
+  "questline": "the_six_bells",
+  "chapter": "the_fifth_bell",
+  "location": "Hollyhollow Village",
+  "type": "story",
+  "battle": null,
+  "objective": "Bring the five Frostbells to the researcher. Decide — with Sigrun, the defector, and the village — what to do with the first half of the Winter Chorus.",
+  "intro": "The five bells sit on the researcher's table, ringing without being touched, a chord that never resolves.",
+  "dialogue": [
+    "Hunter Sigrun: \"Melt them down. Tonight. You've heard it too — every day they wait, the thing below learns the tune.\"",
+    "Krampus Defector: \"Or finish the set. If the Herald gets the sixth bell, there is no version of this where hiding them helps.\"",
+    "Researcher: \"There is a third option. The Winterheart. If the bells are its voice, the heart is its memory — and memories can be changed.\""
+  ],
+  "lore_discovery": "The researcher reveals the Winterheart: a relic older than the bells, the thing that first put the creature to sleep. The path to it runs through the six bells — all of them.",
+  "requirements": ["sb_011"],
+  "rewards": { "money": 6000, "xp": 8000, "pokemon_reward": { "type": "choice", "pool": ["snover", "bergmite", "absol"], "variant_chance": { "variant": "frost", "odds": 8 }, "level": 22 } }
+}

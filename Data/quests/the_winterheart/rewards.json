@@ -1,0 +1,45 @@
+{
+  "questline": "the_winterheart",
+  "item_rewards": {
+    "quest_001": { "money": 1200 },
+    "quest_002": { "items": [{ "id": "super_potion", "quantity": 3 }], "money": 1400 },
+    "quest_003": { "money": 1600, "quest_items": ["midnight_rope"] },
+    "quest_004": { "money": 1800 },
+    "quest_005": { "money": 2000, "quest_items": ["old_chapel_key"] },
+    "quest_006": { "money": 2200 },
+    "quest_007": { "items": [{ "id": "hyper_potion", "quantity": 3 }], "money": 2500, "quest_items": ["founders_journal"] },
+    "quest_008": { "money": 2800 },
+    "quest_009": { "money": 3200 },
+    "quest_010": { "money": 3600, "quest_items": ["sixth_bell"] },
+    "quest_011": { "money": 4200, "xp": 9000 },
+    "quest_012": { "money": 5000 },
+    "quest_013": { "money": 8000, "xp": 12000, "quest_items": ["winterheart_seal"] }
+  },
+  "quest_items": {
+    "midnight_rope": {
+      "id": "midnight_rope",
+      "name": "Midnight Rope",
+      "description": "The bell rope worn smooth by thirty years of a single pair of hands. It is the only thing the Herald's ice will not touch."
+    },
+    "old_chapel_key": {
+      "id": "old_chapel_key",
+      "name": "Key of the Old Chapel",
+      "description": "Cut from glacier ice that never melts. It opens the chapel beneath the Winterheart — and only from the outside."
+    },
+    "founders_journal": {
+      "id": "founders_journal",
+      "name": "Founder's Journal",
+      "description": "The journal of Team Krampus's founder. The final entry is not about power at all: 'The bells are a promise we made to something ancient. Krampus is not a man. It is an office. And the office is tired.'"
+    },
+    "sixth_bell": {
+      "id": "sixth_bell",
+      "name": "The Sixth Bell",
+      "description": "The original Krampus Bell, recovered at last. Next to the five Frostbells it is silent — saving its voice."
+    },
+    "winterheart_seal": {
+      "id": "winterheart_seal",
+      "name": "The Winterheart Seal",
+      "description": "The relic reforged from the Winterheart and the six bells. Warm as a heartbeat, and quiet for the first time in a thousand years."
+    }
+  }
+}

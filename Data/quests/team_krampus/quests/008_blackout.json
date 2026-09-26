@@ -4,6 +4,7 @@
   "slug": "blackout",
   "name": "The Blackout",
   "questline": "team_krampus",
+  "chapter": "blackout",
   "location": "Hollyhollow Village",
   "type": "multi_battle",
   "battles": [

@@ -1,0 +1,20 @@
+{
+  "id": "wh_009",
+  "number": 9,
+  "slug": "the_office_of_krampus",
+  "name": "The Office of Krampus",
+  "questline": "the_winterheart",
+  "chapter": "the_heart",
+  "location": "Old Chapel — Heart Chamber",
+  "type": "commander_battle",
+  "battle": { "npc": "director_krampus", "team_size": 5, "escapes": true },
+  "objective": "The Director returns — alone, unarmored, and not to fight for the bells. He fights to test whether you understand what they are for.",
+  "intro": "He steps out of the dark with no crimson uniform, no insignia, no escape route prepared. Just an old man and his Houndoom.",
+  "dialogue": [
+    "Director Krampus: \"You rang my bell for me. Now let me show you what it was for.\"",
+    "Director Krampus (defeated): \"Magnificent. Now listen — because this time I am not your enemy.\""
+  ],
+  "lore_discovery": "Krampus explains the final truth: the Chorus cannot be prevented, only timed. The seal is failing. Ring the Chorus wrongly and the sleeper wakes in rage; ring it rightly and it wakes — or sleeps — in peace. He kneels. The office of Krampus passes its judgment to the player.",
+  "requirements": ["wh_008"],
+  "rewards": { "money": 3200, "xp": 9000 }
+}

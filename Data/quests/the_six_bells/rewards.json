@@ -1,0 +1,44 @@
+{
+  "questline": "the_six_bells",
+  "item_rewards": {
+    "quest_001": { "money": 800 },
+    "quest_002": { "items": [{ "id": "potion", "quantity": 3 }], "money": 900 },
+    "quest_003": { "money": 1100, "quest_items": ["frostbell_first"] },
+    "quest_004": { "money": 1300 },
+    "quest_005": { "money": 1500, "quest_items": ["frostbell_second"] },
+    "quest_006": { "items": [{ "id": "super_potion", "quantity": 2 }], "money": 1700 },
+    "quest_007": { "money": 1900, "quest_items": ["frostbell_third"] },
+    "quest_008": { "money": 2100 },
+    "quest_009": { "money": 2300, "quest_items": ["frostbell_fourth"] },
+    "quest_010": { "items": [{ "id": "hyper_potion", "quantity": 2 }], "money": 2600 },
+    "quest_011": { "money": 3000, "quest_items": ["frostbell_fifth"] },
+    "quest_012": { "money": 6000, "xp": 8000 }
+  },
+  "quest_items": {
+    "frostbell_first": {
+      "id": "frostbell_first",
+      "name": "First Frostbell",
+      "description": "The bell taken from Krampus Keep's ruins. It hums with a cold that has nothing to do with temperature."
+    },
+    "frostbell_second": {
+      "id": "frostbell_second",
+      "name": "Second Frostbell",
+      "description": "Recovered from the Bell Thief. When held near the first, they ring softly on their own — a fifth apart."
+    },
+    "frostbell_third": {
+      "id": "frostbell_third",
+      "name": "Third Frostbell",
+      "description": "Taken from the Echo Cult's chapel. The priest let you have it. That worries you more than a fight would have."
+    },
+    "frostbell_fourth": {
+      "id": "frostbell_fourth",
+      "name": "Fourth Frostbell",
+      "description": "Hidden in the vault beneath the Ancient Shrine. It is shaped like a Pokémon's rib."
+    },
+    "frostbell_fifth": {
+      "id": "frostbell_fifth",
+      "name": "Fifth Frostbell",
+      "description": "Pried from the Herald's frozen altar. It is warm. Every other bell you carry has gone cold."
+    }
+  }
+}

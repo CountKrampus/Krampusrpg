@@ -108,6 +108,31 @@ def _roll_level(entry: dict[str, Any]) -> int:
     return random.randint(min_level, max_level)
 
 
+def _roll_variant(entry: dict[str, Any]) -> str:
+    """
+    Roll a variant for a wild encounter entry.
+
+    Entries may specify either a fixed "variant" or a weighted
+    "variant_chance": {"variant": "krampus", "odds": 10} meaning a
+    1-in-10 shot at the variant (the rest stay normal).
+    """
+
+    chance = entry.get("variant_chance")
+
+    if isinstance(chance, dict):
+        try:
+            odds = int(chance.get("odds", 0) or 0)
+        except (TypeError, ValueError):
+            odds = 0
+
+        if odds > 0 and random.randint(1, odds) == 1:
+            return str(chance.get("variant", "") or "normal").strip().lower()
+
+    variant = str(entry.get("variant", "") or "").strip().lower()
+
+    return variant if variant else "normal"
+
+
 def start_encounter(area_id: str | int) -> dict[str, Any] | None:
     """
     Generate a wild Pokémon encounter for an area.
@@ -116,7 +141,8 @@ def start_encounter(area_id: str | int) -> dict[str, Any] | None:
 
         {
             "species_id", "species_name", "types", "level",
-            "shiny", "base_stats", "catch_rate", "sprite_url"
+            "shiny", "variant", "base_stats", "catch_rate",
+            "sprite_url"
         }
 
     This is a transient description of the wild Pokémon (nothing is
@@ -137,6 +163,7 @@ def start_encounter(area_id: str | int) -> dict[str, Any] | None:
 
     level = _roll_level(entry)
     shiny = random.randint(1, get_tuning()["shiny_odds"]) == 1
+    variant = _roll_variant(entry)
 
     from .sprite_resolver import resolve_sprite
 
@@ -146,10 +173,12 @@ def start_encounter(area_id: str | int) -> dict[str, Any] | None:
         "types": species.get("type", []),
         "level": level,
         "shiny": shiny,
+        "variant": variant,
         "base_stats": species.get("base_stats", {}),
         "catch_rate": get_species_catch_rate(species),
         "sprite_url": resolve_sprite(
             species["id"],
+            variant=variant,
             shiny=shiny,
         ),
     }
@@ -389,10 +418,15 @@ def attempt_catch(
     except (TypeError, ValueError):
         level = 1
 
-    if not 1 <= level <= 100:
+    if level < 1:
         raise ValueError("Invalid encounter level.")
 
     shiny = bool(encounter.get("shiny", False))
+
+    # The encounter's rolled variant. "normal" passes through
+    # create_pokemon() untouched; anything else is re-resolved against
+    # the variants table there, so a stale/invalid value can't persist.
+    variant = str(encounter.get("variant", "") or "").strip().lower() or "normal"
 
     ball_id = _consume_ball(player_id, ball_item_id)
     catch_chance = calculate_catch_chance(encounter, ball_id)
@@ -416,6 +450,7 @@ def attempt_catch(
         species_id=species_id,
         level=level,
         shiny=shiny,
+        variant=variant,
     )
 
     if pokemon is None:
@@ -428,6 +463,7 @@ def attempt_catch(
         "species_name": pokemon.get("species_name", species_id.title()),
         "level": pokemon["level"],
         "shiny": bool(pokemon.get("shiny", 0)),
+        "variant": str(pokemon.get("variant", "normal") or "normal"),
         "nickname": pokemon.get("nickname"),
     }
 

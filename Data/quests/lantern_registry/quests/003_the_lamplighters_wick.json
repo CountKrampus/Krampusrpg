@@ -1,0 +1,19 @@
+{
+  "id": "lr_003",
+  "number": 3,
+  "slug": "the_lamplighters_wick",
+  "name": "The Lamplighter's Wick",
+  "questline": "lantern_registry",
+  "chapter": "the_missing_light",
+  "location": "Hollyhollow — Lamplighter's Cottage",
+  "type": "story",
+  "battle": null,
+  "objective": "Search the missing Lamplighter's cottage. Find the wick that lights every lantern the village forgot.",
+  "intro": "The cottage is tidy in the way of someone who meant to come back. On the table: a ledger, a cup of tea, gone cold, and a wick that burns without flame.",
+  "dialogue": [
+    "Ledger, final page: \"The count is wrong on purpose. The uncounted lanterns are not lost. They are kept. If I do not come back, follow the blue one.\""
+  ],
+  "lore_discovery": "The Lamplighter has been the Undervillage's secret supplier for years: every 'lost' lantern of Hollyhollow ends up below, still burning.",
+  "requirements": ["lr_002"],
+  "rewards": { "money": 700, "xp": 1000, "quest_items": ["lantern_wick"] }
+}

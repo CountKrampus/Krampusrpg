@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% macro kp_shop_page() %}
+
+<div class="kp-shop-page">
+
+    <section class="card world-header-card">
+
+        <div>
+            <span class="world-kicker">KRAMPUS RPG</span>
+            <h1>Krampus Points Shop</h1>
+            <p>
+                Spend Krampus Points (KP) on exclusive Pokémon, rare
+                items, and special area unlocks. KP is earned through
+                events, quests, and staff awards.
+            </p>
+        </div>
+
+        <div class="world-ball-count">
+            <span>YOUR BALANCE</span>
+            <strong>{{ balance }}</strong>
+            <small>KP available</small>
+        </div>
+
+    </section>
+
+    {% if items %}
+
+    <section class="kp-shop-grid">
+
+        {% for item in items %}
+
+        <article class="card kp-shop-item-card">
+
+            <header class="kp-shop-item-header">
+
+                <div>
+                    <span class="kp-shop-item-type kp-type-{{ item.item_type }}">
+                        {%- if item.item_type == "pokemon" -%}
+                        Pokémon
+                        {%- elif item.item_type == "area_unlock" -%}
+                        Area Unlock
+                        {%- else -%}
+                        Item
+                        {%- endif -%}
+                    </span>
+                    <h2>{{ item.name }}</h2>
+                </div>
+
+                <div class="kp-shop-price">
+                    <strong>{{ item.price }}</strong>
+                    <small>KP</small>
+                </div>
+
+            </header>
+
+            {% if item.description %}
+            <p class="kp-shop-item-description">{{ item.description }}</p>
+            {% endif %}
+
+            <footer class="kp-shop-item-footer">
+
+                {% if item.stock != -1 %}
+                <span class="kp-shop-stock">
+                    {{ item.stock }} in stock
+                </span>
+                {% endif %}
+
+                {% if item.owned %}
+                <span class="kp-shop-owned">
+                    ✓ Already unlocked
+                </span>
+                {% elif item.affordable %}
+                <form method="post" action="{{ url_for('kp_shop_purchase') }}">
+                    <input type="hidden" name="item_id" value="{{ item.id }}">
+                    <button type="submit" class="button">
+                        Purchase
+                    </button>
+                </form>
+                {% else %}
+                <span class="kp-shop-unaffordable">
+                    Need {{ item.price - balance }} more KP
+                </span>
+                {% endif %}
+
+            </footer>
+
+        </article>
+
+        {% endfor %}
+
+    </section>
+
+    {% else %}
+
+    <section class="card">
+        <h2>The shop shelves are empty</h2>
+        <p>
+            No Krampus Points items are available right now. Check back
+            after the next event!
+        </p>
+    </section>
+
+    {% endif %}
+
+</div>
+
+{% endmacro %}
+
+{% block title %}Krampus Points Shop - Krampus RPG{% endblock %}
+
+{% block content %}{{ kp_shop_page() }}{% endblock %}
+
+{% block public_content %}{{ kp_shop_page() }}{% endblock %}

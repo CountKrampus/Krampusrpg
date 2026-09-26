@@ -4,6 +4,7 @@
   "slug": "strange_beginning",
   "name": "A Strange Beginning",
   "questline": "team_krampus",
+  "chapter": "conspiracy",
   "location": "Hollyhollow Village",
   "type": "story",
   "battle": null,

@@ -1,0 +1,23 @@
+{
+  "questline": "lantern_registry",
+  "item_rewards": {
+    "quest_001": { "items": [{ "id": "potion", "quantity": 2 }], "money": 500 },
+    "quest_002": { "money": 600 },
+    "quest_003": { "money": 700, "quest_items": ["lantern_wick"] },
+    "quest_004": { "items": [{ "id": "potion", "quantity": 3 }], "money": 800 },
+    "quest_005": { "money": 1000 },
+    "quest_006": { "money": 2000, "xp": 2600 }
+  },
+  "quest_items": {
+    "lantern_wick": {
+      "id": "lantern_wick",
+      "name": "The Lamplighter's Wick",
+      "description": "A wick that burns without flame. It is the only light the Undervillage will follow."
+    },
+    "undervillage_key": {
+      "id": "undervillage_key",
+      "name": "Undervillage Key",
+      "description": "A small brass key shaped like a lantern. The well's winch accepts it without complaint."
+    }
+  }
+}

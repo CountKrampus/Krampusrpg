@@ -53,6 +53,11 @@ from .permissions import (
     PERMISSION_SETTINGS,
 
     PERMISSION_DATABASE,
+
+    PERMISSION_KP_VIEW,
+    PERMISSION_KP_EDIT,
+    PERMISSION_KP_SHOP_VIEW,
+    PERMISSION_KP_SHOP_EDIT,
 )
 
 
@@ -458,3 +463,47 @@ def require_all_permissions(
         return wrapper
 
     return decorator
+
+
+# ============================================================
+# KRAMPUS POINTS
+# ============================================================
+
+def kp_view_required(
+    func: Callable,
+) -> Callable:
+    """Require access to view Krampus Points data."""
+
+    return require_permission(
+        PERMISSION_KP_VIEW
+    )(func)
+
+
+def kp_edit_required(
+    func: Callable,
+) -> Callable:
+    """Require access to award / deduct Krampus Points."""
+
+    return require_permission(
+        PERMISSION_KP_EDIT
+    )(func)
+
+
+def kp_shop_view_required(
+    func: Callable,
+) -> Callable:
+    """Require access to view the KP shop configuration."""
+
+    return require_permission(
+        PERMISSION_KP_SHOP_VIEW
+    )(func)
+
+
+def kp_shop_edit_required(
+    func: Callable,
+) -> Callable:
+    """Require access to create/edit/delete KP shop items."""
+
+    return require_permission(
+        PERMISSION_KP_SHOP_EDIT
+    )(func)

@@ -1,0 +1,20 @@
+{
+  "id": "sb_002",
+  "number": 2,
+  "slug": "remnants",
+  "name": "The Remnants",
+  "questline": "the_six_bells",
+  "chapter": "aftershock",
+  "location": "Frostpine Route",
+  "type": "trainer_battle",
+  "battle": { "npc": "krampus_believer", "team_size": 3 },
+  "objective": "Team Krampus did not vanish with its Director. Loyalists are still moving through Frostpine — and they are no longer hiding.",
+  "intro": "The scout camp is rebuilt. A believer in dark crimson warms her hands over a fire and does not reach for a weapon. She reaches for a bell.",
+  "dialogue": [
+    "Krampus Believer: \"You beat the Director. So what? The bells don't care about you.\"",
+    "Krampus Believer (defeated): \"The bells were never his. He just knew how to listen.\""
+  ],
+  "lore_discovery": "The loyalists answer to someone new. They speak of a herald beneath the ice, and of ringing the bells 'before the thaw'.",
+  "requirements": ["sb_001"],
+  "rewards": { "items": [{ "id": "potion", "quantity": 3 }], "money": 900, "xp": 2200 }
+}

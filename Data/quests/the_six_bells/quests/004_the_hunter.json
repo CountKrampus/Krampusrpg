@@ -1,0 +1,20 @@
+{
+  "id": "sb_004",
+  "number": 4,
+  "slug": "the_hunter",
+  "name": "The Hunter",
+  "questline": "the_six_bells",
+  "chapter": "the_hunter",
+  "location": "Frostpine Ridge",
+  "type": "commander_battle",
+  "battle": { "npc": "hunter_sigrun", "team_size": 4, "escapes": true },
+  "objective": "Someone else is hunting the Frostbells: Sigrun, a monster hunter who destroys relics rather than collect them. She wants the bell you carry.",
+  "intro": "She has been tracking you since the Keep. She does not draw her weapon. She draws your attention to the claws of her Absol.",
+  "dialogue": [
+    "Hunter Sigrun: \"You're the one who beat Krampus. Good. Then you'll understand when I take that bell off you.\"",
+    "Hunter Sigrun (defeated): \"...Strong. And soft. That softness will get someone killed.\""
+  ],
+  "lore_discovery": "Sigrun's family sealed the Frostbells generations ago. She believes the bells must be destroyed, not hidden — and that keeping them makes the player a target.",
+  "requirements": ["sb_003"],
+  "rewards": { "money": 1300, "xp": 2800 }
+}

@@ -4,6 +4,7 @@
   "slug": "first_lieutenant",
   "name": "The First Lieutenant",
   "questline": "team_krampus",
+  "chapter": "relic",
   "location": "Frostpine Ridge",
   "type": "commander_battle",
   "battle": {"npc": "lieutenant_noelle", "team_size": 4, "escapes": true},

@@ -1,0 +1,49 @@
+{
+  "id": "the_six_bells",
+  "section": "team_krampus",
+  "order": 2,
+  "title": "Quest Line 02 — The Six Bells",
+  "organization": "the_six_bells",
+  "premise": "Director Krampus escaped with the Krampus Bell — but the bell was only one of six. Scattered across the region, the remaining bells each hold a fraction of the Winterheart's power. Ring all six and the seal beneath Frostpine breaks. The player must find the bells before the scattered remnants of Team Krampus regroup under a new face.",
+  "theme": "Who rings the bells — and what answers?",
+  "regions": ["frostpine", "hollyhollow"],
+  "key_artifacts": ["krampus_bell", "frostbell_fragment", "winterheart"],
+  "key_npcs": [
+    "bell_warden",
+    "krampus_believer",
+    "hunter_sigrun",
+    "bell_thief",
+    "echo_priest",
+    "krampus_defector",
+    "frost_herald"
+  ],
+  "final_boss": "frost_herald",
+  "signature_reward": "glalie",
+  "chapters": [
+    {
+      "id": "aftershock",
+      "name": "Chapter I — Aftershock",
+      "description": "The Keep stands empty. Krampus is gone — and so is the bell. The hunt begins.",
+      "quests": ["sb_001", "sb_002", "sb_003"]
+    },
+    {
+      "id": "the_hunter",
+      "name": "Chapter II — The Hunter",
+      "description": "A monster hunter named Sigrun is also tracking the bells. She is not friendly — and she is not wrong.",
+      "quests": ["sb_004", "sb_005", "sb_006"]
+    },
+    {
+      "id": "the_echo",
+      "name": "Chapter III — The Echo Cult",
+      "description": "A quiet sect has worshipped the bells for generations. They believe ringing them is a mercy.",
+      "quests": ["sb_007", "sb_008", "sb_009"]
+    },
+    {
+      "id": "the_fifth_bell",
+      "name": "Chapter IV — The Fifth Bell",
+      "description": "Five bells found, one missing. The herald wakes beneath the ice.",
+      "quests": ["sb_010", "sb_011", "sb_012"]
+    }
+  ],
+  "next_questline": "the_winterheart"
+}

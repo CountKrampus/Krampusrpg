@@ -382,6 +382,15 @@ def get_species(
                     "speed": species_dict["base_speed"],
                 }
 
+                # Learnset from the catalog's pokemon_species_moves
+                # table (the JSON fallback below reads it from
+                # pokemon.json). Without this the DB path returned a
+                # species with NO moves, which made every Pokémon's
+                # learnset empty and move learning impossible.
+                species_dict["starting_moves"], species_dict["level_up_moves"] = (
+                    _species_learnset_from_db(species_dict["id"])
+                )
+
                 # Abilities live in the catalog tables (created by the
                 # catalog importer). They're absent in JSON-only
                 # deployments, where the species JSON fallback below
@@ -461,6 +470,87 @@ def get_species(
             pass
 
     return None
+
+
+# ============================================================
+# SPECIES LEARNSET (DATABASE)
+# ============================================================
+
+# Learnset queries are cached per species: the catalog is static at
+# runtime, and get_species() runs on nearly every request.
+_SPECIES_LEARNSET_CACHE: dict[str, tuple[list[str], list[dict[str, Any]]]] = {}
+
+
+def _species_learnset_from_db(
+    species_id: str,
+) -> tuple[list[str], list[dict[str, Any]]]:
+    """
+    A species' (starting_moves, level_up_moves) from the
+    pokemon_species_moves catalog table.
+
+    - learn_method 'level-up' rows only (egg/tutor/machine are
+      deliberately excluded; the JSON data files use the same scope).
+    - Catalog data repeats moves across version groups and uses
+      hyphenated ids ('vine-whip'); we keep the earliest level per
+      move and normalize to the underscore convention used by the
+      moves catalog and everywhere else in the codebase.
+    - Moves missing from the moves catalog are dropped (they can't be
+      taught or used); the JSON fallback shape only ever contained
+      resolvable ids too.
+    """
+
+    cached = _SPECIES_LEARNSET_CACHE.get(species_id)
+    if cached is not None:
+        return cached
+
+    starting: list[str] = []
+    level_up: list[dict[str, Any]] = []
+
+    try:
+        with get_connection() as db:
+            rows = db.execute(
+                """
+                SELECT move_id, MIN(learn_level) AS lvl
+                FROM pokemon_species_moves
+                WHERE species_id = ?
+                  AND learn_method = 'level-up'
+                GROUP BY move_id
+                ORDER BY lvl, move_id
+                """,
+                (species_id,),
+            ).fetchall()
+
+            catalog_ids = {
+                str(row["id"]).lower()
+                for row in db.execute("SELECT id FROM moves").fetchall()
+            }
+
+        for row in rows:
+            move_id = str(row["move_id"]).strip().lower().replace("-", "_")
+
+            if move_id not in catalog_ids:
+                continue
+
+            level = max(1, int(row["lvl"] or 1))
+
+            if level <= 1:
+                starting.append(move_id)
+            else:
+                level_up.append(
+                    {
+                        "move": move_id,
+                        "level": level,
+                    }
+                )
+    except sqlite3.OperationalError:
+        # Table absent (JSON-only deployments) — fall back to empty;
+        # get_species()'s JSON path handles those deployments.
+        pass
+
+    result = (starting, level_up)
+    _SPECIES_LEARNSET_CACHE[species_id] = result
+
+    return result
 
 
 # ============================================================
@@ -1907,9 +1997,12 @@ def create_pokemon(
 
     variant = resolved_variant["id"]
 
+    # No upper level cap: Pokémon may exceed the classic level 100
+    # (leaderboard progression). Stats scale linearly and SQLite
+    # handles the big integers fine.
     level = max(
         1,
-        min(100, int(level)),
+        int(level),
     )
 
     gender = generate_gender(

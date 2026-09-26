@@ -1,0 +1,20 @@
+{
+  "id": "lr_001",
+  "number": 1,
+  "slug": "the_unregistered_lantern",
+  "name": "The Unregistered Lantern",
+  "questline": "lantern_registry",
+  "chapter": "the_missing_light",
+  "location": "Hollyhollow Village — Festival Square",
+  "type": "story",
+  "battle": null,
+  "objective": "The Winterwake registry counts every lantern. This year there is one more lantern than entries — and it is lit. Investigate the festival square.",
+  "intro": "Nine hundred and twelve lanterns registered. Nine hundred and thirteen hanging above the square. The extra one is not like the others: it burns blue, and it was not there yesterday.",
+  "dialogue": [
+    "Registry Clerk: \"Nine hundred and twelve. I have counted them every Winterwake since I was six. There are nine hundred and thirteen.\"",
+    "Registry Clerk: \"And the Lamplighter — the one who hangs them — has not been seen since the count.\""
+  ],
+  "lore_discovery": "The blue lantern is not festival property. Its style predates the village itself.",
+  "requirements": [],
+  "rewards": { "items": [{ "id": "potion", "quantity": 2 }], "money": 500, "xp": 600 }
+}

@@ -1,0 +1,20 @@
+{
+  "id": "lr_006",
+  "number": 6,
+  "slug": "the_keeper_of_uncounted_lights",
+  "name": "The Keeper of Uncounted Lights",
+  "questline": "lantern_registry",
+  "chapter": "the_undervillage",
+  "location": "The Undervillage",
+  "type": "boss_battle",
+  "battle": { "npc": "undervillage_curator", "team_size": 5, "escapes": true, "boss_mechanic": "lantern_veil" },
+  "objective": "Reach the Curator of the Undervillage and convince it to let the Lamplighter — and the festival's oldest lanterns — go home.",
+  "intro": "The Undervillage is beautiful: a whole village of hanging lanterns, lit and labeled with names nobody in Hollyhollow remembers. At its heart, the Curator waits beneath the blue lantern.",
+  "dialogue": [
+    "The Curator: \"You want the Lamplighter. The Lamplighter wants to stay. Convince me otherwise.\"",
+    "The Curator (defeated): \"...Then take the wick. The village above will need a new keeper of uncounted lights someday. Perhaps it is you.\""
+  ],
+  "lore_discovery": "The Lamplighter is found — happy, older than they should be, and unwilling to leave. They choose to stay below. The player returns with the wick, the key, and a new title on the list.",
+  "requirements": ["lr_005"],
+  "rewards": { "money": 2000, "xp": 2600 }
+}

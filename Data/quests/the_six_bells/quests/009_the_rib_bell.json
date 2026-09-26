@@ -1,0 +1,20 @@
+{
+  "id": "sb_009",
+  "number": 9,
+  "slug": "the_rib_bell",
+  "name": "The Rib Bell",
+  "questline": "the_six_bells",
+  "chapter": "the_echo",
+  "location": "Ancient Shrine, Frostpine — Vault",
+  "type": "story",
+  "battle": null,
+  "objective": "Descend into the vault beneath the Ancient Shrine and recover the fourth Frostbell before the cult's solstice ceremony.",
+  "intro": "The shrine's true cellar is older than the shrine above it. The walls are ribbed, like the inside of something's chest.",
+  "dialogue": [
+    "Researcher: \"This vault predates every settlement in the region. The shrine wasn't built to honor the bells. It was built to hide one.\"",
+    "Researcher: \"The bell is shaped like a rib. If the legend is literal — if these bells are parts of a creature — I don't know what that makes the Winterheart.\""
+  ],
+  "lore_discovery": "The fourth Frostbell is recovered. The five bells now resonate constantly, faintly, like a heartbeat heard through a wall.",
+  "requirements": ["sb_008"],
+  "rewards": { "money": 2300, "xp": 4200, "quest_items": ["frostbell_fourth"] }
+}

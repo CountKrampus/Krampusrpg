@@ -73,8 +73,8 @@ CREATE TABLE IF NOT EXISTS players (
 CREATE TABLE IF NOT EXISTS player_progress (
     player_id INTEGER PRIMARY KEY,
 
-    current_region TEXT NOT NULL DEFAULT 'krampus',
-    current_area TEXT NOT NULL DEFAULT 'krampus_town',
+    current_region TEXT NOT NULL DEFAULT 'hollyhollow',
+    current_area TEXT NOT NULL DEFAULT 'hollyhollow_village',
 
     money INTEGER NOT NULL DEFAULT 1000,
     badges INTEGER NOT NULL DEFAULT 0,
@@ -114,7 +114,6 @@ CREATE TABLE IF NOT EXISTS pokemon (
         ON DELETE CASCADE,
 
     CHECK (level >= 1),
-    CHECK (level <= 100),
     CHECK (experience >= 0),
     CHECK (shiny IN (0, 1)),
     CHECK (current_hp >= 0),
@@ -862,6 +861,22 @@ PERMISSIONS = [
         "admin.database",
         "Perform database administration.",
     ),
+    (
+        "admin.krampus_points.view",
+        "View Krampus Points balances and transactions.",
+    ),
+    (
+        "admin.krampus_points.edit",
+        "Award, deduct, and manage Krampus Points for players.",
+    ),
+    (
+        "admin.kp_shop.view",
+        "View the Krampus Points shop configuration.",
+    ),
+    (
+        "admin.kp_shop.edit",
+        "Create, edit, and delete Krampus Points shop items.",
+    ),
 ]
 
 
@@ -892,6 +907,8 @@ ROLE_PERMISSIONS = {
         "admin.promos.edit",
         "admin.events.view",
         "admin.events.edit",
+        "admin.kp_shop.view",
+        "admin.kp_shop.edit",
     ],
 
     "admin": [
@@ -912,6 +929,10 @@ ROLE_PERMISSIONS = {
         "moderation.reports",
         "admin.reports.view",
         "admin.audit_log",
+        "admin.krampus_points.view",
+        "admin.krampus_points.edit",
+        "admin.kp_shop.view",
+        "admin.kp_shop.edit",
     ],
 
     "webmaster": [
@@ -1493,7 +1514,7 @@ def _compute_stats_for_migration(
     species_map: dict[str, dict] | None = None,
 ) -> dict[str, int]:
     """Compute baseline stats for a Pokémon when rebuilding tables."""
-    level = max(1, min(100, int(level)))
+    level = max(1, int(level))
     base_stats = {
         "hp": 50,
         "attack": 50,
@@ -1566,7 +1587,7 @@ def rebuild_legacy_pokemon_tables(
         pokemon_sql = row_sql[0] if row_sql else ""
         missing_checks = (
             "CHECK (level >= 1)" not in pokemon_sql
-            or "CHECK (level <= 100)" not in pokemon_sql
+            or "CHECK (level <= 100)" in pokemon_sql
         )
         needs_pokemon_rebuild = has_legacy_cols or missing_checks
 
@@ -1646,7 +1667,6 @@ def rebuild_legacy_pokemon_tables(
                         REFERENCES players(id)
                         ON DELETE CASCADE,
                     CHECK (level >= 1),
-                    CHECK (level <= 100),
                     CHECK (experience >= 0),
                     CHECK (shiny IN (0, 1)),
                     CHECK (current_hp >= 0),
@@ -1657,7 +1677,7 @@ def rebuild_legacy_pokemon_tables(
 
             for p in pokemon_rows:
                 r = dict(p)
-                lvl = max(1, min(100, int(r.get("level") or 5)))
+                lvl = max(1, int(r.get("level") or 5))
                 exp = max(0, int(r.get("experience") or 0))
                 shiny = 1 if r.get("shiny") else 0
                 gender = str(r.get("gender") or "unknown").lower()
@@ -1863,6 +1883,54 @@ def _migrate_players_role(
         UPDATE players
         SET role_id = 1
         WHERE role_id IS NULL
+        """
+    )
+
+
+# =============================================================================
+# LEGACY AREA MIGRATION
+# =============================================================================
+
+# Old default area ids from before the Hollyhollow/Frostpine world
+# (Quest Line 01) mapped onto their new equivalents.
+LEGACY_AREA_RENAMES = {
+    "krampus_town": "hollyhollow_village",
+    "frostbite_route": "frostpine_route",
+}
+
+
+def _migrate_legacy_area_ids(
+    db: sqlite3.Connection,
+) -> None:
+
+    if not table_exists(
+        db,
+        "player_progress",
+    ):
+        return
+
+    for old_id, new_id in LEGACY_AREA_RENAMES.items():
+
+        db.execute(
+            """
+            UPDATE player_progress
+            SET current_area = ?
+            WHERE current_area = ?
+            """,
+            (
+                new_id,
+                old_id,
+            ),
+        )
+
+    # The old 'krampus' region no longer exists in the Hollyhollow /
+    # Frostpine world; any player still parked there lives in the
+    # starting region now.
+    db.execute(
+        """
+        UPDATE player_progress
+        SET current_region = 'hollyhollow'
+        WHERE current_region = 'krampus'
         """
     )
 
@@ -2184,6 +2252,17 @@ def init_db() -> None:
         )
 
         _migrate_players_role(
+            db
+        )
+
+        # ---------------------------------------------------------------------
+        # Rename old default areas to the Hollyhollow/Frostpine world
+        # (Quest Line 01). krampus_town -> hollyhollow_village and
+        # frostbite_route -> frostpine_route keep existing players in a
+        # real area instead of a dangling reference.
+        # ---------------------------------------------------------------------
+
+        _migrate_legacy_area_ids(
             db
         )
 

@@ -1,0 +1,263 @@
+{% extends "admin/base.html" %}
+
+{% block title %}KP Shop{% endblock %}
+
+{% block content %}
+<div class="admin-page-header">
+    <div>
+        <h1>KP Shop Items</h1>
+        <p class="admin-subtitle">
+            Configure what players can buy with Krampus Points at /kp-shop.
+        </p>
+    </div>
+    <a href="{{ url_for('kp_admin.kp_overview') }}" class="admin-button admin-button-small">
+        ← KP Overview
+    </a>
+</div>
+
+<section class="admin-section">
+    <div class="admin-section-header">
+        <div>
+            <h2>Create Shop Item</h2>
+            <p>
+                Types: <strong>Item</strong> (bag item, e.g. potion),
+                <strong>Pokémon</strong> (species + level + variant),
+                <strong>Area Unlock</strong> (permanent access to an area id).
+            </p>
+        </div>
+    </div>
+
+    <form method="post" action="{{ url_for('kp_admin.kp_shop_create') }}" class="admin-form">
+        <div class="admin-card-grid" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));">
+
+            <div class="admin-form-group">
+                <label for="create-type">Type</label>
+                <select id="create-type" name="item_type" required>
+                    <option value="item">Item</option>
+                    <option value="pokemon">Pokémon</option>
+                    <option value="area_unlock">Area Unlock</option>
+                </select>
+            </div>
+
+            <div class="admin-form-group">
+                <label for="create-name">Name</label>
+                <input type="text" id="create-name" name="name" required maxlength="80">
+            </div>
+
+            <div class="admin-form-group">
+                <label for="create-ref">Reference</label>
+                <input type="text" id="create-ref" name="item_ref" maxlength="80" placeholder="item_id / species_id / area_id">
+            </div>
+
+            <div class="admin-form-group">
+                <label for="create-variant">Variant (Pokémon only)</label>
+                <select id="create-variant" name="variant">
+                    <option value="normal">normal</option>
+                    {% for v in variants %}
+                    <option value="{{ v.id }}">{{ v.id }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="admin-form-group">
+                <label for="create-level">Level (Pokémon only)</label>
+                <input type="number" id="create-level" name="level" min="1" max="1000000" value="5">
+            </div>
+
+            <div class="admin-form-group">
+                <label for="create-price">Price (KP)</label>
+                <input type="number" id="create-price" name="price" min="0" value="100" required>
+            </div>
+
+            <div class="admin-form-group">
+                <label for="create-stock">Stock (-1 = unlimited)</label>
+                <input type="number" id="create-stock" name="stock" value="-1">
+            </div>
+
+            <div class="admin-form-group">
+                <label for="create-sort">Sort Order</label>
+                <input type="number" id="create-sort" name="sort_order" value="0">
+            </div>
+
+            <div class="admin-form-group">
+                <label for="create-starts">Starts At (ISO, optional)</label>
+                <input type="datetime-local" id="create-starts" name="starts_at">
+            </div>
+
+            <div class="admin-form-group">
+                <label for="create-ends">Ends At (ISO, optional)</label>
+                <input type="datetime-local" id="create-ends" name="ends_at">
+            </div>
+
+        </div>
+
+        <div class="admin-form-group">
+            <label for="create-desc">Description</label>
+            <input type="text" id="create-desc" name="description" maxlength="200" placeholder="Shown on the player-facing shop">
+        </div>
+
+        <div class="admin-form-group admin-checkbox-row">
+            <label>
+                <input type="checkbox" name="active" value="1" checked>
+                Active (visible to players)
+            </label>
+        </div>
+
+        <button type="submit" class="admin-button">Create Shop Item</button>
+    </form>
+</section>
+
+<section class="admin-section">
+    <div class="admin-section-header">
+        <div>
+            <h2>Shop Items</h2>
+            <p>Edit, toggle, or delete existing KP shop items.</p>
+        </div>
+    </div>
+
+    {% if shop_items %}
+    <div class="admin-table-container">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Type</th>
+                    <th>Name</th>
+                    <th>Reference</th>
+                    <th>Price</th>
+                    <th>Stock</th>
+                    <th>Window</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in shop_items %}
+                <tr>
+                    <td>{{ item.id }}</td>
+                    <td>{{ item.item_type }}</td>
+                    <td>
+                        <strong>{{ item.name }}</strong>
+                        {% if item.description %}
+                        <br><small>{{ item.description }}</small>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {{ item.item_ref or "—" }}
+                        {% if item.item_type == "pokemon" and item.variant and item.variant != "normal" %}
+                        <br><small>{{ item.variant }} · Lv. {{ item.level }}</small>
+                        {% endif %}
+                    </td>
+                    <td>{{ item.price }} KP</td>
+                    <td>{{ "∞" if item.stock == -1 else item.stock }}</td>
+                    <td>
+                        {% if item.starts_at or item.ends_at %}
+                        <small>{{ item.starts_at or "…" }} → {{ item.ends_at or "…" }}</small>
+                        {% else %}
+                        —
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if item.active %}
+                        <span class="admin-status-badge status-success">Active</span>
+                        {% else %}
+                        <span class="admin-status-badge">Inactive</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <form method="post" action="{{ url_for('kp_admin.kp_shop_toggle', item_id=item.id) }}" style="display:inline;">
+                            <button type="submit" class="admin-button admin-button-small">
+                                {{ "Deactivate" if item.active else "Activate" }}
+                            </button>
+                        </form>
+                        <button type="button" class="admin-button admin-button-small"
+                                onclick="document.getElementById('edit-{{ item.id }}').style.display = document.getElementById('edit-{{ item.id }}').style.display === 'none' ? '' : 'none';">
+                            Edit
+                        </button>
+                        <form method="post" action="{{ url_for('kp_admin.kp_shop_delete', item_id=item.id) }}" style="display:inline;"
+                              onsubmit="return confirm('Delete shop item {{ item.name }}?');">
+                            <button type="submit" class="admin-button admin-button-small admin-button-danger">
+                                Delete
+                            </button>
+                        </form>
+
+                        <div id="edit-{{ item.id }}" style="display:none; margin-top:10px; padding:12px; border:1px solid var(--admin-border, #444); border-radius:6px;">
+                            <form method="post" action="{{ url_for('kp_admin.kp_shop_edit', item_id=item.id) }}" class="admin-form">
+                                <div class="admin-card-grid" style="grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));">
+                                    <div class="admin-form-group">
+                                        <label>Type</label>
+                                        <select name="item_type">
+                                            <option value="item" {% if item.item_type == 'item' %}selected{% endif %}>Item</option>
+                                            <option value="pokemon" {% if item.item_type == 'pokemon' %}selected{% endif %}>Pokémon</option>
+                                            <option value="area_unlock" {% if item.item_type == 'area_unlock' %}selected{% endif %}>Area Unlock</option>
+                                        </select>
+                                    </div>
+                                    <div class="admin-form-group">
+                                        <label>Name</label>
+                                        <input type="text" name="name" value="{{ item.name }}" required maxlength="80">
+                                    </div>
+                                    <div class="admin-form-group">
+                                        <label>Reference</label>
+                                        <input type="text" name="item_ref" value="{{ item.item_ref }}" maxlength="80">
+                                    </div>
+                                    <div class="admin-form-group">
+                                        <label>Variant</label>
+                                        <select name="variant">
+                                            <option value="normal" {% if item.variant == 'normal' %}selected{% endif %}>normal</option>
+                                            {% for v in variants %}
+                                            <option value="{{ v.id }}" {% if item.variant == v.id %}selected{% endif %}>{{ v.id }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="admin-form-group">
+                                        <label>Level</label>
+                                        <input type="number" name="level" min="1" max="1000000" value="{{ item.level }}">
+                                    </div>
+                                    <div class="admin-form-group">
+                                        <label>Price (KP)</label>
+                                        <input type="number" name="price" min="0" value="{{ item.price }}" required>
+                                    </div>
+                                    <div class="admin-form-group">
+                                        <label>Stock (-1 = ∞)</label>
+                                        <input type="number" name="stock" value="{{ item.stock }}">
+                                    </div>
+                                    <div class="admin-form-group">
+                                        <label>Sort Order</label>
+                                        <input type="number" name="sort_order" value="{{ item.sort_order }}">
+                                    </div>
+                                    <div class="admin-form-group">
+                                        <label>Starts At</label>
+                                        <input type="datetime-local" name="starts_at" value="{{ item.starts_at or '' }}">
+                                    </div>
+                                    <div class="admin-form-group">
+                                        <label>Ends At</label>
+                                        <input type="datetime-local" name="ends_at" value="{{ item.ends_at or '' }}">
+                                    </div>
+                                </div>
+                                <div class="admin-form-group">
+                                    <label>Description</label>
+                                    <input type="text" name="description" value="{{ item.description }}" maxlength="200">
+                                </div>
+                                <div class="admin-form-group admin-checkbox-row">
+                                    <label>
+                                        <input type="checkbox" name="active" value="1" {% if item.active %}checked{% endif %}>
+                                        Active (visible to players)
+                                    </label>
+                                </div>
+                                <button type="submit" class="admin-button admin-button-small">Save Changes</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="admin-empty-state">
+        <h3>No Shop Items</h3>
+        <p>Create the first KP shop item above.</p>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}

@@ -933,6 +933,11 @@ def seed_roadmap(force: bool = False) -> None:
                         ("Encounter generation", True),
                         ("Ball types & catch rates", False),
                         ("Catch animation/flow", False),
+                        (
+                            "Per-encounter variant support (admin + wild rolls)",
+                            True,
+                        ),
+                        ("Rare variant_chance spawns", True),
                     ],
                 ),
                 (
@@ -962,6 +967,42 @@ def seed_roadmap(force: bool = False) -> None:
                     "",
                     "",
                     [],
+                ),
+                (
+                    "Move Learning",
+                    STATUS_COMPLETED,
+                    PRIORITY_HIGH,
+                    "Pokémon Sprint 2",
+                    "",
+                    [
+                        (
+                            "Learnset resolution from catalog DB (583k-row table)",
+                            True,
+                        ),
+                        (
+                            "Learn/forget moves with 4-slot replacement flow",
+                            True,
+                        ),
+                        ("PC panel Learn buttons + level gates", True),
+                    ],
+                ),
+                (
+                    "Uncapped Levels",
+                    STATUS_COMPLETED,
+                    PRIORITY_HIGH,
+                    "Pokémon Sprint 2",
+                    "",
+                    [
+                        (
+                            "Remove DB CHECK constraint + migrate existing tables",
+                            True,
+                        ),
+                        (
+                            "Remove clamps in creation, catching, battles, admin tools",
+                            True,
+                        ),
+                        ("Raise admin form level limits", True),
+                    ],
                 ),
             ],
         ),
@@ -1012,16 +1053,47 @@ def seed_roadmap(force: bool = False) -> None:
                     [
                         ("Region data model", True),
                         ("Area encounters", True),
-                        ("Map UI", False),
+                        ("Map UI", True),
+                        ("Spawn tables with odds on area cards", True),
+                        (
+                            "Search Again button + live progression updates",
+                            True,
+                        ),
+                        (
+                            "Area unlock gates (search-count progression)",
+                            True,
+                        ),
                     ],
                 ),
                 (
                     "Quests",
-                    STATUS_BACKLOG,
+                    STATUS_IN_DEVELOPMENT,
                     PRIORITY_MEDIUM,
+                    "World Sprint 2",
                     "",
-                    "",
-                    [],
+                    [
+                        (
+                            "Quest Line 01 — The Krampus Conspiracy (12 quests, data-driven)",
+                            True,
+                        ),
+                        ("Story Adventure hub + per-quest pages", True),
+                        (
+                            "Playable story battles (turn engine, battle persistence)",
+                            True,
+                        ),
+                        (
+                            "Quest rewards (money, items, XP, Pokémon rewards)",
+                            True,
+                        ),
+                        (
+                            "Quest line sections (Team Krampus / Side Stories)",
+                            True,
+                        ),
+                        (
+                            "Quest line chain locks — finish the previous line to unlock the next",
+                            True,
+                        ),
+                    ],
                 ),
                 (
                     "Mining",
@@ -1033,7 +1105,7 @@ def seed_roadmap(force: bool = False) -> None:
                 ),
                 (
                     "Achievements",
-                    STATUS_BACKLOG,
+                    STATUS_PLANNED,
                     PRIORITY_LOW,
                     "",
                     "",
@@ -1068,6 +1140,59 @@ def seed_roadmap(force: bool = False) -> None:
                     "",
                     "",
                     [],
+                ),
+            ],
+        ),
+        (
+            "Economy & Services",
+            "Player services, currency, and staff tooling.",
+            [
+                (
+                    "Pokémon Center",
+                    STATUS_COMPLETED,
+                    PRIORITY_HIGH,
+                    "World Sprint 2",
+                    "",
+                    [
+                        ("Party-only full heal service", True),
+                        ("HP bars, injury summary, Heal All", True),
+                        ("Fainted-party warning on quest pages", True),
+                        (
+                            "Heal fee above average level 15 + confirm dialog",
+                            True,
+                        ),
+                    ],
+                ),
+                (
+                    "Krampus Points",
+                    STATUS_COMPLETED,
+                    PRIORITY_HIGH,
+                    "World Sprint 2",
+                    "",
+                    [
+                        ("KP balances + transaction ledger", True),
+                        (
+                            "Admin shop manager (create/edit/toggle/delete)",
+                            True,
+                        ),
+                        ("Player-facing KP shop with purchases", True),
+                        (
+                            "Variant validation + no-charge-on-failure purchase guard",
+                            True,
+                        ),
+                    ],
+                ),
+                (
+                    "Area Unlocks",
+                    STATUS_COMPLETED,
+                    PRIORITY_MEDIUM,
+                    "World Sprint 2",
+                    "",
+                    [
+                        ("Search-count unlock thresholds per area", True),
+                        ("Unlock progress bar + live updates", True),
+                        ("KP area_unlock purchases", True),
+                    ],
                 ),
             ],
         ),

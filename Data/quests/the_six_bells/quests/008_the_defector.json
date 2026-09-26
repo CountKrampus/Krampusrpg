@@ -1,0 +1,20 @@
+{
+  "id": "sb_008",
+  "number": 8,
+  "slug": "the_defector",
+  "name": "The Defector",
+  "questline": "the_six_bells",
+  "chapter": "the_echo",
+  "location": "Frostpine Forest",
+  "type": "trainer_battle",
+  "battle": { "npc": "krampus_defector", "team_size": 4 },
+  "objective": "A former Krampus officer offers to trade the location of the fourth bell — for a fight. He wants to know if you are strong enough for what comes next.",
+  "intro": "He removes his old insignia before he battles. He folds it neatly, sets it on a stump, and bows.",
+  "dialogue": [
+    "Krampus Defector: \"I marched under the skull. I know what the bell really does. Walk away.\"",
+    "Krampus Defector (defeated): \"Fine. The vault. Under the shrine. But you won't like what you hear.\""
+  ],
+  "lore_discovery": "The defector heard the Director's final bell from inside the Keep. He says it did not summon anything. It answered something.",
+  "requirements": ["sb_007"],
+  "rewards": { "money": 2100, "xp": 3800 }
+}

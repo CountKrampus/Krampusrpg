@@ -4,15 +4,32 @@
   "motto": "The world has forgotten what fear is.",
   "philosophy": "For centuries, humans have made this world comfortable — walls, cities, rules — and every generation the Pokémon grew weaker. Team Krampus wants to restore the old balance, even if it means forcibly evolving, manipulating, and experimenting on Pokémon.",
   "hierarchy": {
-    "director": ["director_krampus"],
+    "director": [
+      "director_krampus"
+    ],
     "high_command": [],
-    "research_division": ["krampus_archaeologist"],
-    "field_command": ["lieutenant_noelle"],
-    "enforcers": ["krampus_enforcer", "krampus_senior_grunt"],
-    "scouts": ["krampus_scout"],
-    "grunts": ["krampus_recruit"],
-    "keepers": ["krampus_keeper"],
-    "handlers": ["krampus_handler"]
+    "research_division": [
+      "krampus_archaeologist"
+    ],
+    "field_command": [
+      "lieutenant_noelle"
+    ],
+    "enforcers": [
+      "krampus_enforcer",
+      "krampus_senior_grunt"
+    ],
+    "scouts": [
+      "krampus_scout"
+    ],
+    "grunts": [
+      "krampus_recruit"
+    ],
+    "keepers": [
+      "krampus_keeper"
+    ],
+    "handlers": [
+      "krampus_handler"
+    ]
   },
   "npcs": {
     "krampus_recruit": {
@@ -24,8 +41,12 @@
       "intro": "\"You shouldn't be here.\"",
       "defeat": "\"This isn't over. The Boss will hear about you.\"",
       "team": [
-        {"species": "zubat", "level": 5}
-      ]
+        {
+          "species": "zubat",
+          "level": 5
+        }
+      ],
+      "sprite": "npcs/krampus_grunt.jpg"
     },
     "krampus_scout": {
       "id": "krampus_scout",
@@ -36,9 +57,18 @@
       "intro": "\"Those tracks? You saw nothing.\"",
       "defeat": "\"Keep following them. See where it gets you.\"",
       "team": [
-        {"species": "zubat", "level": 6},
-        {"species": "sneasel", "level": 7}
-      ]
+        {
+          "species": "zubat",
+          "level": 6,
+          "variant": "normal"
+        },
+        {
+          "species": "sneasel",
+          "level": 7,
+          "variant": "normal"
+        }
+      ],
+      "sprite": "npcs/krampus_grunt.jpg"
     },
     "krampus_handler": {
       "id": "krampus_handler",
@@ -49,10 +79,20 @@
       "intro": "\"Get away from those cages.\"",
       "defeat": "\"You think we're hurting them? We're saving them from what comes next.\"",
       "team": [
-        {"species": "poochyena", "level": 7},
-        {"species": "zubat", "level": 7},
-        {"species": "sneasel", "level": 8}
-      ]
+        {
+          "species": "poochyena",
+          "level": 7
+        },
+        {
+          "species": "zubat",
+          "level": 7
+        },
+        {
+          "species": "sneasel",
+          "level": 8
+        }
+      ],
+      "sprite": "npcs/krampus_handler.jpg"
     },
     "krampus_archaeologist": {
       "id": "krampus_archaeologist",
@@ -63,10 +103,20 @@
       "intro": "\"This shrine predates every village in the region. It belongs to us.\"",
       "defeat": "\"Too late. The relic is already gone.\"",
       "team": [
-        {"species": "yamask", "level": 8},
-        {"species": "sneasel", "level": 9},
-        {"species": "murkrow", "level": 9}
-      ]
+        {
+          "species": "yamask",
+          "level": 8
+        },
+        {
+          "species": "sneasel",
+          "level": 9
+        },
+        {
+          "species": "murkrow",
+          "level": 9
+        }
+      ],
+      "sprite": "npcs/Krampus_archeologist.jpg"
     },
     "lieutenant_noelle": {
       "id": "lieutenant_noelle",
@@ -78,11 +128,24 @@
       "defeat": "\"Interesting... You're going to become a problem.\"",
       "escapes": true,
       "team": [
-        {"species": "sneasel", "level": 10},
-        {"species": "houndour", "level": 10},
-        {"species": "murkrow", "level": 11},
-        {"species": "froslass", "level": 12}
-      ]
+        {
+          "species": "sneasel",
+          "level": 10
+        },
+        {
+          "species": "houndour",
+          "level": 10
+        },
+        {
+          "species": "murkrow",
+          "level": 11
+        },
+        {
+          "species": "froslass",
+          "level": 12
+        }
+      ],
+      "sprite": "npcs/lieutenant_Noelle.jpg"
     },
     "krampus_keeper": {
       "id": "krampus_keeper",
@@ -93,11 +156,24 @@
       "intro": "\"The children are here because they want to be.\"",
       "defeat": "\"We don't steal children. We teach them what your villages refuse to.\"",
       "team": [
-        {"species": "mightyena", "level": 11},
-        {"species": "golbat", "level": 11},
-        {"species": "sneasel", "level": 12},
-        {"species": "houndour", "level": 12}
-      ]
+        {
+          "species": "mightyena",
+          "level": 11
+        },
+        {
+          "species": "golbat",
+          "level": 11
+        },
+        {
+          "species": "sneasel",
+          "level": 12
+        },
+        {
+          "species": "houndour",
+          "level": 12
+        }
+      ],
+      "sprite": "npcs/krampus_keeper.jpg"
     },
     "krampus_grunt_a": {
       "id": "krampus_grunt_a",
@@ -108,9 +184,16 @@
       "intro": "\"The town goes dark tonight!\"",
       "defeat": "\"It doesn't matter — the others are already inside!\"",
       "team": [
-        {"species": "houndour", "level": 12},
-        {"species": "zubat", "level": 12}
-      ]
+        {
+          "species": "houndour",
+          "level": 12
+        },
+        {
+          "species": "zubat",
+          "level": 12
+        }
+      ],
+      "sprite": "npcs/krampus_grunt.jpg"
     },
     "krampus_grunt_b": {
       "id": "krampus_grunt_b",
@@ -121,10 +204,20 @@
       "intro": "\"The Boss wants the bell. Don't get in the way.\"",
       "defeat": "\"You're too late. It's already ringing.\"",
       "team": [
-        {"species": "poochyena", "level": 12},
-        {"species": "sneasel", "level": 13},
-        {"species": "murkrow", "level": 13}
-      ]
+        {
+          "species": "poochyena",
+          "level": 12
+        },
+        {
+          "species": "sneasel",
+          "level": 13
+        },
+        {
+          "species": "murkrow",
+          "level": 13
+        }
+      ],
+      "sprite": "npcs/krampus_grunt.jpg"
     },
     "krampus_enforcer": {
       "id": "krampus_enforcer",
@@ -135,11 +228,24 @@
       "intro": "\"Nobody leaves the plaza.\"",
       "defeat": "\"The blackout was never the point. You've lost already.\"",
       "team": [
-        {"species": "golbat", "level": 13},
-        {"species": "houndour", "level": 13},
-        {"species": "mightyena", "level": 14},
-        {"species": "froslass", "level": 14}
-      ]
+        {
+          "species": "golbat",
+          "level": 13
+        },
+        {
+          "species": "houndour",
+          "level": 13
+        },
+        {
+          "species": "mightyena",
+          "level": 14
+        },
+        {
+          "species": "froslass",
+          "level": 14
+        }
+      ],
+      "sprite": "npcs/krampus_enforcer.jpg"
     },
     "krampus_grunt_keep_a": {
       "id": "krampus_grunt_keep_a",
@@ -150,9 +256,16 @@
       "intro": "\"An intruder in the Keep!\"",
       "defeat": "\"The corridors will swallow you.\"",
       "team": [
-        {"species": "zubat", "level": 14},
-        {"species": "poochyena", "level": 14}
-      ]
+        {
+          "species": "zubat",
+          "level": 14
+        },
+        {
+          "species": "poochyena",
+          "level": 14
+        }
+      ],
+      "sprite": "npcs/krampus_grunt.jpg"
     },
     "krampus_grunt_keep_b": {
       "id": "krampus_grunt_keep_b",
@@ -163,10 +276,20 @@
       "intro": "\"You've come further than the last one.\"",
       "defeat": "\"The Director will finish you.\"",
       "team": [
-        {"species": "sneasel", "level": 14},
-        {"species": "houndour", "level": 15},
-        {"species": "murkrow", "level": 15}
-      ]
+        {
+          "species": "sneasel",
+          "level": 14
+        },
+        {
+          "species": "houndour",
+          "level": 15
+        },
+        {
+          "species": "murkrow",
+          "level": 15
+        }
+      ],
+      "sprite": "npcs/krampus_grunt.jpg"
     },
     "krampus_grunt_keep_c": {
       "id": "krampus_grunt_keep_c",
@@ -177,11 +300,24 @@
       "intro": "\"The lab is off-limits!\"",
       "defeat": "\"Everything down there is beyond you.\"",
       "team": [
-        {"species": "golbat", "level": 15},
-        {"species": "mightyena", "level": 15},
-        {"species": "sneasel", "level": 16},
-        {"species": "froslass", "level": 16}
-      ]
+        {
+          "species": "golbat",
+          "level": 15
+        },
+        {
+          "species": "mightyena",
+          "level": 15
+        },
+        {
+          "species": "sneasel",
+          "level": 16
+        },
+        {
+          "species": "froslass",
+          "level": 16
+        }
+      ],
+      "sprite": "npcs/krampus_grunt.jpg"
     },
     "krampus_senior_grunt": {
       "id": "krampus_senior_grunt",
@@ -192,12 +328,28 @@
       "intro": "\"Beyond this door is the Director. Turn back.\"",
       "defeat": "\"So be it. Face him, then. If you can.\"",
       "team": [
-        {"species": "houndoom", "level": 16},
-        {"species": "weavile", "level": 16},
-        {"species": "golbat", "level": 16},
-        {"species": "froslass", "level": 17},
-        {"species": "murkrow", "level": 17}
-      ]
+        {
+          "species": "houndoom",
+          "level": 16
+        },
+        {
+          "species": "weavile",
+          "level": 16
+        },
+        {
+          "species": "golbat",
+          "level": 16
+        },
+        {
+          "species": "froslass",
+          "level": 17
+        },
+        {
+          "species": "murkrow",
+          "level": 17
+        }
+      ],
+      "sprite": "npcs/krampus_grunt.jpg"
     },
     "director_krampus": {
       "id": "director_krampus",
@@ -213,16 +365,41 @@
         "trigger": "at_50_percent_hp",
         "effect": "winters_wrath",
         "description": "The bell activates. Every remaining Pokémon receives Winter's Wrath: Attack up, Speed up, critical-hit chance up — but Defense down.",
-        "buffs": {"attack": 1, "speed": 1, "crit_chance": 0.1, "defense": -1}
+        "buffs": {
+          "attack": 1,
+          "speed": 1,
+          "crit_chance": 0.1,
+          "defense": -1
+        }
       },
       "team": [
-        {"species": "mightyena", "level": 16},
-        {"species": "golbat", "level": 16},
-        {"species": "houndoom", "level": 17},
-        {"species": "weavile", "level": 17},
-        {"species": "froslass", "level": 18},
-        {"species": "krampus_houndoom", "level": 20, "variant": "krampus"}
-      ]
+        {
+          "species": "mightyena",
+          "level": 16
+        },
+        {
+          "species": "golbat",
+          "level": 16
+        },
+        {
+          "species": "houndoom",
+          "level": 17
+        },
+        {
+          "species": "weavile",
+          "level": 17
+        },
+        {
+          "species": "froslass",
+          "level": 18
+        },
+        {
+          "species": "krampus_houndoom",
+          "level": 20,
+          "variant": "krampus"
+        }
+      ],
+      "sprite": "npcs/director_krampus.jpg"
     }
   }
 }

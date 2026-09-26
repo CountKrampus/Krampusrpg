@@ -1,0 +1,20 @@
+{
+  "id": "wh_003",
+  "number": 3,
+  "slug": "an_old_promise",
+  "name": "An Old Promise",
+  "questline": "the_winterheart",
+  "chapter": "midnight_bells",
+  "location": "Hollyhollow Bell Tower",
+  "type": "story",
+  "battle": null,
+  "objective": "Hear the Midnight Ringer's story and accept her rope. The nightly ringing now falls to you — and the Herald knows it.",
+  "intro": "She teaches you the rhythm in a single night: two soft, one loud, rest. 'A lullaby,' she says, 'is just a warning sung kindly.'",
+  "dialogue": [
+    "The Midnight Ringer: \"Take the rope. Ring it every midnight and the heart keeps dreaming. Miss a night, and it stirs. Ring all six together — that is the Winter Chorus, and the dream ends one way or the other.\"",
+    "The Midnight Ringer: \"The bells are not weapons, child. They are a promise. Someone made it long ago, and promises have a price.\""
+  ],
+  "lore_discovery": "The player inherits the midnight ringing. The first night they ring alone, the glacier at Frostpine Summit glows faintly blue.",
+  "requirements": ["wh_002"],
+  "rewards": { "money": 1600, "xp": 6000, "quest_items": ["midnight_rope"] }
+}

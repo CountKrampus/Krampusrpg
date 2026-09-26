@@ -1,0 +1,20 @@
+{
+  "id": "lr_005",
+  "number": 5,
+  "slug": "down_the_well",
+  "name": "Down the Well",
+  "questline": "lantern_registry",
+  "chapter": "the_undervillage",
+  "location": "Hollyhollow — The Old Well",
+  "type": "commander_battle",
+  "battle": { "npc": "lamplighter_apprentice", "team_size": 4, "escapes": true },
+  "objective": "Take the well's winch down after dark. The Undervillage has a doorkeeper, and the doorkeeper has questions.",
+  "intro": "The well is not wet. The winch turns on brass gears, and the platform descends past roots, past stone, past lanterns hanging in the dark like constellations.",
+  "dialogue": [
+    "Apprentice Wren: \"You knocked. Nobody knocks. Prove you should have.\"",
+    "Apprentice Wren (defeated): \"...You knock like a keeper. Fine. The well. After dark.\""
+  ],
+  "lore_discovery": "Wren guards the descent — and reveals she is the one who has been feeding the Lamplighter's lanterns down into the Undervillage for a year.",
+  "requirements": ["lr_004"],
+  "rewards": { "money": 1000, "xp": 1500 }
+}

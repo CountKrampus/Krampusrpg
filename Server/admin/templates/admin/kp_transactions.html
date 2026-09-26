@@ -1,0 +1,57 @@
+{% extends "admin/base.html" %}
+
+{% block title %}KP Transactions{% endblock %}
+
+{% block content %}
+<div class="admin-page-header">
+    <div>
+        <h1>KP Transaction Ledger</h1>
+        <p class="admin-subtitle">
+            Every Krampus Points award and spend across all players (latest 500).
+        </p>
+    </div>
+    <a href="{{ url_for('kp_admin.kp_overview') }}" class="admin-button admin-button-small">
+        ← KP Overview
+    </a>
+</div>
+
+<section class="admin-section">
+    {% if transactions %}
+    <div class="admin-table-container">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Player</th>
+                    <th>Amount</th>
+                    <th>Reason</th>
+                    <th>When</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for t in transactions %}
+                <tr>
+                    <td>{{ t.id }}</td>
+                    <td>{{ t.username or ("#" ~ t.player_id) }}</td>
+                    <td>
+                        {% if t.amount >= 0 %}
+                        <span class="admin-status-badge status-success">+{{ t.amount }}</span>
+                        {% else %}
+                        <span class="admin-status-badge status-danger">{{ t.amount }}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ t.reason }}</td>
+                    <td>{{ t.created_at }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="admin-empty-state">
+        <h3>No Transactions</h3>
+        <p>No KP has been awarded or spent yet.</p>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}

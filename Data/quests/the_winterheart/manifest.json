@@ -1,0 +1,49 @@
+{
+  "id": "the_winterheart",
+  "section": "team_krampus",
+  "order": 3,
+  "title": "Quest Line 03 — The Winterheart",
+  "organization": "the_winterheart",
+  "premise": "The five Frostbells are recovered, the Herald has retreated into the glacier, and the sixth bell — the original Krampus Bell — rings from somewhere beneath Frostpine every night at midnight. The final chapter: descend to the Winterheart itself, learn what the creature beneath the ice truly is, and decide whether the Winter Chorus is ever rung at all.",
+  "theme": "What do you do with a mercy that ends the world?",
+  "regions": ["frostpine", "hollyhollow"],
+  "key_artifacts": ["winterheart", "krampus_bell", "sixth_bell"],
+  "key_npcs": [
+    "director_krampus",
+    "hunter_sigrun",
+    "echo_priest",
+    "frost_herald",
+    "winter_priest",
+    "krampus_defector",
+    "midnight_ringer"
+  ],
+  "final_boss": "frost_herald_true",
+  "signature_reward": "froslass",
+  "chapters": [
+    {
+      "id": "midnight_bells",
+      "name": "Chapter I — The Midnight Bell",
+      "description": "Every night at midnight, the sixth bell rings alone. Find who — or what — is pulling the rope.",
+      "quests": ["wh_001", "wh_002", "wh_003"]
+    },
+    {
+      "id": "the_descent",
+      "name": "Chapter II — The Descent",
+      "description": "Beneath the glacier lies the Old Chapel of the Winterheart — and the truth about Team Krampus's founder.",
+      "quests": ["wh_004", "wh_005", "wh_006", "wh_007"]
+    },
+    {
+      "id": "the_heart",
+      "name": "Chapter III — The Heart of Winter",
+      "description": "The Winterheart beats. The Herald gathers. Krampus returns — not as an enemy.",
+      "quests": ["wh_008", "wh_009", "wh_010"]
+    },
+    {
+      "id": "the_chorus",
+      "name": "Chapter IV — The Winter Chorus",
+      "description": "Six bells. One heart. One choice. The finale of the Krampus saga.",
+      "quests": ["wh_011", "wh_012", "wh_013"]
+    }
+  ],
+  "next_questline": null
+}

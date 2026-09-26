@@ -1,0 +1,20 @@
+{
+  "id": "sb_005",
+  "number": 5,
+  "slug": "the_bell_thief",
+  "name": "The Bell Thief",
+  "questline": "the_six_bells",
+  "chapter": "the_hunter",
+  "location": "Hidden Camp, Frostpine",
+  "type": "trainer_battle",
+  "battle": { "npc": "bell_thief", "team_size": 3 },
+  "objective": "A second Frostbell has surfaced — in the hands of a thief who stole it from the Echo Cult and now sells protection to the villages.",
+  "intro": "The thief has hung the bell above the old camp's cages like a trophy. It rings in the wind, and the wind sounds wrong.",
+  "dialogue": [
+    "Bell Thief: \"Found it first. Found it fair.\"",
+    "Bell Thief (defeated): \"Take it, then. It's just one bell. There are five more.\""
+  ],
+  "lore_discovery": "The thief stole the bell from a chapel in the hills — the first confirmed sighting of the Echo Cult.",
+  "requirements": ["sb_004"],
+  "rewards": { "money": 1500, "xp": 3000, "quest_items": ["frostbell_second"] }
+}

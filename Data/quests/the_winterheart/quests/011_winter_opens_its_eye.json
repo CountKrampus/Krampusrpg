@@ -1,0 +1,20 @@
+{
+  "id": "wh_011",
+  "number": 11,
+  "slug": "winter_opens_its_eye",
+  "name": "Winter Opens Its Eye",
+  "questline": "the_winterheart",
+  "chapter": "the_chorus",
+  "location": "Frostpine Summit — The Open Glacier",
+  "type": "boss_battle",
+  "battle": { "npc": "frost_herald_true", "team_size": 6, "escapes": true, "boss_mechanic": "true_chorus" },
+  "objective": "The Herald returns, unbound, to stop the Chorus being rung on anyone's terms but its master's. Hold the summit until midnight.",
+  "intro": "The glacier does not split this time. It simply opens, like an eye. What climbs out is not Pokémon-shaped anymore.",
+  "dialogue": [
+    "The Frost Herald — Unbound: \"SIX OF SIX. WINTER OPENS ITS EYE.\"",
+    "The Frost Herald — Unbound (defeated): \"...THE CHORUS... CHANGES... THE TUNE...\""
+  ],
+  "lore_discovery": "The Herald is beaten down as midnight strikes — and hears the first note of the Chorus ring out over the summit. For the first time, it kneels. It was never the master. It was the leash.",
+  "requirements": ["wh_010"],
+  "rewards": { "money": 4200, "xp": 10000 }
+}

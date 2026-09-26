@@ -1,0 +1,20 @@
+{
+  "id": "sb_003",
+  "number": 3,
+  "slug": "first_frostbell",
+  "name": "The First Frostbell",
+  "questline": "the_six_bells",
+  "chapter": "aftershock",
+  "location": "Krampus Keep — Vault",
+  "type": "story",
+  "battle": null,
+  "objective": "Search the Keep's flooded vault for the first Frostbell — the one the Director could not carry.",
+  "intro": "The vault is waist-deep in freezing water. Something in the dark is ringing, very softly, in a rhythm like breathing.",
+  "dialogue": [
+    "Researcher: \"Six bells, rung as one — the old texts call it the Winter Chorus. Every record ends the same way: 'and the heart remembered'.\"",
+    "Researcher: \"Take it. But listen — when you hold it, you'll hear something breathing under the mountain. That's normal. I think.\""
+  ],
+  "lore_discovery": "The first Frostbell is recovered. When held, the player can faintly hear something enormous exhaling beneath Frostpine.",
+  "requirements": ["sb_002"],
+  "rewards": { "money": 1100, "xp": 2500, "quest_items": ["frostbell_first"] }
+}

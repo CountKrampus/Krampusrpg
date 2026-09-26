@@ -1,0 +1,20 @@
+{
+  "id": "wh_004",
+  "number": 4,
+  "slug": "the_unwelcome_ally",
+  "name": "The Unwelcome Ally",
+  "questline": "the_winterheart",
+  "chapter": "the_descent",
+  "location": "Frostpine Ridge",
+  "type": "commander_battle",
+  "battle": { "npc": "hunter_sigrun", "team_size": 4, "escapes": true },
+  "objective": "Sigrun has learned you now ring the sixth bell nightly. She demands the bells — one last time — and this time she means it.",
+  "intro": "She is waiting at the ridge at midnight, watching you ring. She does not interrupt. She lets you finish. Then she steps out of the treeline.",
+  "dialogue": [
+    "Hunter Sigrun: \"Last chance to hand them over. My family didn't hide these bells for fun.\"",
+    "Hunter Sigrun (defeated): \"...No. I won't take them. But if the Chorus rings, you ring it — I won't carry that.\""
+  ],
+  "lore_discovery": "Sigrun stands down — and reveals her family's true charge: they were never guards of the bells. They were spares. If the ringers ever failed, the family was meant to destroy the bells so the promise could never be kept again.",
+  "requirements": ["wh_003"],
+  "rewards": { "money": 1800, "xp": 6500 }
+}

@@ -79,6 +79,11 @@ PERMISSION_SETTINGS = "admin.settings"
 
 PERMISSION_DATABASE = "admin.database"
 
+PERMISSION_KP_VIEW      = "admin.krampus_points.view"
+PERMISSION_KP_EDIT      = "admin.krampus_points.edit"
+PERMISSION_KP_SHOP_VIEW = "admin.kp_shop.view"
+PERMISSION_KP_SHOP_EDIT = "admin.kp_shop.edit"
+
 
 # ============================================================
 # ALL PERMISSIONS
@@ -117,6 +122,11 @@ ALL_PERMISSIONS = {
     PERMISSION_SETTINGS,
 
     PERMISSION_DATABASE,
+
+    PERMISSION_KP_VIEW,
+    PERMISSION_KP_EDIT,
+    PERMISSION_KP_SHOP_VIEW,
+    PERMISSION_KP_SHOP_EDIT,
 }
 
 

@@ -1,0 +1,21 @@
+{
+  "id": "wh_012",
+  "number": 12,
+  "slug": "the_winter_chorus",
+  "name": "The Winter Chorus",
+  "questline": "the_winterheart",
+  "chapter": "the_chorus",
+  "location": "Frostpine Summit — Midnight",
+  "type": "story",
+  "battle": null,
+  "objective": "Ring the Winter Chorus at midnight — two soft, one loud, rest, six times through — with every ally you have made watching.",
+  "intro": "Your hands know the rhythm. The rope is worn where hers were. You ring.",
+  "dialogue": [
+    "The Midnight Ringer: \"It listens hardest at midnight. Sing like you mean it.\"",
+    "Echo Priest Maltheus: \"The hour is yours. It was always going to be someone's.\"",
+    "Director Krampus: \"Whatever sleeps below — let it dream of this. Of all of us. Here. Together.\""
+  ],
+  "lore_discovery": "The Chorus rings true. The sleeper does not wake, and does not die: it turns over, deep beneath the mountain, and sleeps soundly for the first time in a thousand years. The glow dies to embers. The bells fall silent — all but one, which hums softly, like a heart at rest.",
+  "requirements": ["wh_011"],
+  "rewards": { "money": 5000, "xp": 11000 }
+}

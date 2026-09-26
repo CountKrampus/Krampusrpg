@@ -167,6 +167,7 @@ def resolve_battle(questline_id: str, battle: Any) -> dict[str, Any] | None:
         "escapes": bool(battle.get("escapes", npc.get("escapes", False))),
         "boss_mechanic": npc.get("boss_mechanic"),
         "team_size": len(npc.get("team", [])),
+        "sprite": str(npc.get("sprite", "") or ""),
     }
 
 
@@ -190,6 +191,132 @@ def quest_battles(questline_id: str, quest: dict[str, Any]) -> list[dict[str, An
     return resolved
 
 
+def get_chapters(questline_id: str) -> list[dict[str, Any]]:
+    """
+    Chapter (sub-category) definitions for a quest line.
+
+    Chapters come from the manifest's "chapters" list. Each chapter is
+    a dict with at least an "id" and "name"; it may also carry a
+    "description" and a "quests" list of quest ids belonging to it.
+    Quests not listed in any chapter fall into an implicit "Other"
+    chapter appended at the end, so quest lines without explicit
+    chapters still render as a single group.
+    """
+
+    manifest = get_questline(questline_id)
+    if manifest is None:
+        return []
+
+    raw = manifest.get("chapters")
+    chapters: list[dict[str, Any]] = []
+
+    if isinstance(raw, list):
+        for entry in raw:
+            if isinstance(entry, dict) and entry.get("id"):
+                chapters.append(dict(entry))
+
+    if not chapters:
+        return [
+            {
+                "id": "all",
+                "name": "All Quests",
+                "description": "",
+                "quests": [
+                    str(q.get("id", "")) for q in get_quests(questline_id)
+                ],
+            }
+        ]
+
+    return chapters
+
+
+def chapter_for_quest(quest: dict[str, Any]) -> str | None:
+    """The chapter id a quest belongs to (explicit "chapter" field)."""
+
+    chapter = quest.get("chapter")
+    if chapter is None:
+        return None
+
+    return str(chapter).strip().lower() or None
+
+
+def group_quests_by_chapter(
+    questline_id: str,
+    quests: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """
+    Group decorated quests into their chapters, in manifest order.
+
+    Returns a list of {chapter, quests} dicts. Quests whose "chapter"
+    field does not match a manifest chapter are grouped under the
+    chapter that lists them in its "quests" array, then under a final
+    catch-all group. Quest lines with no chapters at all yield a
+    single "All Quests" group.
+    """
+
+    chapters = get_chapters(questline_id)
+
+    if len(chapters) == 1 and chapters[0].get("id") == "all":
+        return [
+            {
+                "chapter": chapters[0],
+                "quests": list(quests),
+            }
+        ]
+
+    # Map quest id -> chapter id via the manifest's chapter listings.
+    listed: dict[str, str] = {}
+    for chapter in chapters:
+        for quest_id in chapter.get("quests") or []:
+            listed[str(quest_id).strip().lower()] = str(chapter["id"]).strip().lower()
+
+    groups: dict[str, list[dict[str, Any]]] = {}
+    order: list[str] = []
+
+    def _push(chapter_id: str, quest: dict[str, Any]) -> None:
+        if chapter_id not in groups:
+            groups[chapter_id] = []
+            order.append(chapter_id)
+        groups[chapter_id].append(quest)
+
+    for quest in quests:
+        quest_id = str(quest.get("id", "")).strip().lower()
+
+        chapter_id = chapter_for_quest(quest) or listed.get(quest_id)
+
+        if chapter_id is None:
+            # Fall back to the catch-all group, created on demand.
+            chapter_id = "_ungrouped"
+
+        _push(chapter_id, quest)
+
+    result: list[dict[str, Any]] = []
+
+    for chapter in chapters:
+        chapter_id = str(chapter["id"]).strip().lower()
+        if chapter_id in groups:
+            result.append(
+                {
+                    "chapter": chapter,
+                    "quests": groups[chapter_id],
+                }
+            )
+
+    if "_ungrouped" in groups:
+        result.append(
+            {
+                "chapter": {
+                    "id": "_ungrouped",
+                    "name": "Other Quests",
+                    "description": "",
+                },
+                "quests": groups["_ungrouped"],
+            }
+        )
+
+    return result
+
+
 def questline_totals(questline_id: str) -> dict[str, int]:
     """Aggregate stats for a quest line (quests, battles, max team size)."""
 
@@ -208,3 +335,197 @@ def questline_totals(questline_id: str) -> dict[str, int]:
         "battles": battle_count,
         "max_team_size": max_team,
     }
+
+
+# ============================================================
+# SECTIONS (QUEST LINE GROUPING) + QUEST LINE CHAIN LOCKS
+# ============================================================
+
+# Manifests may carry a "section" field; quest lines without one fall
+# into the default section.
+DEFAULT_SECTION = "standalone"
+
+# Section id -> display label on the Story Adventure page.
+SECTION_LABELS = {
+    "team_krampus": "Team Krampus",
+    "standalone": "Side Stories",
+}
+
+# Display order of sections (anything unlisted sorts last).
+SECTION_ORDER = {
+    "team_krampus": 1,
+    "standalone": 2,
+}
+
+
+def get_player_completed_quest_ids(player_id: int | None) -> set[str]:
+    """All quest ids (any quest line) the player has completed."""
+
+    if player_id is None:
+        return set()
+
+    from .database import get_connection
+
+    with get_connection() as db:
+        rows = db.execute(
+            """
+            SELECT quest_id FROM player_quests
+            WHERE player_id = ? AND status = 'completed'
+            """,
+            (player_id,),
+        ).fetchall()
+
+    return {str(row["quest_id"]) for row in rows}
+
+
+def group_questlines_by_section(
+    manifests: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """
+    Group quest line manifests into sections for the Story Adventure
+    hub. Returns a list of {id, label, order, questlines} dicts, where
+    each quest line keeps every key added by the caller (decorated
+    quests, totals, ...) and is sorted by its manifest "order" field.
+    """
+
+    sections: dict[str, list[dict[str, Any]]] = {}
+
+    for manifest in manifests:
+        section_id = (
+            str(manifest.get("section") or DEFAULT_SECTION).strip().lower()
+            or DEFAULT_SECTION
+        )
+        sections.setdefault(section_id, []).append(manifest)
+
+    grouped: list[dict[str, Any]] = []
+
+    for section_id, lines in sections.items():
+        lines.sort(
+            key=lambda m: (
+                int(m.get("order", 0) or 0),
+                str(m.get("id", "")),
+            )
+        )
+        grouped.append(
+            {
+                "id": section_id,
+                "label": SECTION_LABELS.get(
+                    section_id, section_id.replace("_", " ").title()
+                ),
+                "order": SECTION_ORDER.get(section_id, 90),
+                "questlines": lines,
+            }
+        )
+
+    grouped.sort(key=lambda s: (s["order"], s["id"]))
+
+    return grouped
+
+
+def apply_questline_chain_locks(
+    sections: list[dict[str, Any]],
+    completed: set[str],
+) -> None:
+    """
+    Walk quest lines across all sections in display order and lock
+    every quest line whose predecessor still has unfinished quests.
+
+    Mutates each manifest in place:
+
+    - line_unlocked / line_locked: chain state.
+    - line_completed: every quest in the line is finished.
+    - line_locked_previous_title / line_locked_remaining: what the
+      player still needs to finish before this line opens.
+    """
+
+    previous: dict[str, Any] | None = None
+
+    for section in sections:
+        for manifest in section["questlines"]:
+            questline_id = str(manifest.get("id", ""))
+            quests = get_quests(questline_id)
+
+            total = len(quests)
+            done = sum(
+                1
+                for q in quests
+                if str(q.get("id", "")) in completed
+            )
+
+            manifest["line_total"] = total
+            manifest["line_done"] = done
+            manifest["line_completed"] = total > 0 and done == total
+
+            unlocked = previous is None or bool(
+                previous.get("line_completed")
+            )
+
+            manifest["line_unlocked"] = unlocked
+            manifest["line_locked"] = not unlocked
+
+            if not unlocked:
+                previous_title = str(
+                    previous.get("title") or previous.get("id", "")
+                )
+                manifest["line_locked_previous"] = str(
+                    previous.get("id", "")
+                )
+                manifest["line_locked_previous_title"] = previous_title
+                manifest["line_locked_remaining"] = int(
+                    previous.get("line_total", 0)
+                ) - int(previous.get("line_done", 0))
+                manifest["line_locked_reason"] = (
+                    f"Finish {previous_title} to unlock this quest line."
+                )
+            else:
+                manifest["line_locked_previous"] = None
+                manifest["line_locked_previous_title"] = None
+                manifest["line_locked_remaining"] = 0
+                manifest["line_locked_reason"] = None
+
+            previous = manifest
+
+
+def is_questline_locked(
+    questline_id: str,
+    completed: set[str],
+) -> tuple[bool, str | None]:
+    """
+    Whether a quest line is chain-locked right now, and the reason
+    string to show the player when it is.
+    """
+
+    wanted = str(questline_id).strip().lower()
+
+    sections = group_questlines_by_section(list_questlines())
+    apply_questline_chain_locks(sections, completed)
+
+    for section in sections:
+        for manifest in section["questlines"]:
+            if str(manifest.get("id", "")).strip().lower() == wanted:
+                return bool(manifest.get("line_locked")), manifest.get(
+                    "line_locked_reason"
+                )
+
+    return False, None
+
+
+__all__ = [
+    "list_questlines",
+    "get_questline",
+    "get_quests",
+    "get_quest",
+    "get_encounters",
+    "get_npc",
+    "get_rewards",
+    "get_chapters",
+    "chapter_for_quest",
+    "group_quests_by_chapter",
+    "resolve_battle",
+    "quest_battles",
+    "questline_totals",
+    "get_player_completed_quest_ids",
+    "group_questlines_by_section",
+    "apply_questline_chain_locks",
+    "is_questline_locked",
+]
