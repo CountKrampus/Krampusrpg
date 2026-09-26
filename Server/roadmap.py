@@ -925,14 +925,14 @@ def seed_roadmap(force: bool = False) -> None:
             [
                 (
                     "Catching",
-                    STATUS_TESTING,
+                    STATUS_COMPLETED,
                     PRIORITY_HIGH,
                     "Pokémon Sprint 1",
                     "Webmaster",
                     [
                         ("Encounter generation", True),
-                        ("Ball types & catch rates", False),
-                        ("Catch animation/flow", False),
+                        ("Ball types & catch rates", True),
+                        ("Catch animation/flow", True),
                         (
                             "Per-encounter variant support (admin + wild rolls)",
                             True,
@@ -1127,11 +1127,19 @@ def seed_roadmap(force: bool = False) -> None:
                 ),
                 (
                     "Chat",
-                    STATUS_BACKLOG,
-                    PRIORITY_LOW,
-                    "",
-                    "",
-                    [],
+                    STATUS_TESTING,
+                    PRIORITY_MEDIUM,
+                    "World Sprint 1",
+                    "Webmaster",
+                    [
+                        ("Messages & history", True),
+                        ("Presence / online list", True),
+                        ("Role badges & moderation", True),
+                        ("Rate limiting", True),
+                        ("Slash commands", True),
+                        ("Predefined avatars", True),
+                        ("Floating dock + /chat page", True),
+                    ],
                 ),
                 (
                     "Leaderboards",
